@@ -2,5 +2,6 @@ User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /portal
+Disallow: /login
 
 Sitemap: https://virtualcampus.poly.edu.vn/sitemap.xml

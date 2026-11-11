@@ -47,6 +47,57 @@ function resolveBuildingCode(raw?: string): BuildingCode | null {
   return null;
 }
 
+function BuildingQuickActions({
+  building,
+  variant = "desktop",
+}: {
+  building: CampusBuildingItem;
+  variant?: "desktop" | "mobile";
+}) {
+  const isMobile = variant === "mobile";
+
+  return (
+    <div className={`${isMobile ? "mt-2" : "mt-3.5"} grid grid-cols-2 gap-2`}>
+      <a
+        href={`https://www.google.com/maps/dir/?api=1&destination=${building.lat},${building.lng}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`inline-flex items-center justify-center ${
+          isMobile ? "gap-1 min-h-[38px]" : "gap-1.5 min-h-[40px] px-3"
+        } rounded-xl border border-slate-200 bg-white text-xs font-bold text-sky-700 hover:bg-sky-50 transition-colors`}
+      >
+        {!isMobile && (
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined text-[16px]"
+          >
+            map
+          </span>
+        )}
+        <span>Google Maps ↗</span>
+      </a>
+
+      <Link
+        href={`/campus?scene=${encodeURIComponent(building.defaultSceneId)}`}
+        className={`inline-flex items-center justify-center ${
+          isMobile
+            ? "gap-1 min-h-[38px]"
+            : "gap-1.5 min-h-[40px] px-3 shadow-sm hover:bg-orange-600 transition-colors"
+        } rounded-xl bg-orange-500 text-xs font-bold text-white`}
+      >
+        {isMobile ? (
+          <span>Mở Tour 360° →</span>
+        ) : (
+          <>
+            <span>Mở Tour 360°</span>
+            <span aria-hidden="true">→</span>
+          </>
+        )}
+      </Link>
+    </div>
+  );
+}
+
 export function CampusGISMap({
   initialBuildingParam,
 }: {
@@ -665,30 +716,7 @@ export function CampusGISMap({
             </span>
           </p>
 
-          <div className="mt-3.5 grid grid-cols-2 gap-2">
-            <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${activeBuilding.lat},${activeBuilding.lng}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-sky-700 hover:bg-sky-50 transition-colors"
-            >
-              <span
-                aria-hidden="true"
-                className="material-symbols-outlined text-[16px]"
-              >
-                map
-              </span>
-              <span>Google Maps ↗</span>
-            </a>
-
-            <Link
-              href={`/campus?scene=${encodeURIComponent(activeBuilding.defaultSceneId)}`}
-              className="inline-flex items-center justify-center gap-1.5 min-h-[40px] px-3 rounded-xl bg-orange-500 text-xs font-bold text-white shadow-sm hover:bg-orange-600 transition-colors"
-            >
-              <span>Mở Tour 360°</span>
-              <span aria-hidden="true">→</span>
-            </Link>
-          </div>
+          <BuildingQuickActions building={activeBuilding} variant="desktop" />
 
           <button
             type="button"
@@ -754,22 +782,7 @@ export function CampusGISMap({
           </button>
         </div>
 
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          <a
-            href={`https://www.google.com/maps/dir/?api=1&destination=${activeBuilding.lat},${activeBuilding.lng}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-1 min-h-[38px] rounded-xl border border-slate-200 bg-white text-xs font-bold text-sky-700"
-          >
-            <span>Google Maps ↗</span>
-          </a>
-          <Link
-            href={`/campus?scene=${encodeURIComponent(activeBuilding.defaultSceneId)}`}
-            className="inline-flex items-center justify-center gap-1 min-h-[38px] rounded-xl bg-orange-500 text-xs font-bold text-white"
-          >
-            <span>Mở Tour 360° →</span>
-          </Link>
-        </div>
+        <BuildingQuickActions building={activeBuilding} variant="mobile" />
       </div>
 
       <BuildingDetailDrawer

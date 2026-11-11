@@ -164,7 +164,7 @@ erDiagram
 | `id` | `UUID` | `PK` | Khóa chính |
 | `code` | `VARCHAR(40)` | `UNIQUE, NOT NULL` | `'CLASSROOM'`, `'LAB'`, `'HALLWAY'`, `'ELEVATOR'`, `'STAIRS'`, `'RESTROOM'`, `'LIBRARY'`, `'LOBBY'`, `'RESTRICTED_AREA'` |
 | `label` | `VARCHAR(100)` | `NOT NULL` | Nhãn tiếng Việt hiển thị trên UI & Filter |
-| `icon_name` | `VARCHAR(60)` | `NOT NULL` | Tên icon Lucide tương ứng |
+| `icon_name` | `VARCHAR(60)` | `NOT NULL` | Tên icon Material Symbols Outlined tương ứng |
 | `is_inter_floor_connector` | `BOOLEAN` | `NOT NULL, DEFAULT false` | `true` cho `'ELEVATOR'` & `'STAIRS'` |
 
 #### Bảng `locations` (Địa điểm / Khu vực vật lý trên một tầng)

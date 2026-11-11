@@ -43,6 +43,18 @@ const DEFAULT_ROUTES = [
   { slug: "admin-users", route: "/admin/users", fullPage: false },
 ];
 
+const BROWSER_CANDIDATES = [
+  process.env.PUPPETEER_EXECUTABLE_PATH,
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+].filter(Boolean);
+
+function findSystemBrowser() {
+  return BROWSER_CANDIDATES.find((candidate) => fs.existsSync(candidate));
+}
+
 async function run() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
@@ -60,8 +72,10 @@ async function run() {
     ? DEFAULT_ROUTES.filter((r) => filterRoutes.includes(r.slug) || filterRoutes.includes(r.route))
     : DEFAULT_ROUTES;
 
+  const executablePath = findSystemBrowser();
   const browser = await puppeteer.launch({
     headless: "new",
+    ...(executablePath ? { executablePath } : {}),
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
@@ -103,8 +117,8 @@ async function run() {
 
         try {
           const resp = await page.goto(url, {
-            waitUntil: "networkidle2",
-            timeout: 30000,
+            waitUntil: "load",
+            timeout: 60000,
           });
           status = resp ? resp.status() : 0;
           await new Promise((r) => setTimeout(r, 800));

@@ -7,6 +7,9 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import dotenv from "dotenv";
 import argon2 from "argon2";
 import { PrismaClient } from "@prisma/client";
@@ -18,6 +21,507 @@ interface PgErrorLike {
   code?: string;
   constraint?: string;
   message?: string;
+}
+
+interface MediaAssetDbRecord {
+  id: string;
+  assetKind: string;
+  originalFilename: string;
+  mimeType: string;
+  fileSizeBytes: bigint | number | string;
+  sha256Checksum: string;
+  originalWidth: number;
+  originalHeight: number;
+  originalObjectKey: string;
+  optimizedDesktopKey: string | null;
+  optimizedMobileKey: string | null;
+  thumbnailKey: string | null;
+}
+
+interface MediaIntegrityResult {
+  scope: "LOCAL_PUBLIC_FILE" | "NON_LOCAL_REMOTE_OBJECT";
+  originalFilename: string;
+  originalObjectKey: string;
+  sha256: string;
+  fileSizeBytes: number;
+  width: number;
+  height: number;
+}
+
+const SUPPORTED_REMOTE_URI_PATTERN = /^(s3|minio|https?):\/\/.+/i;
+
+function assertValidSha256Format(rawChecksum: string, label: string): string {
+  if (typeof rawChecksum !== "string") {
+    throw new Error(`INVALID_SHA256_FORMAT: ${label} checksum must be a string`);
+  }
+  if (/\s/.test(rawChecksum)) {
+    throw new Error(
+      `INVALID_SHA256_WHITESPACE: ${label} checksum contains whitespace/CHAR padding (length=${rawChecksum.length})`,
+    );
+  }
+  if (!/^[0-9a-f]{64}$/.test(rawChecksum)) {
+    throw new Error(
+      `INVALID_SHA256_FORMAT: ${label} checksum must be exact 64 lowercase hex chars (got length=${rawChecksum.length})`,
+    );
+  }
+  return rawChecksum;
+}
+
+function assertNoTraversalOrUnsafeChars(rawKey: string): void {
+  if (!rawKey || typeof rawKey !== "string") {
+    throw new Error("UNSAFE_OBJECT_KEY: Object key must be a non-empty string");
+  }
+  if (rawKey !== rawKey.trim() || /[\0\r\n]/.test(rawKey)) {
+    throw new Error(`UNSAFE_OBJECT_KEY: Whitespace or control char in "${rawKey}"`);
+  }
+  if (/^data:/i.test(rawKey)) {
+    throw new Error(
+      `FORBIDDEN_DATA_URI: MediaAsset must not store inline binary/data URI (${rawKey.slice(0, 32)})`,
+    );
+  }
+  if (/^file:/i.test(rawKey)) {
+    throw new Error(`UNSAFE_OBJECT_KEY: file:// URI is forbidden (${rawKey})`);
+  }
+  if (rawKey.includes("\\") || /^[A-Za-z]:/.test(rawKey) || rawKey.startsWith("//")) {
+    throw new Error(`UNSAFE_OBJECT_KEY: Forbidden separator or prefix in "${rawKey}"`);
+  }
+  const normalizedSeparators = rawKey.replace(/^([a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^/]+)/, "");
+  let decodedForCheck = normalizedSeparators;
+  try {
+    decodedForCheck = decodeURIComponent(normalizedSeparators);
+  } catch {
+    throw new Error(`UNSAFE_OBJECT_KEY: Malformed percent encoding in "${rawKey}"`);
+  }
+  if (
+    decodedForCheck.includes("\\") ||
+    decodedForCheck.split("/").some((segment) => segment === ".." || segment === ".")
+  ) {
+    throw new Error(`PATH_TRAVERSAL: Unsafe relative segment in "${rawKey}"`);
+  }
+}
+
+function classifyAndResolveObjectKey(
+  publicRoot: string,
+  objectKey: string,
+  options: { allowRemoteAssets: boolean },
+): { scope: "LOCAL_PUBLIC_FILE"; resolvedPath: string } | { scope: "NON_LOCAL_REMOTE_OBJECT"; uri: string } {
+  assertNoTraversalOrUnsafeChars(objectKey);
+
+  if (SUPPORTED_REMOTE_URI_PATTERN.test(objectKey) || /^s3:/i.test(objectKey)) {
+    if (!options.allowRemoteAssets) {
+      throw new Error(
+        `UNEXPECTED_REMOTE_ASSET: Expected local /images/ asset in Phase 2A-1 seed, got "${objectKey}"`,
+      );
+    }
+    return { scope: "NON_LOCAL_REMOTE_OBJECT", uri: objectKey };
+  }
+
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(objectKey)) {
+    throw new Error(`UNSAFE_OBJECT_KEY: Unsupported URI scheme in "${objectKey}"`);
+  }
+  if (!objectKey.startsWith("/")) {
+    throw new Error(`UNSAFE_OBJECT_KEY: Local object key must start with "/" (got "${objectKey}")`);
+  }
+
+  const resolvedPublicRoot = path.resolve(publicRoot);
+  const relativeFromPublic = objectKey.replace(/^\/+/, "");
+  if (!relativeFromPublic) {
+    throw new Error(`UNSAFE_OBJECT_KEY: Object key points to public root itself`);
+  }
+
+  const candidatePath = path.resolve(resolvedPublicRoot, relativeFromPublic);
+  const relativeCheck = path.relative(resolvedPublicRoot, candidatePath);
+  if (
+    relativeCheck === "" ||
+    relativeCheck.startsWith("..") ||
+    path.isAbsolute(relativeCheck)
+  ) {
+    throw new Error(
+      `PATH_TRAVERSAL: Object key "${objectKey}" resolves outside public directory`,
+    );
+  }
+
+  return { scope: "LOCAL_PUBLIC_FILE", resolvedPath: candidatePath };
+}
+
+function readImageDimensionsAndMime(buffer: Buffer, label: string): {
+  mimeType: string;
+  width: number;
+  height: number;
+} {
+  if (buffer.length < 12) {
+    throw new Error(`INVALID_IMAGE_HEADER: ${label} buffer too small (${buffer.length} bytes)`);
+  }
+
+  // PNG (89 50 4E 47 0D 0A 1A 0A + IHDR)
+  if (
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47 &&
+    buffer[4] === 0x0d &&
+    buffer[5] === 0x0a &&
+    buffer[6] === 0x1a &&
+    buffer[7] === 0x0a
+  ) {
+    if (buffer.length < 24 || buffer.toString("ascii", 12, 16) !== "IHDR") {
+      throw new Error(`INVALID_PNG_HEADER: ${label} missing IHDR chunk`);
+    }
+    return {
+      mimeType: "image/png",
+      width: buffer.readUInt32BE(16),
+      height: buffer.readUInt32BE(20),
+    };
+  }
+
+  // WebP (RIFF .... WEBP)
+  if (
+    buffer.toString("ascii", 0, 4) === "RIFF" &&
+    buffer.toString("ascii", 8, 12) === "WEBP"
+  ) {
+    const chunkType = buffer.toString("ascii", 12, 16);
+    if (chunkType === "VP8X" && buffer.length >= 30) {
+      return {
+        mimeType: "image/webp",
+        width: 1 + buffer.readUIntLE(24, 3),
+        height: 1 + buffer.readUIntLE(27, 3),
+      };
+    }
+    if (
+      chunkType === "VP8 " &&
+      buffer.length >= 30 &&
+      buffer[23] === 0x9d &&
+      buffer[24] === 0x01 &&
+      buffer[25] === 0x2a
+    ) {
+      return {
+        mimeType: "image/webp",
+        width: buffer.readUInt16LE(26) & 0x3fff,
+        height: buffer.readUInt16LE(28) & 0x3fff,
+      };
+    }
+    if (chunkType === "VP8L" && buffer.length >= 25 && buffer[20] === 0x2f) {
+      const packed = buffer.readUInt32LE(21);
+      return {
+        mimeType: "image/webp",
+        width: (packed & 0x3fff) + 1,
+        height: ((packed >> 14) & 0x3fff) + 1,
+      };
+    }
+    throw new Error(`INVALID_WEBP_HEADER: ${label} unsupported VP8 chunk (${chunkType})`);
+  }
+
+  // JPEG (FF D8 FF ... SOFn)
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    let offset = 2;
+    while (offset < buffer.length) {
+      while (offset < buffer.length && buffer[offset] === 0xff) {
+        offset++;
+      }
+      if (offset >= buffer.length) break;
+      const marker = buffer[offset++];
+      if (marker === 0xd9 || marker === 0xda) {
+        break;
+      }
+      if (marker === 0x00 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd8)) {
+        continue;
+      }
+      if (offset + 2 > buffer.length) break;
+      const segmentLen = buffer.readUInt16BE(offset);
+      if (segmentLen < 2 || offset + segmentLen > buffer.length) {
+        throw new Error(`CORRUPT_JPEG_SEGMENT: ${label} invalid segment length ${segmentLen}`);
+      }
+      const isSofMarker =
+        (marker >= 0xc0 && marker <= 0xc3) ||
+        (marker >= 0xc5 && marker <= 0xc7) ||
+        (marker >= 0xc9 && marker <= 0xcb) ||
+        (marker >= 0xcd && marker <= 0xcf);
+      if (isSofMarker) {
+        if (offset + 7 > buffer.length) {
+          throw new Error(`CORRUPT_JPEG_SOF: ${label} truncated SOF frame`);
+        }
+        return {
+          mimeType: "image/jpeg",
+          height: buffer.readUInt16BE(offset + 3),
+          width: buffer.readUInt16BE(offset + 5),
+        };
+      }
+      offset += segmentLen;
+    }
+    throw new Error(`INVALID_JPEG_HEADER: ${label} missing SOF frame dimensions`);
+  }
+
+  throw new Error(
+    `UNSUPPORTED_IMAGE_FORMAT: ${label} magic bytes not recognized as JPEG/PNG/WebP`,
+  );
+}
+
+function verifyMediaAssetRecord(
+  asset: MediaAssetDbRecord,
+  options: { publicRoot: string; allowRemoteAssets: boolean },
+): MediaIntegrityResult {
+  const expectedSha = assertValidSha256Format(
+    asset.sha256Checksum,
+    asset.originalFilename,
+  );
+  const expectedSize = BigInt(asset.fileSizeBytes);
+  if (expectedSize <= 0n || asset.originalWidth <= 0 || asset.originalHeight <= 0) {
+    throw new Error(
+      `INVALID_MEDIA_METADATA: ${asset.originalFilename} must have positive size and dimensions`,
+    );
+  }
+
+  const classified = classifyAndResolveObjectKey(
+    options.publicRoot,
+    asset.originalObjectKey,
+    { allowRemoteAssets: options.allowRemoteAssets },
+  );
+
+  if (classified.scope === "NON_LOCAL_REMOTE_OBJECT") {
+    for (const derivative of [
+      asset.optimizedDesktopKey,
+      asset.optimizedMobileKey,
+      asset.thumbnailKey,
+    ]) {
+      if (derivative !== null) {
+        assertNoTraversalOrUnsafeChars(derivative);
+      }
+    }
+    return {
+      scope: "NON_LOCAL_REMOTE_OBJECT",
+      originalFilename: asset.originalFilename,
+      originalObjectKey: classified.uri,
+      sha256: expectedSha,
+      fileSizeBytes: Number(expectedSize),
+      width: asset.originalWidth,
+      height: asset.originalHeight,
+    };
+  }
+
+  if (!fs.existsSync(classified.resolvedPath)) {
+    throw new Error(
+      `MISSING_FILE: Local asset file missing for ${asset.originalObjectKey} (resolved: ${classified.resolvedPath})`,
+    );
+  }
+
+  const realPublicRoot = fs.realpathSync(path.resolve(options.publicRoot));
+  const realAssetPath = fs.realpathSync(classified.resolvedPath);
+  const realRelative = path.relative(realPublicRoot, realAssetPath);
+  if (
+    realRelative === "" ||
+    realRelative.startsWith("..") ||
+    path.isAbsolute(realRelative)
+  ) {
+    throw new Error(
+      `PATH_TRAVERSAL: Realpath "${realAssetPath}" escapes public root "${realPublicRoot}"`,
+    );
+  }
+
+  const stat = fs.statSync(realAssetPath);
+  if (!stat.isFile()) {
+    throw new Error(`MISSING_FILE: Path is not a regular file: ${realAssetPath}`);
+  }
+  if (BigInt(stat.size) !== expectedSize) {
+    throw new Error(
+      `FILE_SIZE_MISMATCH: ${asset.originalFilename} DB=${expectedSize.toString()} bytes != Disk=${stat.size} bytes`,
+    );
+  }
+
+  const buffer = fs.readFileSync(realAssetPath);
+  const diskSha = crypto.createHash("sha256").update(buffer).digest("hex");
+  if (diskSha !== expectedSha) {
+    throw new Error(
+      `SHA256_MISMATCH: ${asset.originalFilename} DB=${expectedSha} != Disk=${diskSha}`,
+    );
+  }
+
+  const detected = readImageDimensionsAndMime(buffer, asset.originalFilename);
+  const normalizedExpectedMime =
+    asset.mimeType === "image/jpg" ? "image/jpeg" : asset.mimeType;
+  if (detected.mimeType !== normalizedExpectedMime) {
+    throw new Error(
+      `MIME_MISMATCH: ${asset.originalFilename} DB=${asset.mimeType} != Disk=${detected.mimeType}`,
+    );
+  }
+  if (detected.width !== asset.originalWidth || detected.height !== asset.originalHeight) {
+    throw new Error(
+      `DIMENSIONS_MISMATCH: ${asset.originalFilename} DB=${asset.originalWidth}x${asset.originalHeight} != Disk=${detected.width}x${detected.height}`,
+    );
+  }
+
+  // Ensure derivative local keys also safely resolve inside publicRoot and exist on disk
+  for (const derivative of [
+    asset.optimizedDesktopKey,
+    asset.optimizedMobileKey,
+    asset.thumbnailKey,
+  ]) {
+    if (derivative !== null) {
+      const dRes = classifyAndResolveObjectKey(options.publicRoot, derivative, {
+        allowRemoteAssets: options.allowRemoteAssets,
+      });
+      if (dRes.scope === "LOCAL_PUBLIC_FILE" && !fs.existsSync(dRes.resolvedPath)) {
+        throw new Error(
+          `MISSING_DERIVATIVE_FILE: Missing derivative ${derivative} referenced by ${asset.originalFilename}`,
+        );
+      }
+    }
+  }
+
+  return {
+    scope: "LOCAL_PUBLIC_FILE",
+    originalFilename: asset.originalFilename,
+    originalObjectKey: asset.originalObjectKey,
+    sha256: diskSha,
+    fileSizeBytes: stat.size,
+    width: detected.width,
+    height: detected.height,
+  };
+}
+
+function runMediaAssetNegativeSuite(publicRoot: string): string[] {
+  const tmpPublicRoot = fs.mkdtempSync(path.join(os.tmpdir(), "fpt-media-ac07-"));
+  const negativeCasesExecuted: string[] = [];
+  try {
+    const sampleSource = path.join(publicRoot, "images/panoramas/imac-studio-360.jpg");
+    const localRelDir = path.join(tmpPublicRoot, "images/panoramas");
+    fs.mkdirSync(localRelDir, { recursive: true });
+    const sampleDest = path.join(localRelDir, "imac-studio-360.jpg");
+    fs.copyFileSync(sampleSource, sampleDest);
+    const outsideSecretFile = path.join(tmpPublicRoot, "..", "outside-secret.txt");
+    fs.writeFileSync(outsideSecretFile, "secret", "utf8");
+
+    const diskBuffer = fs.readFileSync(sampleDest);
+    const validSha = crypto.createHash("sha256").update(diskBuffer).digest("hex");
+    const validDims = readImageDimensionsAndMime(diskBuffer, "fixture.jpg");
+    const validRecord: MediaAssetDbRecord = {
+      id: "fixture-id",
+      assetKind: "PANORAMA_2_1",
+      originalFilename: "imac-studio-360.jpg",
+      mimeType: validDims.mimeType,
+      fileSizeBytes: BigInt(diskBuffer.length),
+      sha256Checksum: validSha,
+      originalWidth: validDims.width,
+      originalHeight: validDims.height,
+      originalObjectKey: "/images/panoramas/imac-studio-360.jpg",
+      optimizedDesktopKey: "/images/panoramas/imac-studio-360.jpg",
+      optimizedMobileKey: null,
+      thumbnailKey: "/images/panoramas/imac-studio-360.jpg",
+    };
+
+    const expectRejects = (name: string, mutator: Partial<MediaAssetDbRecord>, pattern: RegExp, allowRemoteAssets = false) => {
+      assert.throws(
+        () => verifyMediaAssetRecord({ ...validRecord, ...mutator }, { publicRoot: tmpPublicRoot, allowRemoteAssets }),
+        pattern,
+        `Negative test "${name}" did not fail with expected pattern ${pattern}`,
+      );
+      negativeCasesExecuted.push(name);
+    };
+
+    // 1. Missing file
+    expectRejects(
+      "missing-file",
+      { originalObjectKey: "/images/panoramas/does-not-exist.jpg" },
+      /MISSING_FILE/,
+    );
+    // 2. Checksum off by 1 hex character
+    const flippedLastChar = validSha.endsWith("0") ? "1" : "0";
+    expectRejects(
+      "checksum-off-by-1-char",
+      { sha256Checksum: validSha.slice(0, 63) + flippedLastChar },
+      /SHA256_MISMATCH/,
+    );
+    // 3. Checksum missing character (63 chars — regression for imac-studio-360 bug)
+    expectRejects(
+      "checksum-missing-char-63",
+      { sha256Checksum: validSha.slice(0, 63) },
+      /INVALID_SHA256_FORMAT/,
+    );
+    // 4. Checksum with trailing CHAR(64) padding / whitespace
+    expectRejects(
+      "checksum-trailing-whitespace",
+      { sha256Checksum: `${validSha.slice(0, 63)} ` },
+      /INVALID_SHA256_WHITESPACE/,
+    );
+    // 5. Wrong fileSizeBytes
+    expectRejects(
+      "file-size-mismatch",
+      { fileSizeBytes: BigInt(diskBuffer.length + 1) },
+      /FILE_SIZE_MISMATCH/,
+    );
+    // 6. Wrong width / height
+    expectRejects(
+      "dimensions-mismatch",
+      { originalWidth: validDims.width - 1 },
+      /DIMENSIONS_MISMATCH/,
+    );
+    expectRejects(
+      "height-mismatch",
+      { originalHeight: validDims.height + 2 },
+      /DIMENSIONS_MISMATCH/,
+    );
+    // 7. Path traversal & forbidden schemes
+    expectRejects(
+      "path-traversal-dotdot",
+      { originalObjectKey: "/images/panoramas/../../../outside-secret.txt" },
+      /PATH_TRAVERSAL/,
+    );
+    expectRejects(
+      "path-traversal-encoded",
+      { originalObjectKey: "/images/%2e%2e/%2e%2e/outside-secret.txt" },
+      /PATH_TRAVERSAL/,
+    );
+    expectRejects(
+      "path-traversal-backslash",
+      { originalObjectKey: "\\images\\..\\outside-secret.txt" },
+      /UNSAFE_OBJECT_KEY/,
+    );
+    expectRejects(
+      "forbidden-data-uri",
+      { originalObjectKey: "data:image/jpeg;base64,/9j/4AAQ" },
+      /FORBIDDEN_DATA_URI/,
+    );
+
+    // 8. Non-local storage object contract (S3 & HTTPS):
+    // Must pass metadata validation cleanly when allowRemoteAssets=true WITHOUT local file read failure
+    const s3Result = verifyMediaAssetRecord(
+      {
+        ...validRecord,
+        originalObjectKey: "s3://fpt-campus-media/panoramas/campus-courtyard.webp",
+        optimizedDesktopKey: "https://cdn.example.com/panoramas/campus-courtyard-4k.webp",
+        thumbnailKey: "s3://fpt-campus-media/panoramas/thumb.webp",
+      },
+      { publicRoot: tmpPublicRoot, allowRemoteAssets: true },
+    );
+    assert.equal(s3Result.scope, "NON_LOCAL_REMOTE_OBJECT");
+    negativeCasesExecuted.push("non-local-s3-https-contract-handled");
+
+    // Non-local URI with path traversal or invalid checksum still fails
+    expectRejects(
+      "remote-asset-with-bad-checksum",
+      {
+        originalObjectKey: "s3://fpt-campus-media/panoramas/live.webp",
+        sha256Checksum: "bad",
+      },
+      /INVALID_SHA256_FORMAT/,
+      true,
+    );
+    // And remote asset rejected when local-only seed mode is active
+    expectRejects(
+      "remote-asset-rejected-in-local-seed-mode",
+      { originalObjectKey: "s3://fpt-campus-media/panoramas/live.webp" },
+      /UNEXPECTED_REMOTE_ASSET/,
+      false,
+    );
+
+    try {
+      fs.rmSync(outsideSecretFile, { force: true });
+    } catch {
+      // ignore cleanup error
+    }
+  } finally {
+    fs.rmSync(tmpPublicRoot, { recursive: true, force: true });
+  }
+  return negativeCasesExecuted;
 }
 
 function getScratchDatabaseUrls(baseUrl: string): {
@@ -170,14 +674,101 @@ async function main() {
       "OD-02: loc-the-thao.primary_node_id must be NULL",
     );
 
-    const unplacedNodes = await mainPrisma.tourNode.count({
-      where: { floorPlanId: null, status: "PUBLISHED", deletedAt: null },
+    const unplacedDraftNodes = await mainPrisma.tourNode.count({
+      where: { floorPlanId: null, status: "DRAFT", deletedAt: null },
+    });
+    const publishedTourNodes = await mainPrisma.tourNode.count({
+      where: { status: "PUBLISHED", deletedAt: null },
     });
     assert.equal(
-      unplacedNodes,
-      5,
-      "OD-10: All 5 published TourNodes allow floor_plan_id = NULL",
+      publishedTourNodes,
+      0,
+      "D-02/R-03: Zero placeholder TourNodes may be published publicly",
     );
+    assert.equal(
+      unplacedDraftNodes,
+      5,
+      "OD-10 & D-02: All 5 seeded DRAFT TourNodes allow floor_plan_id = NULL",
+    );
+
+    const approvedPanoramas = await mainPrisma.mediaAsset.count({
+      where: { assetKind: "PANORAMA_2_1", isPreviewApproved: true, deletedAt: null },
+    });
+    const unapprovedPanoramas = await mainPrisma.mediaAsset.count({
+      where: {
+        assetKind: "PANORAMA_2_1",
+        isPreviewApproved: false,
+        isValid2To1: true,
+        deletedAt: null,
+      },
+    });
+    assert.equal(
+      approvedPanoramas,
+      0,
+      "D-02/R-03: Synthetic AI panorama placeholders must have is_preview_approved = false",
+    );
+    assert.equal(
+      unapprovedPanoramas,
+      5,
+      "D-02/R-03: All 5 AI panorama placeholders retain is_valid_2_to_1=true with is_preview_approved=false",
+    );
+
+    const panoRows = await mainPrisma.mediaAsset.findMany({
+      where: { assetKind: "PANORAMA_2_1", deletedAt: null },
+      select: { originalFilename: true, cameraMetadata: true },
+    });
+    for (const pano of panoRows) {
+      const meta = (pano.cameraMetadata ?? {}) as Record<string, unknown>;
+      assert.equal(
+        meta.assetOrigin,
+        "AI_GENERATED_SYNTHETIC_PLACEHOLDER",
+        `${pano.originalFilename} must declare AI_GENERATED_SYNTHETIC_PLACEHOLDER`,
+      );
+      assert.equal(
+        meta.isTrueEquirectangular360x180,
+        false,
+        `${pano.originalFilename} must declare isTrueEquirectangular360x180 = false`,
+      );
+      assert.equal(
+        meta.isRealQtscCapture,
+        false,
+        `${pano.originalFilename} must declare isRealQtscCapture = false`,
+      );
+      assert.equal(
+        "ProjectionType" in meta,
+        false,
+        `${pano.originalFilename} must not claim ProjectionType: equirectangular`,
+      );
+      assert.notEqual(
+        meta.SeedSource,
+        "QTSC-Static",
+        `${pano.originalFilename} must not claim SeedSource: QTSC-Static`,
+      );
+    }
+
+    const publicRoot = path.resolve(process.cwd(), "apps/web/public");
+    const mainMediaRecords = await mainPrisma.mediaAsset.findMany({
+      where: { deletedAt: null },
+      orderBy: { originalFilename: "asc" },
+      select: {
+        id: true,
+        assetKind: true,
+        originalFilename: true,
+        mimeType: true,
+        fileSizeBytes: true,
+        sha256Checksum: true,
+        originalWidth: true,
+        originalHeight: true,
+        originalObjectKey: true,
+        optimizedDesktopKey: true,
+        optimizedMobileKey: true,
+        thumbnailKey: true,
+      },
+    });
+    assert.equal(mainMediaRecords.length, 11, "Main DB must have exactly 11 active media_assets");
+    for (const mediaRow of mainMediaRecords) {
+      verifyMediaAssetRecord(mediaRow, { publicRoot, allowRemoteAssets: false });
+    }
 
     const adminRow = await mainPrisma.user.findFirst({
       where: { username: "admin", deletedAt: null },
@@ -204,7 +795,10 @@ async function main() {
     }
     const pwMatches = await argon2.verify(adminRow.passwordHash, envBootstrap);
     assert.equal(pwMatches, true, "Stored Argon2id hash must verify env password");
-    recordPass("PRIMARY-DB", "Primary seeded DB state, Argon2id verification, OD-02 & OD-10 invariants");
+    recordPass(
+      "PRIMARY-DB",
+      "Primary seeded DB state, Argon2id verification, D-02/R-03 placeholder status, OD-02 & OD-10 invariants, and 11/11 local disk checksums verified",
+    );
   } finally {
     await mainPrisma.$disconnect();
   }
@@ -645,18 +1239,47 @@ async function main() {
         assert.equal(mediaPreserved[0].deleted_at, null);
         recordPass("AC-06.7", "TourNode/TourEdge/Hotspot deletion policy & transactional soft-delete verified");
 
-        // Extra sanity check: ensure media_assets has zero base64/binary URIs and all start with /images/
-        const { rows: mediaKeys } = await pg.query(
-          `SELECT original_object_key FROM media_assets WHERE deleted_at IS NULL`,
+        // AC-07: Real local filesystem integrity check (path safety, size, 64-hex SHA-256, MIME, dimensions) + Negative Suite
+        const publicRoot = path.resolve(process.cwd(), "apps/web/public");
+        const { rows: scratchMediaRows } = await pg.query(
+          `SELECT id, asset_kind AS "assetKind", original_filename AS "originalFilename", mime_type AS "mimeType",
+                  file_size_bytes AS "fileSizeBytes", sha256_checksum AS "sha256Checksum",
+                  original_width AS "originalWidth", original_height AS "originalHeight",
+                  original_object_key AS "originalObjectKey",
+                  optimized_desktop_key AS "optimizedDesktopKey",
+                  optimized_mobile_key AS "optimizedMobileKey",
+                  thumbnail_key AS "thumbnailKey"
+           FROM media_assets
+           WHERE deleted_at IS NULL
+           ORDER BY original_filename ASC`,
         );
-        for (const row of mediaKeys) {
-          assert.ok(
-            typeof row.original_object_key === "string" &&
-              row.original_object_key.startsWith("/images/"),
-            `media_assets key must be relative path, got ${row.original_object_key}`,
+        assert.equal(scratchMediaRows.length, 11, "Scratch DB must contain 11 seeded media_assets");
+        const verifiedAssets: MediaIntegrityResult[] = [];
+        for (const row of scratchMediaRows as MediaAssetDbRecord[]) {
+          verifiedAssets.push(
+            verifyMediaAssetRecord(row, { publicRoot, allowRemoteAssets: false }),
           );
         }
-        recordPass("AC-07", "MediaAsset rows store relative object keys only (no binary/base64 in PG)");
+        recordPass(
+          "AC-07",
+          `Verified 11/11 local MediaAssets on disk (path safety, exact bytes, 64-hex SHA-256, JPEG MIME & pixel dimensions)`,
+        );
+
+        const negativeTestsExecuted = runMediaAssetNegativeSuite(publicRoot);
+        recordPass(
+          "AC-07-NEG",
+          `Executed ${negativeTestsExecuted.length} AC-07 negative/contract assertions (${negativeTestsExecuted.join(", ")})`,
+        );
+        console.log(
+          JSON.stringify(
+            {
+              ac07VerifiedAssets: verifiedAssets,
+              ac07NegativeCases: negativeTestsExecuted,
+            },
+            null,
+            2,
+          ),
+        );
       } finally {
         await pg.end();
       }

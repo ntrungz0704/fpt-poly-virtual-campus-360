@@ -1,6 +1,15 @@
 // ============================================================================
 // FPT Polytechnic Virtual Campus 360° (QTSC District 12)
 // Phase 2A-1 — Idempotent PostgreSQL Seed (FK-Ordered, Argon2id, OD-01..OD-10)
+//
+// IMPORTANT DATA PROVENANCE NOTICE (D-02 / R-03 / R-06):
+// - QTSC campus GPS coordinates, buildings, locations, and Open Day records in
+//   this seed are INITIAL DEVELOPMENT SEED DATA derived from the static app
+//   prototype — NOT yet field-survey verified for production (Phase 2C).
+// - All 5 PANORAMA_2_1 assets are AI-generated 16:9 (1376x768) renders
+//   stretched/edge-blended to 2048x1024 (2:1) SYNTHETIC PLACEHOLDERS for dev.
+//   Therefore: isValid2To1=true reflects pixel container ratio ONLY;
+//   isPreviewApproved=false; and all 5 placeholder TourNodes are seeded as DRAFT.
 // ============================================================================
 
 import crypto from "node:crypto";
@@ -10,6 +19,7 @@ import type {
   BuildingCategory,
   MapBuildingIconKey,
   MediaKind,
+  Prisma,
   PrismaClient as PrismaClientType,
   SessionPeriod,
   TourEdgeType,
@@ -198,11 +208,20 @@ interface MediaSeedEntry {
   originalWidth: number;
   originalHeight: number;
   isValid2To1: boolean;
+  isPreviewApproved: boolean;
+  cameraMetadata: Prisma.InputJsonValue;
   originalObjectKey: string;
   optimizedDesktopKey: string;
   optimizedMobileKey: string | null;
   thumbnailKey: string;
 }
+
+const PHOTO_2D_DEV_METADATA: Prisma.InputJsonValue = {
+  orientation: "landscape",
+  assetOrigin: "AI_GENERATED_DEVELOPMENT_PLACEHOLDER",
+  isRealQtscCapture: false,
+  dataProvenance: "INITIAL_DEV_SEED_UNVERIFIED_QTSC",
+};
 
 const MEDIA_ASSETS_DATA: readonly MediaSeedEntry[] = [
   {
@@ -216,6 +235,21 @@ const MEDIA_ASSETS_DATA: readonly MediaSeedEntry[] = [
     originalWidth: 2048,
     originalHeight: 1024,
     isValid2To1: true,
+    isPreviewApproved: false,
+    cameraMetadata: {
+      assetOrigin: "AI_GENERATED_SYNTHETIC_PLACEHOLDER",
+      sourceFormat: "AI_16_9_STRETCHED_TO_2_1",
+      sourceDimensions: "1376x768",
+      containerDimensions: "2048x1024",
+      isTrueEquirectangular360x180: false,
+      isRealQtscCapture: false,
+      hasExif: false,
+      hasGpanoXmp: false,
+      projectionStatus: "UNVERIFIED_SYNTHETIC_PLACEHOLDER",
+      requiresReal360ReplacementBeforeGoLive: true,
+      placeholderNote:
+        "AI-generated 16:9 courtyard render stretched/blended to 2:1 container for Phase 2A dev; not a 360x180 camera capture.",
+    },
     originalObjectKey: "/images/panoramas/campus-courtyard-360.jpg",
     optimizedDesktopKey: "/images/panoramas/campus-courtyard-360.jpg",
     optimizedMobileKey: "/images/panoramas/campus-courtyard-360.jpg",
@@ -232,6 +266,21 @@ const MEDIA_ASSETS_DATA: readonly MediaSeedEntry[] = [
     originalWidth: 2048,
     originalHeight: 1024,
     isValid2To1: true,
+    isPreviewApproved: false,
+    cameraMetadata: {
+      assetOrigin: "AI_GENERATED_SYNTHETIC_PLACEHOLDER",
+      sourceFormat: "AI_16_9_RECTILINEAR_STRETCHED_TO_2_1",
+      sourceDimensions: "1376x768",
+      containerDimensions: "2048x1024",
+      isTrueEquirectangular360x180: false,
+      isRealQtscCapture: false,
+      hasExif: false,
+      hasGpanoXmp: false,
+      projectionStatus: "UNVERIFIED_RECTILINEAR_PLACEHOLDER",
+      requiresReal360ReplacementBeforeGoLive: true,
+      placeholderNote:
+        "Rectilinear 16:9 AI hall render shared with locations/auditorium-hall.jpg and resized to 2:1; lacks spherical 360x180 wrap.",
+    },
     originalObjectKey: "/images/panoramas/auditorium-360.jpg",
     optimizedDesktopKey: "/images/panoramas/auditorium-360.jpg",
     optimizedMobileKey: "/images/panoramas/auditorium-360.jpg",
@@ -248,6 +297,21 @@ const MEDIA_ASSETS_DATA: readonly MediaSeedEntry[] = [
     originalWidth: 2048,
     originalHeight: 1024,
     isValid2To1: true,
+    isPreviewApproved: false,
+    cameraMetadata: {
+      assetOrigin: "AI_GENERATED_SYNTHETIC_PLACEHOLDER",
+      sourceFormat: "AI_16_9_STRETCHED_TO_2_1",
+      sourceDimensions: "1376x768",
+      containerDimensions: "2048x1024",
+      isTrueEquirectangular360x180: false,
+      isRealQtscCapture: false,
+      hasExif: false,
+      hasGpanoXmp: false,
+      projectionStatus: "UNVERIFIED_SYNTHETIC_PLACEHOLDER",
+      requiresReal360ReplacementBeforeGoLive: true,
+      placeholderNote:
+        "AI-generated 16:9 library render stretched/blended to 2:1 container for Phase 2A dev; not a 360x180 camera capture.",
+    },
     originalObjectKey: "/images/panoramas/library-360.jpg",
     optimizedDesktopKey: "/images/panoramas/library-360.jpg",
     optimizedMobileKey: "/images/panoramas/library-360.jpg",
@@ -264,6 +328,21 @@ const MEDIA_ASSETS_DATA: readonly MediaSeedEntry[] = [
     originalWidth: 2048,
     originalHeight: 1024,
     isValid2To1: true,
+    isPreviewApproved: false,
+    cameraMetadata: {
+      assetOrigin: "AI_GENERATED_SYNTHETIC_PLACEHOLDER",
+      sourceFormat: "AI_16_9_STRETCHED_TO_2_1",
+      sourceDimensions: "1376x768",
+      containerDimensions: "2048x1024",
+      isTrueEquirectangular360x180: false,
+      isRealQtscCapture: false,
+      hasExif: false,
+      hasGpanoXmp: false,
+      projectionStatus: "UNVERIFIED_SYNTHETIC_PLACEHOLDER",
+      requiresReal360ReplacementBeforeGoLive: true,
+      placeholderNote:
+        "AI-generated 16:9 lab render stretched/blended to 2:1 container (contains distorted AI wall text and seam discontinuities); dev placeholder only.",
+    },
     originalObjectKey: "/images/panoramas/it-lab-360.jpg",
     optimizedDesktopKey: "/images/panoramas/it-lab-360.jpg",
     optimizedMobileKey: "/images/panoramas/it-lab-360.jpg",
@@ -276,10 +355,25 @@ const MEDIA_ASSETS_DATA: readonly MediaSeedEntry[] = [
     mimeType: "image/jpeg",
     fileSizeBytes: 344948n,
     sha256Checksum:
-      "fbab55dc257eb12981fbe37043c19549ed3f8b6bce31d008def115fb618c142",
+      "fbab55dc2257eb12981fbe37043c19549ed3f8b6bce31d008def115fb618c142",
     originalWidth: 2048,
     originalHeight: 1024,
     isValid2To1: true,
+    isPreviewApproved: false,
+    cameraMetadata: {
+      assetOrigin: "AI_GENERATED_SYNTHETIC_PLACEHOLDER",
+      sourceFormat: "AI_16_9_STRETCHED_TO_2_1",
+      sourceDimensions: "1376x768",
+      containerDimensions: "2048x1024",
+      isTrueEquirectangular360x180: false,
+      isRealQtscCapture: false,
+      hasExif: false,
+      hasGpanoXmp: false,
+      projectionStatus: "UNVERIFIED_SYNTHETIC_PLACEHOLDER",
+      requiresReal360ReplacementBeforeGoLive: true,
+      placeholderNote:
+        "AI-generated 16:9 studio render stretched/blended to 2:1 container with +/-180 deg seam mismatch; dev placeholder only.",
+    },
     originalObjectKey: "/images/panoramas/imac-studio-360.jpg",
     optimizedDesktopKey: "/images/panoramas/imac-studio-360.jpg",
     optimizedMobileKey: "/images/panoramas/imac-studio-360.jpg",
@@ -296,6 +390,8 @@ const MEDIA_ASSETS_DATA: readonly MediaSeedEntry[] = [
     originalWidth: 1280,
     originalHeight: 720,
     isValid2To1: false,
+    isPreviewApproved: true,
+    cameraMetadata: PHOTO_2D_DEV_METADATA,
     originalObjectKey: "/images/locations/building-innovation.jpg",
     optimizedDesktopKey: "/images/locations/building-innovation.jpg",
     optimizedMobileKey: null,
@@ -312,6 +408,8 @@ const MEDIA_ASSETS_DATA: readonly MediaSeedEntry[] = [
     originalWidth: 1280,
     originalHeight: 720,
     isValid2To1: false,
+    isPreviewApproved: true,
+    cameraMetadata: PHOTO_2D_DEV_METADATA,
     originalObjectKey: "/images/locations/auditorium-hall.jpg",
     optimizedDesktopKey: "/images/locations/auditorium-hall.jpg",
     optimizedMobileKey: null,
@@ -328,6 +426,8 @@ const MEDIA_ASSETS_DATA: readonly MediaSeedEntry[] = [
     originalWidth: 1280,
     originalHeight: 720,
     isValid2To1: false,
+    isPreviewApproved: true,
+    cameraMetadata: PHOTO_2D_DEV_METADATA,
     originalObjectKey: "/images/locations/library-reading.jpg",
     optimizedDesktopKey: "/images/locations/library-reading.jpg",
     optimizedMobileKey: null,
@@ -344,6 +444,8 @@ const MEDIA_ASSETS_DATA: readonly MediaSeedEntry[] = [
     originalWidth: 1280,
     originalHeight: 720,
     isValid2To1: false,
+    isPreviewApproved: true,
+    cameraMetadata: PHOTO_2D_DEV_METADATA,
     originalObjectKey: "/images/locations/lab-it.jpg",
     optimizedDesktopKey: "/images/locations/lab-it.jpg",
     optimizedMobileKey: null,
@@ -360,6 +462,8 @@ const MEDIA_ASSETS_DATA: readonly MediaSeedEntry[] = [
     originalWidth: 1280,
     originalHeight: 720,
     isValid2To1: false,
+    isPreviewApproved: true,
+    cameraMetadata: PHOTO_2D_DEV_METADATA,
     originalObjectKey: "/images/locations/studio-imac.jpg",
     optimizedDesktopKey: "/images/locations/studio-imac.jpg",
     optimizedMobileKey: null,
@@ -376,6 +480,8 @@ const MEDIA_ASSETS_DATA: readonly MediaSeedEntry[] = [
     originalWidth: 1280,
     originalHeight: 720,
     isValid2To1: false,
+    isPreviewApproved: true,
+    cameraMetadata: PHOTO_2D_DEV_METADATA,
     originalObjectKey: "/images/locations/sports-complex.jpg",
     optimizedDesktopKey: "/images/locations/sports-complex.jpg",
     optimizedMobileKey: null,
@@ -408,6 +514,8 @@ interface BuildingSeedEntry {
   floors: Array<{ code: string; name: string; levelIndex: number }>;
 }
 
+// R-06: Initial QTSC development seed data (WGS84 lat/lng, floor labels, building specs)
+// copied from prototype data; NOT yet field-survey verified (scheduled for Phase 2C).
 const BUILDINGS_DATA: readonly BuildingSeedEntry[] = [
   {
     code: "INNOVATION",
@@ -1304,15 +1412,12 @@ async function seed() {
         originalWidth: mSpec.originalWidth,
         originalHeight: mSpec.originalHeight,
         isValid2To1: mSpec.isValid2To1,
-        isPreviewApproved: true,
+        isPreviewApproved: mSpec.isPreviewApproved,
         originalObjectKey: mSpec.originalObjectKey,
         optimizedDesktopKey: mSpec.optimizedDesktopKey,
         optimizedMobileKey: mSpec.optimizedMobileKey,
         thumbnailKey: mSpec.thumbnailKey,
-        cameraMetadata:
-          mSpec.assetKind === "PANORAMA_2_1"
-            ? { ProjectionType: "equirectangular", SeedSource: "QTSC-Static" }
-            : { Orientation: "landscape" },
+        cameraMetadata: mSpec.cameraMetadata,
         processingStatus: "READY" as const,
         processingError: null,
         uploadedBy: adminUser.id,
@@ -1450,7 +1555,7 @@ async function seed() {
       });
     }
 
-    // 4. TourNodes (floorPlanId = NULL per OD-10), TourEdges, Hotspots
+    // 4. TourNodes (floorPlanId = NULL per OD-10; status = DRAFT per D-02/R-03), TourEdges, Hotspots
     const tourNodeIdBySlug = new Map<string, string>();
     for (const nodeSpec of TOUR_NODES_DATA) {
       const existingNode = await tx.tourNode.findFirst({
@@ -1474,7 +1579,9 @@ async function seed() {
         isTerminalApproved: false,
         terminalApprovalReason: null,
         sortOrder: nodeSpec.sortOrder,
-        status: "PUBLISHED" as const,
+        // D-02 / R-03: Placeholder AI panoramas are unapproved; keep nodes non-public (DRAFT)
+        // until replaced with verified 360x180 QTSC photography.
+        status: "DRAFT" as const,
       };
       const tourNode = existingNode
         ? await tx.tourNode.update({
@@ -1598,6 +1705,7 @@ async function seed() {
     }
 
     // 6. Open Day Events, Sessions, FAQs & Orientation Quiz Items (OD-03, OD-08)
+    // R-06: Initial QTSC development seed schedules/FAQs/quizzes — pending field/stakeholder verification.
     const existingEvent = await tx.openDayEvent.findFirst({
       where: { eventKey: "open-day-2026-qtsc", deletedAt: null },
     });

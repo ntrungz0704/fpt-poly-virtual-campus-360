@@ -177,7 +177,7 @@ virtual-campus-media/
 ### 7.1. Hạ tầng Docker Compose theo 3 Giai đoạn (`OD-07`)
 - **Giai đoạn Phase 2A-1 (Database Bootstrap — Chỉ PostgreSQL 16 + Prisma + Seed):**
   - Docker Compose chỉ chạy container **`postgres:16-alpine`** (DB `virtual_campus_360`, healthcheck dùng `${POSTGRES_USER}` & `${POSTGRES_DB}`).
-  - Hoàn thiện `.env.example` / `.env` cục bộ, `prisma/schema.prisma`, SQL migrations (18 enums, partial unique indexes `WHERE deleted_at IS NULL`, `hotspots CHECK` constraint), `prisma/seed.ts` (bootstrap Admin dùng `ADMIN_BOOTSTRAP_PASSWORD` + Argon2id), kiểm tra reset/re-initialize. **Chưa khởi tạo NestJS (`apps/api/`), Auth, `StorageAdapter` hay API handlers.**
+  - Hoàn thiện `.env.example` / `.env` cục bộ, `prisma/schema.prisma`, SQL migrations (17 enums, partial unique indexes `WHERE deleted_at IS NULL`, `hotspots CHECK` constraint), `prisma/seed.ts` (bootstrap Admin dùng `ADMIN_BOOTSTRAP_PASSWORD` + Argon2id), kiểm tra reset/re-initialize. **Chưa khởi tạo NestJS (`apps/api/`), Auth, `StorageAdapter` hay API handlers.**
 - **Giai đoạn Phase 2A-2 (Core Backend, Auth & Local StorageAdapter):**
   - Tiếp tục chạy **`postgres:16-alpine`** kết hợp dịch vụ **`apps/api`** (NestJS Modular Monolith + Prisma + `@fpt-campus/shared`), triển khai Auth/RBAC (login `username | email | normalized phone`, token lifecycle), `StorageAdapter` (`STORAGE_DRIVER=local` ánh xạ ảnh seed QTSC), `RATE_LIMIT_STORE=memory`, và Public Read APIs.
 - **Giai đoạn Phase 2A-3+ (Business Modules, Media/FloorPlan Pipeline & Frontend API Integration):**

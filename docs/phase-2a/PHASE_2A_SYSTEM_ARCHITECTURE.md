@@ -1,8 +1,8 @@
 # KIẾN TRÚC HỆ THỐNG PHASE 2A — FPT POLYTECHNIC VIRTUAL CAMPUS 360°
 
-**Phiên bản:** 2A.1 (Architecture Blueprint — Chưa triển khai mã nguồn Backend)  
+**Phiên bản:** 2A.2 (Aligned Architecture Blueprint — Chưa triển khai mã nguồn Backend)  
 **Đối tượng:** Chủ dự án, Technical Lead, Backend/Frontend/DevOps Engineers  
-**Phạm vi tài liệu:** Chuẩn hóa hiện trạng mã nguồn thực tế, thiết kế kiến trúc hệ thống mục tiêu (Backend + Storage + Database + Auth/RBAC + Floor Plan & Tour Graph Engine), bảo mật, triển khai Docker/CDN và các quyết định cần phê duyệt trước khi khởi tạo `apps/api`.
+**Phạm vi tài liệu:** Chuẩn hóa hiện trạng mã nguồn thực tế, thiết kế kiến trúc hệ thống mục tiêu (`PostgreSQL 16` giai đoạn 2A-1 → mở rộng `Redis/BullMQ` & `StorageAdapter` `LOCAL_FS`/`S3_MINIO` ở 2A-2+, `Leaflet WGS84`, `FloorPlan`, `TourGraph`, `Auth/RBAC` hỗ trợ `username/email/phone`), bảo mật, chiến lược chuyển dữ liệu và phân tách ranh giới tĩnh/DB (`OD-01` → `OD-10`).
 
 ---
 
@@ -16,11 +16,11 @@
 | Hạng mục | Ghi nhận trong tài liệu cũ (`PROJECT_STATUS.md`) | Hiện trạng thực tế đã xác minh | Tác động lên Phase 2A |
 | :--- | :--- | :--- | :--- |
 | **App Router Routes** | Khẳng định `11/12` route lỗi 404 | **19 route thật** đang build và chạy clean (`next build` PASS): 9 route `(public)`, 2 route `(immersive)`, 1 `(auth)`, 1 `(portal)`, 6 `/admin/*`. | **Bắt buộc giữ nguyên toàn bộ 19 route** để tương thích liên kết (`/games` giữ tương thích, ẩn khỏi nav chính; `/portal` giữ tương thích). |
-| **Tài nguyên ảnh & Media** | Phụ thuộc URL Google tạm thời | **100% ảnh cục bộ** trong `apps/web/public/images/` (5 ảnh panorama `2048×1024` tỷ lệ 2:1 + ảnh địa điểm `1280×720` + logo). | Phase 2A sẽ chuyển dần việc đọc media từ tĩnh sang Object Storage (MinIO/S3) có fallback tương thích. |
-| **Trình xem 360° & GIS** | Thiếu tương tác / còn thô | `PanoramaStage.tsx` (Three.js `0.187.0` equirectangular, kéo/xoay + tự xoay lại sau 3000ms nhàn rỗi, pick tọa độ `(yaw, pitch)`); `CampusGISMap.tsx` (SVG QTSC zoom/pan, filter, card preview). Tab 3D WebGL đã ẩn đúng quyết định MVP. | Giữ nguyên engine Three.js & SVG GIS ở Frontend, bổ sung **Floor Plan Interactive Layer** kết nối chặt với `TourNode`. |
+| **Tài nguyên ảnh & Media** | Phụ thuộc URL Google tạm thời | **100% ảnh cục bộ** trong `apps/web/public/images/` (5 ảnh panorama `2048×1024` tỷ lệ 2:1 + ảnh địa điểm `1280×720` + logo). | Giai đoạn 2A-1 dùng **`StorageAdapter` (`LOCAL_FS`)** ánh xạ trực tiếp media cục bộ cùng PostgreSQL; nâng lên `MinIO/S3` ở Phase 2A-2+ (`OD-07`). |
+| **Trình xem 360° & GIS** | Thiếu tương tác / còn thô | `PanoramaStage.tsx` (Three.js `0.187.0` equirectangular, kéo/xoay + tự xoay lại sau 3000ms nhàn rỗi, pick tọa độ `(yaw, pitch)`); `CampusGISMap.tsx` (nâng cấp sang **Leaflet + OpenStreetMap + WGS84 (FixNear)** kèm `routeWaypoints`, `mapIconKey`, `QTSC_ORIGIN_POINT`, drawer chi tiết & đo khoảng cách). Tab 3D WebGL đã ẩn đúng quyết định MVP. | Chuẩn hóa Hệ tọa độ 1 dùng **Leaflet WGS84 (`lat, lng NOT NULL`)** (`OD-01`), bổ sung **Floor Plan Interactive Layer** tùy chọn (`OD-10`) kết nối chặt với `TourNode`. |
 | **Desktop Animations** | Chưa chuẩn hóa | Animation React Bits + `motion@14.12.0` chỉ kích hoạt trên desktop (`>= 1024px`), đảm bảo hiệu năng mobile/tablet. | Giữ nguyên ngưỡng responsiveness và giảm chuyển động trên thiết bị yếu. |
-| **Backend & Database** | Mức `S0` (chưa có `apps/api`) | **Chính xác `S0`:** Chưa có thư mục `apps/api`, chưa có `prisma/`, `0` lệnh `fetch()`, `0` Next.js Route Handlers. Dữ liệu đang nằm cứng trong `apps/web/src/data/campus-data.ts` và state React trong bộ nhớ trình duyệt. | Đây là lý do duy nhất cần triển khai **Phase 2A (Backend Foundation, PostgreSQL, Media Pipeline & Tour Engine)**. |
-| **Auth & Admin** | Dùng nhiều tài khoản mẫu `OD-2026-*` | Trong **Phase 1**, đã xóa bỏ hoàn toàn `prototype-auth.ts`, mật khẩu `Fpoly@2026`, và giả lập `sessionStorage`; `/login` chỉ hiển thị trạng thái chờ Auth Backend (Phase 3) và `/admin/*` hiển thị banner Admin Preview nội bộ. **Tài liệu đã cập nhật mô hình 3 nhóm người dùng (`ADMIN`/`STAFF`, Open Day `STUDENT`/`PARENT`, Public Visitors), cấp phát kép và Import Excel không lưu file gốc.** | Phase 3 (Backend) sẽ dựng JWT + HttpOnly Refresh Token + Argon2id + Dual Provisioning (`ADMIN_DIRECT` / `EMAIL_SMS_INVITATION`) + 5-step Excel Import + Audit Log thật trên Server (Student/Parent Portal vẫn ngoài MVP). |
+| **Backend & Database** | Mức `S0` (chưa có `apps/api`) | **Chính xác `S0`:** Chưa có thư mục `apps/api`, chưa có `prisma/`, `0` lệnh `fetch()`, `0` Next.js Route Handlers. Dữ liệu đang nằm cứng trong `apps/web/src/data/campus-data.ts` và state React trong bộ nhớ trình duyệt. | Phase 2A-1 chỉ dựng **PostgreSQL 16** + Prisma + Auth/Seed + Core Read APIs (`OD-07`), dùng `@fpt-campus/shared` chuẩn `2A.2`. |
+| **Auth, Open Day & Scope** | Dùng nhiều tài khoản mẫu `OD-2026-*` | Trong **Phase 1**, đã xóa `prototype-auth.ts`, `Fpoly@2026` và giả lập `sessionStorage`; `/login` và `/admin/*` hiển thị trạng thái chờ Auth Backend. **Chốt thêm (`OD-03..08`):** đăng nhập bằng `username \| email \| phone`; không có Check-in QR (`OD-05`), không XP/Leaderboard (`OD-08`); `/news` & `OFFICIAL_CAMPUS_INFO` giữ cấu hình tĩnh (`OD-03`). | Phase 2A-1/2A-3 dựng JWT RAM + HttpOnly Refresh Token + Argon2id + Dual Provisioning (`username/email/phone`) + 5-step Excel Import (`email -> phone` dedup) + Open Day CMS (`events`, `sessions`, `faqs`, `quiz`), Student/Parent Portal vẫn ngoài MVP. |
 | **Workspace Monorepo & Infra** | Khung khởi tạo | `pnpm-workspace.yaml` (`apps/*`, `packages/*`); `packages/shared/src/index.ts` có draft TS types (chưa được `apps/web` import); `docker-compose.yml` mới có `postgres:16-alpine` (DB `virtual_campus_360`, user `fpt_admin`); `.env.example` đã khai báo `API_PORT=4000`, `NEXT_PUBLIC_API_URL`, `S3_*`. | Tận dụng `packages/shared` làm Single Source of Truth cho DTO & TypeScript Contracts giữa Web và API. |
 
 ### 1.2. Chuẩn hóa Tên thực thể & Giải quyết mâu thuẫn với Hồ sơ kiểm toán cũ
@@ -41,20 +41,20 @@ Từ Phase 2A trở đi, toàn bộ hệ thống **chốt chuẩn một tên th�
 
 Trải nghiệm Virtual Campus hoàn chỉnh **không trộn lẫn** 3 loại tài sản không gian sau, mà liên kết chúng qua khóa định danh chuẩn hóa:
 
-1. **GIS Campus Map (Cấp Khuôn viên QTSC Quận 12):** Bản đồ SVG/GIS tổng thể vị trí các tòa nhà (`Innovation`, `Tòa T`, `Tòa F`, `Tòa P`, `Khu thể thao`) bằng tọa độ chuẩn hóa `(gisX, gisY)` theo phần trăm `[0..100]`.
-2. **Floor Plan — Bản đồ mặt bằng tầng (2D Floor Space):** Sơ đồ kiến trúc từng tầng (Tầng 1, Tầng 2, Tầng 3...) dưới dạng ảnh web (`PNG`, `JPG`, `SVG`) hoặc `PDF` (được hệ thống chuyển đổi thành ảnh vector/raster chuẩn web khi upload). Chứa:
-   - Các **Location (Địa điểm vật lý)**: phòng học, phòng Lab, hành lang, cầu thang bộ, thang máy, WC, khu vực đón tiếp.
-   - Các **TourNode (Điểm đặt máy ảnh 360°)**: có tọa độ chuẩn hóa `(normX, normY) ∈ [0.0, 1.0]`.
-3. **Panorama 360° & Spherical Hotspots (3D View Space):** Ảnh toàn cảnh equirectangular tỷ lệ `2:1` tại một `TourNode` cụ thể, kết xuất bằng Three.js trong `PanoramaStage.tsx`. Dùng hệ tọa độ cầu `(yaw, pitch, fov)` độc lập hoàn toàn với `(normX, normY)` trên mặt bằng tầng.
+1. **GIS Campus Map (Cấp Khuôn viên QTSC Quận 12 — `OD-01`):** Bản đồ **Leaflet + OpenStreetMap (FixNear style)** định vị các tòa nhà (`INNOVATION`, `TOA-T`, `TOA-F`, `TOA-P`, `SPORTS`) bằng tọa độ địa lý thực **`WGS84 (lat, lng)` (`NOT NULL`)**, kèm tuyến đường đi bộ `routeWaypoints` tính từ `originPoint` (`QTSC_ORIGIN_POINT`), icon riêng `mapIconKey`, drawer chi tiết và tính khoảng cách (`gisX`/`gisY` giữ `NULLABLE` dự phòng).
+2. **Floor Plan — Bản đồ mặt bằng tầng (2D Floor Space — Tùy chọn theo `OD-10`):** Sơ đồ kiến trúc từng tầng (`PNG`, `JPG`, `SVG`, `PDF`). Chứa các `Location` và `TourNode` với tọa độ chuẩn hóa `(normX, normY) ∈ [0.0, 1.0]`. Khi tầng chưa kích hoạt mặt bằng (`active_floor_plan_id = NULL` & `requires_floor_plan = false`), `TourNode` vẫn tồn tại và được xuất bản độc lập (`floor_plan_id = NULL`) mà **không cần tạo mặt bằng giả**.
+3. **Panorama 360° & Spherical Hotspots (3D View Space):** Ảnh toàn cảnh equirectangular tỷ lệ `2:1` tại một `TourNode` cụ thể, kết xuất bằng Three.js trong `PanoramaStage.tsx`. Dùng hệ tọa độ cầu `(yaw, pitch, fov)` độc lập hoàn toàn với WGS84 và `(normX, normY)`.
 
 > [!NOTE]
-> **Quyết định MVP về 3D Dollhouse / WebGL:** Mô hình 3D Dollhouse (cắt lớp kiến trúc) là một loại tài sản 3D riêng biệt (`.glb`/`.gltf`/Matterport mesh), **không tự động sinh ra được từ tập ảnh Panorama 360°**. Theo quyết định đã chốt, **3D Dollhouse / WebGL không nằm trong phạm vi Phase 2A MVP**; kiến trúc Database chỉ giữ trường mở rộng tùy chọn cho giai đoạn sau (`Phase 3+`).
+> **Ranh giới Phạm vi MVP (`MVP Scope`, `OD-03`, `OD-05`, `OD-08`):**
+> - **3D Dollhouse / WebGL, Student/Parent Portal (`/portal`), Check-in QR (`OD-05`), và XP/Leaderboard (`OD-08`)** không nằm trong phạm vi MVP.
+> - **CMS Database (`OD-03` Phương án B):** Các phần tử động `open_day_events`, `open_day_sessions`, `open_day_faqs`, `open_day_quiz_items` lưu trong PostgreSQL; bài viết cẩm nang `/news` (`CAMPUS_GUIDE_ARTICLES`) và thông tin trường tĩnh (`OFFICIAL_CAMPUS_INFO`) giữ ở cấu hình web tĩnh trong MVP.
 
 ---
 
 ## 3. Kiến trúc hệ thống mục tiêu (Target System Architecture)
 
-Hệ thống áp dụng mô hình **Modular Monolith Backend (NestJS)** kết hợp **Next.js 16 App Router Frontend**, **PostgreSQL 16**, **Redis + BullMQ** (xử lý chuyển đổi ảnh 360° & PDF mặt bằng bất đồng bộ), và **S3-Compatible Object Storage (MinIO ở môi trường Dev / Cloudflare R2 hoặc AWS S3 ở Production)**.
+Hệ thống áp dụng mô hình **Modular Monolith Backend (NestJS)** kết hợp **Next.js 16 App Router Frontend** và **PostgreSQL 16** (cốt lõi ngay từ Phase 2A-1), mở rộng dần ở Phase 2A-2+ với **Redis + BullMQ** (hàng đợi xử lý ảnh 360° & PDF mặt bằng) và cổng **`StorageAdapter`** (`LOCAL_FS` cho Phase 2A-1/dev nhẹ → `MinIO/S3/Cloudflare R2` khi xử lý media 4K & Production — **`OD-07`**).
 
 Lý do chọn **NestJS Modular Monolith** thay vì Microservices hay chỉ dùng Next.js Route Handlers:
 - **Kiểm soát luồng upload & xử lý file nặng (`Sharp`, `Poppler/MuPDF`):** Next.js Serverless/Edge Route Handlers có giới hạn RAM, timeout và không phù hợp chạy worker xử lý ảnh panorama độ phân giải cao (4K–8K) hoặc convert PDF mặt bằng.
@@ -106,26 +106,30 @@ flowchart TB
 
 | Module | Trách nhiệm cốt lõi | Phụ thuộc chính |
 | :--- | :--- | :--- |
-| **`AuthModule`** | Đăng nhập quản trị viên (`/api/v1/auth/login`), xác thực Argon2id, cấp Access JWT ngắn hạn (lưu **chỉ trong RAM/React state**, không lưu `localStorage`/`sessionStorage`) + Refresh Token quay vòng lưu trong cookie `HttpOnly; SameSite=Lax; Secure`, ép đổi mật khẩu lần đầu nếu `must_change_password = true`. | `UsersModule`, `AuditModule`, `Redis` |
-| **`UsersRbacModule`** | Quản lý mô hình tài khoản `users` thống nhất tách riêng `UserType` (`ADMIN`, `STAFF`, `STUDENT`, `PARENT`), `RBAC Role/Permission` (`SUPER_ADMIN`, `TOUR_EDITOR`, `EVENT_OPERATOR`), `AccountStatus`, `ActivationStatus`, `ProvisioningMethod`, và đa sự kiện `EventParticipation`. Hỗ trợ **tạo thủ công** và **Import Excel/CSV 5 bước** (chỉ lưu bản ghi chuẩn hóa + `UserImportBatch`, **cấm lưu file/tên/đường dẫn Excel gốc**), cùng cấp phát kép (`ADMIN_DIRECT` mã/link 1 lần & `EMAIL_SMS_INVITATION` trạng thái `INVITATION_PENDING | SENT | EXPIRED | ACTIVATED | FAILED` + `Resend`). **Không tạo mật khẩu mặc định chung hay plaintext; Student/Parent Portal vẫn ngoài MVP.** | `AuthModule`, `AuditModule` |
-| **`CampusGeoModule`** | Quản lý `Campus`, `Building` (kèm tọa độ GIS phần trăm `gisX`, `gisY`), `Floor` (tầng lầu sắp theo `sortOrder`), và `LocationType`. | `MediaModule` |
-| **`FloorPlanModule`** | Quản lý upload bản đồ mặt bằng tầng (`PNG`, `JPG`, `SVG`, `PDF` kèm chọn trang PDF), chuyển đổi bất đồng bộ sang ảnh web chuẩn, lưu phiên bản (`version`), snapshot tọa độ cũ, **luôn kích hoạt Ghost Overlay & `needsRealignment` khi thay bản vẽ mới** để Admin căn chỉnh xác nhận trước Publish. | `MediaModule`, `TourGraphModule` |
-| **`LocationsModule`** | Quản lý thực thể vật lý (`Location`: phòng học, lab, hành lang, thang máy, cầu thang bộ, WC), slug SEO, vị trí chuẩn hóa `[0..1]` trên `FloorPlan`, trạng thái công khai hoặc hạn chế truy cập (`isPublicAccessible = false`). | `FloorPlanModule`, `CampusGeoModule` |
-| **`MediaPipelineModule`** | Cấp Presigned Upload URL `/api/v1/admin/media/presign`, phân biệt ảnh **Equirectangular `2:1` đã ghép** vs ảnh camera thô chưa ghép/sai tỷ lệ (chặn upload kèm hướng dẫn ghép), giữ bản gốc, sinh `WebP` (Desktop 4K / Mobile 2K / Thumbnail 512px) và hỗ trợ bước **Admin Preview duyệt chất lượng**. | `S3StorageService`, `BullMQ` |
-| **`TourGraphModule`** | Quản lý `TourNode` (quan hệ `1 Location — N TourNode`), tọa độ `(floorNormX, floorNormY)` trên mặt bằng tầng, hướng nhìn ban đầu `(initialYaw, initialPitch, initialFov)`, `Hotspot`, `TourEdge` cùng tầng & xuyên tầng (thang máy/cầu thang). Chứa **Tour Graph Validator** hỗ trợ ngoại lệ có phê duyệt (`isTerminalApproved`, `isOneWayApproved`). | `LocationsModule`, `MediaModule`, `FloorPlanModule` |
-| **`OpenDayModule`** | Quản lý nội dung CMS công khai của Open Day (`open_day_sessions`, FAQ, câu hỏi mini-game tích hợp trong tour hiển thị cho khách tham quan không cần đăng nhập) đồng thời quản lý sự kiện Open Day & quan hệ `EventParticipation` (cho phép 1 tài khoản `STUDENT`/`PARENT` tham gia nhiều đợt Open Day). | `LocationsModule`, `UsersRbacModule` |
-| **`AuditLogModule`** | Ghi nhận bất biến (append-only) các thao tác nhạy cảm: login, đổi mật khẩu, khóa/mở tài khoản, tạo/sửa/xóa tòa nhà, thay thế mặt bằng tầng, publish tour 360°. | `PostgreSQL` |
+| **`AuthModule`** | Đăng nhập (`/api/v1/auth/login`) hỗ trợ `username` (`ADMIN`/`STAFF`), `email`, hoặc **`phone` đã kích hoạt (`E.164/VN`, `OD-04`)**, xác thực Argon2id, cấp Access JWT ngắn hạn (**chỉ lưu RAM/React state**) + Refresh Token quay vòng (`HttpOnly; SameSite=Lax; Secure`), ép đổi mật khẩu ban đầu (`must_change_password = true`). Rate limit hỗ trợ `memory` (Phase 2A-1) hoặc `Redis` (Phase 2A-2+). | `UsersRbacModule`, `AuditLogModule`, `RateLimitStore` |
+| **`UsersRbacModule`** | Quản lý mô hình tài khoản `users` thống nhất tách riêng `UserType`, `RBAC`, `AccountStatus`, `ActivationStatus`, `ProvisioningMethod`, chuẩn hóa `phone` (`E.164/VN`), và đa sự kiện `EventParticipation` (`INVITED \| CONFIRMED \| CANCELLED` — **không có Check-in QR ở MVP**, `OD-05`). Hỗ trợ tạo thủ công & Import Excel/CSV 5 bước (dedup ưu tiên **`email` → `phone`**, cấm dedup theo tên, **cấm lưu file/tên/đường dẫn Excel gốc**), cùng cấp phát kép (`ADMIN_DIRECT` & `EMAIL_SMS_INVITATION` + `Resend`). Student/Parent Portal vẫn ngoài MVP. | `AuthModule`, `AuditLogModule`, `OpenDayModule` |
+| **`CampusGeoModule`** | Quản lý `Campus` (`originPoint`, `landmarks`, `defaultEntryNodeId`), `Building` (**Leaflet WGS84 `lat`, `lng`**, `routeWaypoints`, `mapIconKey`, `highlights`, optional `gisX/gisY` — `OD-01`), `Floor` (gồm `requiresFloorPlan` — `OD-10`), và `LocationType`. | `MediaPipelineModule` |
+| **`FloorPlanModule`** | Quản lý upload mặt bằng tầng (`PNG`, `JPG`, `SVG`, `PDF`), chuyển đổi bất đồng bộ ở Phase 2A-2, lưu `version`, snapshot tọa độ cũ, bật **Ghost Overlay & `needsRealignment`**, và cập nhật `tour_nodes.floor_plan_id` khi `confirm-alignment` (`OD-06`). **Tầng chưa có mặt bằng vẫn cho phép `TourNode` hợp lệ xuất bản (`OD-10`).** | `MediaPipelineModule`, `TourGraphModule`, `StorageAdapter` |
+| **`LocationsModule`** | Quản lý thực thể vật lý (`Location`), giữ chuẩn **`Location (1) — (N) TourNode`**, `highlights`, `primary_node_id NULLABLE` (`loc-the-thao = NULL`, không gắn chéo giả — `OD-02`), slug SEO, tọa độ `[0..1]` tùy chọn, `isPublicAccessible`. | `FloorPlanModule`, `CampusGeoModule` |
+| **`MediaPipelineModule`** | Cấp upload URL qua **`StorageAdapter`** (`LOCAL_FS` ở Phase 2A-1 / `S3_MINIO` ở Phase 2A-2+ — `OD-07`), chặn ảnh thô chưa ghép & cylinder `5.77:1`, giữ bản gốc, sinh WebP `4K / 2K / Thumb 512` (Worker BullMQ từ 2A-2) và duyệt Preview 360°. | `StorageAdapter`, `(BullMQ Phase 2A-2)` |
+| **`TourGraphModule`** | Quản lý `TourNode` (hỗ trợ `floor_plan_id = NULL` khi tầng chưa có mặt bằng — `OD-10`, soft-delete dọn `tour_edges`/`hotspots` — `OD-06`), `Hotspot` (`CHECK` khớp `hotspot_type ↔ edge_id`), `TourEdge` cùng tầng & xuyên tầng, và **Tour Graph Validator** (`VAL_UNPLACED_NODE` áp dụng có điều kiện, ngoại lệ `isTerminalApproved` / `isOneWayApproved`). | `LocationsModule`, `MediaPipelineModule`, `FloorPlanModule` |
+| **`OpenDayModule`** | Quản lý DB Open Day CMS (`open_day_events`, `open_day_sessions`, `open_day_faqs`, `open_day_quiz_items`) và endpoint **`POST /api/v1/public/quiz/verify` stateless** (`GET /public/events` **không trả `correctIndex`**, không lưu lịch sử/XP/Leaderboard — `OD-03`, `OD-08`). `/news` & `OFFICIAL_CAMPUS_INFO` giữ cấu hình web tĩnh. | `LocationsModule`, `UsersRbacModule` |
+| **`AuditLogModule`** | Ghi nhận bất biến (append-only) các thao tác nhạy cảm: login, đổi mật khẩu, khóa/mở tài khoản, tạo/sửa/xóa tòa nhà/node, thay thế mặt bằng tầng, publish tour 360°, cập nhật Open Day CMS. | `PostgreSQL` |
 
 ---
 
-## 5. Chiến lược lưu trữ Media & Xử lý tệp bất đồng bộ (Media Storage Strategy)
+## 5. Chiến lược lưu trữ Media & `StorageAdapter` (`OD-07`)
 
-### 5.1. Tại sao không lưu ảnh trong Git hay Public Folder của `apps/web`?
-Hiện tại `apps/web/public/images/` chỉ phù hợp với bộ dữ liệu mẫu cố định gồm 5 panorama `2048×1024`. Khi trường tự chụp thực tế nhiều tòa nhà (mỗi tòa 5–8 tầng, mỗi tầng 15–30 điểm panorama độ phân giải `4096×2048` hoặc `6096×3048` + bản vẽ mặt bằng PDF/SVG):
-- Tổng dung lượng nhanh chóng vượt `2–10 GB`, không thể đóng gói vào Docker image của Next.js hay commit vào Git.
-- Cần tách biệt **tệp gốc lưu trữ (`original`)**, **tệp tối ưu phát trực tuyến (`optimized`)** và **ảnh xem trước (`thumbnail`)**.
+### 5.1. Tại sao không lưu ảnh mới trong Git hay Public Folder của `apps/web`?
+Hiện tại `apps/web/public/images/` phục vụ bộ dữ liệu tĩnh ban đầu gồm 5 panorama `2048×1024` và ảnh địa điểm QTSC cho **Phase 2A-1** (không phải cài MinIO ngay để chạy PostgreSQL + Seed + Read API). Khi trường mở rộng nhiều tòa nhà/tầng và upload thực tế ở **Phase 2A-2+**:
+- Tổng dung lượng nhanh chóng vượt `2–10 GB`, cần tách biệt **`original`**, **`optimized`** (`4K/2K`) và **`thumbnail`**.
 
-### 5.2. Cấu trúc Object Key chuẩn trong Bucket S3 / MinIO
+### 5.2. Kiến trúc `StorageAdapter` (`STORAGE_DRIVER=local|s3` — `OD-07`)
+Mọi module (`MediaPipelineModule`, `FloorPlanModule`) phụ thuộc interface trừu tượng **`StorageAdapter`**, không gọi cứng SDK MinIO ở tầng nghiệp vụ:
+- **`LocalStorageAdapter` (`STORAGE_DRIVER=local` — mặc định cho Phase 2A-1 & Local Dev nhẹ):** Ánh xạ key media tới thư mục cục bộ / static path sẵn có (như `/images/...` cho 8 ảnh seed QTSC và `UPLOAD_LOCAL_ROOT` + endpoint `POST /api/v1/admin/storage/local-upload/:token` có kiểm tra token & magic bytes).
+- **`S3StorageAdapter` (`STORAGE_DRIVER=s3` — bật từ Phase 2A-2+ / Production):** Kết nối MinIO Dev hoặc Cloudflare R2 / AWS S3 với Presigned PUT URLs.
+
+### 5.3. Cấu trúc Object Key chuẩn (dùng chung cho cả Local & S3/MinIO)
 
 ```text
 virtual-campus-media/
@@ -151,51 +155,48 @@ virtual-campus-media/
 ## 6. Bảo mật hệ thống (Security Architecture)
 
 1. **Xác thực & Phiên đăng nhập (`/login`, API `/api/v1/auth/*`):**
-   - Chỉ seed **01 tài khoản quản trị duy nhất (`admin` · `SUPER_ADMIN`)** từ **secret môi trường (`ADMIN_BOOTSTRAP_PASSWORD` / CLI bootstrap)** — **tuyệt đối không gán cứng mật khẩu mặc định trong mã nguồn hay file migration**.
-   - **Bắt buộc đổi mật khẩu ở lần đăng nhập đầu tiên (`must_change_password = true`)** trước khi sử dụng bất kỳ tính năng Admin nào. *(Lưu ý bảo mật bắt buộc: mật khẩu thử nghiệm tạm thời từng trao đổi cho bản prototype UI tuyệt đối không được tái sử dụng làm secret/seed cho Backend thật.)*
-   - Toàn bộ password hash bằng **Argon2id**. Access Token JWT (thời hạn **15 phút**) **chỉ giữ trong bộ nhớ (RAM / React Context)** — **cấm lưu trong `localStorage` hoặc `sessionStorage`** ở bản thật; Refresh Token quay vòng 64-byte lưu **hash SHA-256** trong PostgreSQL, truyền qua cookie `HttpOnly`, `SameSite=Lax`, `Secure`, `Path=/api/v1/auth`.
-   - Giao diện `/login` và API `/api/v1/auth/*` **tuyệt đối không có tính năng tự đăng ký cho khách công khai** (`POST /auth/register` không tồn tại), hỗ trợ 3 nhóm người dùng (`ADMIN`/`STAFF`, người tham gia Open Day `STUDENT`/`PARENT` — không mặc định là sinh viên chính thức — qua liên kết/mã kích hoạt 1 lần có thời hạn hoặc lời mời Email/SMS, và khách tham quan tự do không cần tài khoản). Khi sai mật khẩu luôn trả thông báo chung chung + tạm khóa 15 phút sau 5 lần sai liên tiếp (Redis). **Cấm mật khẩu mặc định dùng chung, cấm mật khẩu plaintext, và cấm lưu file/tên/đường dẫn Excel gốc khi import hàng loạt.** (Student/Parent Portal `/portal` vẫn chưa mở trong MVP.)
+   - Chỉ seed **01 tài khoản quản trị duy nhất (`admin` · `SUPER_ADMIN`)** từ **secret môi trường (`ADMIN_BOOTSTRAP_PASSWORD`)** — **tuyệt đối không gán cứng mật khẩu mặc định trong mã nguồn hay file migration**.
+   - **Bắt buộc đổi mật khẩu ở lần đăng nhập đầu tiên (`must_change_password = true`)** trước khi sử dụng bất kỳ tính năng Admin nào (`403 PASSWORD_CHANGE_REQUIRED`).
+   - Toàn bộ password hash bằng **Argon2id**. Access Token JWT (thời hạn **15 phút**) **chỉ giữ trong bộ nhớ (RAM / React Context)**; Refresh Token quay vòng 64-byte lưu **hash SHA-256** trong PostgreSQL (`HttpOnly; SameSite=Lax; Secure; Path=/api/v1/auth`).
+   - `/login` và API `/api/v1/auth/*` **tuyệt đối không có `/auth/register`**, hỗ trợ `identifier` dạng `username`, `email`, hoặc **`phone` đã kích hoạt (`E.164/VN`, `OD-04`)**. Khóa tạm 15 phút sau 5 lần sai liên tiếp; cấm mật khẩu chung/plaintext; cấm lưu file/tên/đường dẫn Excel gốc; dedup Excel chỉ theo `email -> phone`.
 2. **Bảo mật Upload & Xử lý tệp (Đặc biệt với `SVG` và `PDF`):**
-   - **Magic-Byte Inspection:** Kiểm tra header nhị phân thực sự (`FF D8 FF` cho JPEG, `89 50 4E 47` cho PNG, `%PDF-` cho PDF, XML root `<svg>` cho SVG), không dựa vào `Content-Type` hay đuôi file.
-   - **SVG Sanitization (Chống Stored XSS):** Nếu Admin tải lên bản vẽ mặt bằng `.svg`, **bắt buộc chạy sanitizer (DOMPurify / svgo strict whitelist)** loại bỏ toàn bộ `<script>`, `onload=`, `onclick=`, `<foreignObject>`, liên kết `javascript:` và external `<use>` trước khi lưu lên S3; phục vụ qua domain/CDN tĩnh với `Content-Security-Policy: sandbox`.
-   - **PDF Conversion Sandbox:** Tiến trình render `PDF → WebP` chạy trong worker giới hạn CPU/RAM & timeout (`15s/trang`), chỉ xử lý trang Admin đã chỉ định (`sourcePageNumber`), chống decompression bomb (`max pixels <= 64MP`).
-3. **CORS, Rate Limiting & CSRF:**
+   - **Magic-Byte Inspection:** Kiểm tra header nhị phân thực sự (`FF D8 FF`, `89 50 4E 47`, `%PDF-`, XML `<svg>`).
+   - **SVG Sanitization:** Bắt buộc sanitizer loại bỏ `<script>`, inline handlers, `<foreignObject>`, `javascript:` URLs.
+   - **PDF Conversion Sandbox:** Chạy trong worker giới hạn CPU/RAM & timeout (`15s/trang`, `<= 64MP`).
+3. **CORS, Rate Limiting & Quiz Security:**
    - CORS whitelist chặt theo `WEB_ORIGIN`.
-   - Rate limit phân tầng trên Redis: `5 req/phút` cho `POST /api/v1/auth/login`; `30 req/phút` cho upload presign; `300 req/phút` cho Public API `/api/v1/public/*`.
-   - Kiểm tra `Origin`/`Referer` + SameSite cookie cho endpoint `/api/v1/auth/refresh` và `/api/v1/auth/logout`.
+   - Rate limit phân tầng (`RATE_LIMIT_STORE=memory` ở Phase 2A-1; `redis` ở Phase 2A-2+): `5 req/phút` cho `/auth/login`; `30 req/phút` cho presign; `300 req/phút` cho `/public/*` (bao gồm `POST /public/quiz/verify`).
+   - `GET /api/v1/public/events` không bao giờ trả `correctIndex`/`explanation` trước khi kiểm tra qua `POST /public/quiz/verify` (`OD-08`).
 4. **Phân quyền RBAC chặt chẽ:**
-   - Public endpoints (`GET /api/v1/public/*`) chỉ trả dữ liệu `status = 'PUBLISHED'`, ẩn toàn bộ ghi chú nháp, tài khoản quản trị, tệp `original` và tài liệu nội bộ.
+   - Public endpoints (`/api/v1/public/*`) chỉ trả `status = 'PUBLISHED' AND deleted_at IS NULL`, ẩn mọi bản nháp, tài khoản nội bộ, và tệp `original`.
 
 ---
 
-## 7. Triển khai Docker, Backup & Chiến lược Migrate dữ liệu từ Seed hiện tại
+## 7. Triển khai Docker, Phân kỳ Hạ tầng (`OD-07`) & Chiến lược Migrate Dữ liệu
 
-### 7.1. Hạ tầng Docker Compose (Dev & Staging/On-Premise)
-Mở rộng `docker-compose.yml` hiện tại (đang chỉ có `postgres:16-alpine`) thành stack các container kết nối mạng nội bộ `vc_internal`:
-- `postgres` (`postgres:16-alpine`, giữ nguyên DB `virtual_campus_360` để tương thích cấu hình sẵn có)
-- `redis` (`redis:7-alpine`, AOF persistence bật cho BullMQ)
-- `minio` (`minio/minio`, tạo bucket `virtual-campus-media` + CORS tự động qua `minio-init`)
-- `api` (NestJS API chạy tại `/api/v1`, port `4000`)
-- `worker` (BullMQ consumer chung image với `api`, chứa `sharp`, `poppler-utils`/`mupdf` cho chuyển PDF/SVG/Panorama)
-- `web` (Next.js 16 standalone output, port `3000`)
+### 7.1. Hạ tầng Docker Compose theo 2 Giai đoạn (`OD-07`)
+- **Giai đoạn Phase 2A-1 (PostgreSQL-only — Kiểm chứng Schema, Seed, Auth & Core Read APIs):**
+  - Docker Compose chỉ chạy container **`postgres:16-alpine`** (DB `virtual_campus_360`, healthcheck dùng `${POSTGRES_USER}` & `${POSTGRES_DB}`).
+  - `apps/api` dùng `STORAGE_DRIVER=local` (trỏ 8 ảnh tĩnh QTSC có sẵn) và `RATE_LIMIT_STORE=memory`, chưa cần Redis/BullMQ/MinIO.
+- **Giai đoạn Phase 2A-2+ (Bật Worker xử lý Media/FloorPlan & Staging/Prod):**
+  - Mở thêm **`redis:7-alpine`** (BullMQ queue + distributed rate limit) và **`minio/minio`** (nếu bật `STORAGE_DRIVER=s3`; hoặc tiếp tục dùng `LOCAL_FS` tới khi đưa lên Cloudflare R2 / AWS S3), cùng `api`, `worker`, `web`.
 
 ### 7.2. Chiến lược Backup & Khôi phục
-- **PostgreSQL:** `pg_dump` nén `.dump` hàng ngày lúc 02:00 sáng + giữ 14 bản gần nhất trên volume tách biệt hoặc S3 bucket riêng.
-- **Object Storage:** Đồng bộ bucket `panoramas/*/original.*` và `floor-plans/*/v*_source.*` sang vùng lưu trữ dự phòng; tệp `optimized`/`thumbnail` có thể tái sinh hoàn toàn từ tệp gốc thông qua job `MEDIA_REPROCESS`.
+- **PostgreSQL:** `pg_dump` nén `.dump` hàng ngày lúc 02:00 sáng + giữ 14 bản gần nhất.
+- **Media Storage:** Đồng bộ tệp `original` và `v*_source` sang vùng lưu trữ dự phòng; biến thể tối ưu tái sinh được qua job `MEDIA_REPROCESS`.
 
 ### 7.3. Chuyển đổi dữ liệu từ Frontend Mock sang Database thật (Zero-Downtime Cutover)
-1. Viết script khởi tạo dữ liệu seed (`prisma/seed.ts`) đọc dữ liệu tham chiếu hiện đang nằm trong `apps/web/src/data/campus-data.ts` (5 tòa nhà QTSC, 6 địa điểm, 5 `TourNode` cùng 8 tệp trong `public/images/`, lịch Open Day công khai, câu hỏi quiz) + **01 tài khoản `admin` duy nhất (`userType = ADMIN`, role `SUPER_ADMIN`)** lấy mật khẩu khởi tạo từ biến môi trường **`ADMIN_BOOTSTRAP_PASSWORD` (bắt buộc tồn tại khi chạy, tuyệt đối không fallback chuỗi cố định trong code)** và đặt **`must_change_password = true`**. Các tài khoản `STAFF` và người tham gia Open Day (`STUDENT`/`PARENT`) được cấp qua Admin sau khi khởi chạy (thủ công hoặc Import Excel 5 bước, kích hoạt không dùng mật khẩu mặc định chung).
-2. Upload 8 ảnh mẫu ban đầu vào MinIO/S3 theo cấu trúc `Asset` chuẩn.
-3. Giai đoạn chuyển tiếp: `apps/web` dùng Repository adapter cho phép chuyển đổi qua biến môi trường (`DATA_SOURCE=api|mock`) từng luồng một theo lộ trình từ trên xuống.
+1. Viết script khởi tạo idempotent (`prisma/seed.ts`) đọc dữ liệu tham chiếu QTSC (`5` tòa nhà Leaflet WGS84 kèm `routeWaypoints` + `QTSC_ORIGIN_POINT`, `6` địa điểm với **`loc-the-thao.primary_node_id = NULL`** theo `OD-02`, `5` `TourNode` với **`floor_plan_id = NULL`** theo `OD-10`, `8` media QTSC `READY`, `open_day_events`, `open_day_sessions`, `open_day_faqs`, `open_day_quiz_items`) + **01 tài khoản `admin` duy nhất (`ADMIN` / `SUPER_ADMIN`)** dùng `ADMIN_BOOTSTRAP_PASSWORD` (`must_change_password = true`).
+2. `apps/web` và `apps/api` dùng chung kiểu dữ liệu từ **`@fpt-campus/shared`** (`OD-09`), chuyển đổi qua Adapter `DATA_SOURCE=api|mock` mà không thay đổi UI/UX hay 19 routes.
 
 ---
 
-## 8. Chốt các Quyết định Kiến trúc (`DEC-01` → `DEC-05`)
+## 8. Chốt các Quyết định Kiến trúc (`DEC-01` → `DEC-05`, Synchronized v2A.2)
 
 | Mã | Quyết định kiến trúc | Phương án chốt chính thức | Trạng thái |
 | :--- | :--- | :--- | :--- |
-| **DEC-01** | **PDF Floor Plan & Versioning** | Chuyển trang PDF được Admin chọn thành **WebP độ phân giải cao (cạnh dài tối đa 3200px)** + giữ file gốc; mọi lần thay thế bản vẽ đều tạo `version` mới + giữ snapshot tọa độ cũ + bật **Ghost Overlay** để Admin xác nhận vị trí. | **Đã chốt** |
-| **DEC-02** | **Panorama Input, Giới hạn & Preview** | Chấp nhận ảnh **Equirectangular `2:1` đã ghép** (`JPG/PNG/WebP`, độ lệch tỷ lệ `≤ 3%`, tối đa `50 MB/file`, khuyến nghị `4096×2048` trở lên). **Chặn file thô chưa ghép / dual-fisheye / cylinder điện thoại (`> 2.1:1`)** kèm hướng dẫn xuất `2:1`; giữ gốc + sinh WebP `4K` / `2K` / `Thumb 512`; **Admin bắt buộc kiểm tra Preview 360°** trước khi gắn vào `TourNode`. | **Đã chốt & Bổ sung** |
-| **DEC-03** | **Object Storage** | **MinIO** trong Docker Dev; giao diện S3-compatible chuẩn để chuyển sang **Cloudflare R2 / AWS S3** khi Production. | **Đã chốt** |
-| **DEC-04** | **User Categories, Dual Provisioning & Excel Policy** | Mô hình **`users` thống nhất** tách riêng `UserType` (`ADMIN/STAFF/STUDENT/PARENT`), `RBAC`, `AccountStatus`, `ActivationStatus`, `ProvisioningMethod`, và đa sự kiện `EventParticipation`; bootstrap 1 `SUPER_ADMIN` từ env; cấp tài khoản Open Day theo **2 phương thức (`ADMIN_DIRECT` mã/link 1 lần có hạn & `EMAIL_SMS_INVITATION` token băm 1 lần + `Resend`)**; **không tự đăng ký công khai, không mật khẩu mặc định dùng chung/plaintext, không lưu file/tên/đường dẫn Excel gốc; Student/Parent Portal vẫn ngoài MVP**. | **Đã cập nhật** |
-| **DEC-05** | **Tour Graph Publish Validator** | Kiểm duyệt chặt `Media READY`, vị trí node & xác nhận alignment sau thay mặt bằng, đồ thị cô lập, liên kết xuyên tầng (`STAIRS`/`ELEVATOR`) và liên kết một chiều — **có cơ chế ngoại lệ được Admin phê duyệt (`isTerminalApproved`, `isOneWayApproved` + lý do)** để không chặn sai lối đi một chiều hoặc điểm tham quan cuối hợp lệ. | **Đã chốt & Bổ sung** |
+| **DEC-01** | **PDF Floor Plan, Versioning & Optionality (`OD-10`)** | Hỗ trợ `PNG/JPG/SVG/PDF (WebP 300 DPI ≤ 3200px)`, versioning + snapshot + Ghost Overlay (`confirm-alignment` bắt buộc cập nhật `tour_nodes.floor_plan_id`). Cho phép `TourNode` xuất bản độc lập khi `Floor` chưa có mặt bằng (`active_floor_plan_id = NULL`, `requires_floor_plan = false`), không tạo mặt bằng giả. | **Đã cập nhật (`OD-06`, `OD-10`)** |
+| **DEC-02** | **Panorama Input, Giới hạn & Preview** | Chấp nhận ảnh **Equirectangular `2:1` đã ghép** (`JPG/PNG/WebP`, sai số `≤ 3%`, `≤ 50 MB`, `≥ 2048×1024`). **Chặn file thô chưa ghép / cylinder (`> 2.1:1`)**; giữ gốc + sinh WebP `4K / 2K / Thumb 512`; **Admin bắt buộc duyệt Preview 360°** (`is_preview_approved = true`). | **Đã chốt** |
+| **DEC-03** | **Storage & Hạ tầng phân kỳ (`OD-07`)** | Thiết kế cổng **`StorageAdapter` (`LOCAL_FS` / `S3_MINIO`)**: Phase 2A-1 chỉ dựng **PostgreSQL 16 + `LOCAL_FS`**; bật **Redis + BullMQ (+ MinIO/S3 hoặc R2)** ở Phase 2A-2+. | **Đã cập nhật (`OD-07`)** |
+| **DEC-04** | **User Categories, Phone Login, Dual Provisioning & Scope (`OD-03..08`)** | Mô hình `users` thống nhất tách riêng `UserType`/`RBAC`/`AccountStatus`/`ActivationStatus`/`ProvisioningMethod`; đăng nhập bằng **`username \| email \| phone`**; Excel dedup **`email -> phone`**; cấm `/register`, cấm lưu Excel gốc, **không Check-in QR (`OD-05`)**, **không XP/Leaderboard (`OD-08`)**, `/news` & `OFFICIAL_CAMPUS_INFO` giữ cấu hình tĩnh (`OD-03`). | **Đã cập nhật (`OD-03..08`)** |
+| **DEC-05** | **GIS WGS84 & Tour Graph Validator (`OD-01`, `OD-06`, `OD-10`)** | Chuẩn GIS là **Leaflet OSM WGS84 (`lat, lng NOT NULL`)** + `originPoint` + `routeWaypoints`; Validator 7 luật có ngoại lệ phê duyệt (`isTerminalApproved`, `isOneWayApproved`) và điều kiện `VAL_UNPLACED_NODE` chỉ kích hoạt khi Floor yêu cầu/đã gắn mặt bằng (`OD-10`). | **Đã cập nhật (`OD-01`, `OD-10`)** |

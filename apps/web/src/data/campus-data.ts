@@ -1,27 +1,43 @@
 // ============================================================================
 // Canonical QTSC District 12 Data Registry (Single Source of Truth)
-// Phase UI-01B — Eliminates conflicting ward names, fake metrics & dead IDs
+// Synchronized with @fpt-campus/shared Phase 2A v2A.2 Contracts (OD-01 -> OD-10)
 // ============================================================================
 
-export type BuildingCode = "INNOVATION" | "TOA-T" | "TOA-F" | "TOA-P" | "SPORTS";
+import {
+  computeRouteDistanceMeters,
+  formatDistanceEstimate,
+  haversineDistanceMeters,
+  type BuildingCategory,
+  type BuildingCode,
+  type CampusGeoPoint,
+  type CampusLandmarkItem,
+  type CampusOfficialStaticInfo,
+  type GeoLatLngTuple,
+  type LocationCategoryGroup,
+  type LocationCategoryKey,
+  type MapBuildingIconKey,
+  type PublishStatus,
+  type TourNodeCategory,
+} from "@fpt-campus/shared";
 
-export interface CampusOfficialInfo {
-  name: string;
-  shortName: string;
-  campusLabel: string;
-  address: string;
-  ward: string;
-  district: string;
-  city: string;
-  coordinatesLabel: string;
-  officialSiteUrl: string;
-  officialContactUrl: string;
-  officialAdmissionsUrl: string;
-  officialMajorsUrl: string;
-  openDayDateLabel: string;
-  openDayTimeLabel: string;
-  supportHours: string;
-}
+export {
+  computeRouteDistanceMeters,
+  formatDistanceEstimate,
+  haversineDistanceMeters,
+};
+
+export type {
+  BuildingCategory,
+  BuildingCode,
+  CampusGeoPoint,
+  CampusLandmarkItem,
+  LocationCategoryGroup,
+  LocationCategoryKey,
+  MapBuildingIconKey,
+  TourNodeCategory,
+};
+
+export type CampusOfficialInfo = CampusOfficialStaticInfo;
 
 export const OFFICIAL_CAMPUS_INFO: CampusOfficialInfo = {
   name: "Trường Cao đẳng FPT Polytechnic — Cơ sở TP.HCM (CVPM Quang Trung)",
@@ -42,20 +58,6 @@ export const OFFICIAL_CAMPUS_INFO: CampusOfficialInfo = {
   supportHours: "Thứ 2 – Thứ 7 (07:30 – 17:30)",
 };
 
-export type MapBuildingIconKey =
-  | "innovation"
-  | "it-building"
-  | "design-studio"
-  | "academic-hall"
-  | "sports";
-
-export interface CampusGeoPoint {
-  lat: number;
-  lng: number;
-  label: string;
-  addressNote: string;
-}
-
 /** Cổng chính CVPM Quang Trung trên đường Tô Ký (OSM barrier/gate verified) */
 export const QTSC_ORIGIN_POINT: CampusGeoPoint = {
   lat: 10.852825,
@@ -64,14 +66,6 @@ export const QTSC_ORIGIN_POINT: CampusGeoPoint = {
   addressNote: "Đường Tô Ký, Lối vào chính Công viên Phần mềm Quang Trung, Q.12",
 };
 
-export interface CampusLandmarkItem {
-  id: string;
-  label: string;
-  sublabel: string;
-  lat: number;
-  lng: number;
-}
-
 /** Các điểm mốc giao thông bổ sung ngoài lớp nền OSM (OSM đã hiển thị Cầu vượt Quang Trung & Tô Ký) */
 export const QTSC_LANDMARKS: CampusLandmarkItem[] = [];
 
@@ -79,7 +73,7 @@ export interface CampusBuildingItem {
   code: BuildingCode;
   name: string;
   shortName: string;
-  category: "academic" | "lab" | "facility";
+  category: BuildingCategory;
   categoryLabel: string;
   floorsLabel: string;
   summary: string;
@@ -95,7 +89,7 @@ export interface CampusBuildingItem {
   addressNote: string;
   mapIconKey: MapBuildingIconKey;
   /** Walking polyline waypoints from QTSC_ORIGIN_POINT along internal QTSC roads */
-  routeWaypoints: [number, number][];
+  routeWaypoints: GeoLatLngTuple[];
   statusNote: string;
 }
 
@@ -250,60 +244,6 @@ export const CAMPUS_BUILDINGS: CampusBuildingItem[] = [
   },
 ];
 
-export function haversineDistanceMeters(
-  a: { lat: number; lng: number },
-  b: { lat: number; lng: number },
-): number {
-  const R = 6371000;
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const sinLat = Math.sin(dLat / 2);
-  const sinLng = Math.sin(dLng / 2);
-  const h =
-    sinLat * sinLat +
-    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * sinLng * sinLng;
-  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
-}
-
-export function computeRouteDistanceMeters(points: [number, number][]): number {
-  if (points.length < 2) return 0;
-  let total = 0;
-  for (let i = 1; i < points.length; i++) {
-    total += haversineDistanceMeters(
-      { lat: points[i - 1][0], lng: points[i - 1][1] },
-      { lat: points[i][0], lng: points[i][1] },
-    );
-  }
-  return Math.round(total);
-}
-
-export function formatDistanceEstimate(meters: number, usingGps: boolean): {
-  distanceText: string;
-  durationText: string;
-  combinedText: string;
-} {
-  if (meters >= 1000) {
-    const km = (meters / 1000).toFixed(1);
-    const bikeMins = Math.max(2, Math.round(meters / 350));
-    const walkOrRide = usingGps ? `${bikeMins} phút di chuyển` : `${Math.round(meters / 75)} phút đi bộ`;
-    return {
-      distanceText: `~${km} km`,
-      durationText: walkOrRide,
-      combinedText: `~${km} km · ~${walkOrRide}`,
-    };
-  }
-  const rounded = Math.max(20, Math.round(meters / 10) * 10);
-  const walkMins = Math.max(1, Math.round(rounded / 75));
-  return {
-    distanceText: `~${rounded} m`,
-    durationText: `${walkMins} phút đi bộ`,
-    combinedText: `~${rounded} m · ~${walkMins} phút đi bộ`,
-  };
-}
-
-export type LocationCategoryKey = "all" | "lab" | "studio" | "common";
-
 export interface CampusLocationItem {
   id: string;
   slug: string;
@@ -312,14 +252,14 @@ export interface CampusLocationItem {
   buildingCode: BuildingCode;
   buildingName: string;
   floor: string;
-  category: Exclude<LocationCategoryKey, "all">;
+  category: LocationCategoryGroup;
   categoryLabel: string;
   shortDesc: string;
   description: string;
   highlights: string[];
   imageUrl: string;
   sceneId: string | null;
-  status: "published" | "draft";
+  status: Lowercase<Exclude<PublishStatus, "ARCHIVED">>;
 }
 
 export const CAMPUS_LOCATIONS: CampusLocationItem[] = [
@@ -452,7 +392,7 @@ export const CAMPUS_LOCATIONS: CampusLocationItem[] = [
       "Kết nối trực tiếp trục đi bộ nội khu QTSC",
     ],
     imageUrl: "/images/locations/sports-complex.jpg",
-    sceneId: "cong-chao-qtsc",
+    sceneId: null,
     status: "published",
   },
 ];
@@ -473,13 +413,13 @@ export interface TourSceneItem {
   buildingCode: BuildingCode;
   buildingLabel: string;
   floor: string;
-  category: "exterior" | "study" | "lab";
+  category: TourNodeCategory;
   bgUrl: string;
   thumbUrl: string;
   intro: string;
   linkedLocationSlug: string;
   initialView: { yaw: number; pitch: number; fov: number };
-  status: "published" | "draft";
+  status: Lowercase<Exclude<PublishStatus, "ARCHIVED">>;
   isEquirectangular2to1: boolean;
   hotspots: TourHotspotItem[];
 }

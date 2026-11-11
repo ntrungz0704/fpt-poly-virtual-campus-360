@@ -1,7 +1,7 @@
 # QUY TRÌNH CHỤP, XỬ LÝ PANORAMA 360°, MẶT BẰNG TẦNG & BIÊN TẬP TOUR (PHASE 2A)
 
-**Phiên bản:** 2A.1  
-**Mục tiêu:** Chuẩn hóa toàn bộ quy trình vận hành thực tế từ lúc vác máy ảnh 360° đi chụp tại các tòa nhà CVPM Quang Trung cho đến khi xuất bản thành công Tour 360° liên kết Mặt bằng tầng lên hệ thống Web.
+**Phiên bản:** 2A.2 (Aligned with `OD-01` → `OD-10`)  
+**Mục tiêu:** Chuẩn hóa toàn bộ quy trình vận hành thực tế từ lúc vác máy ảnh 360° đi chụp tại các tòa nhà CVPM Quang Trung cho đến khi xuất bản thành công Tour 360° (độc lập hoặc liên kết Mặt bằng tầng) lên hệ thống Web.
 
 ---
 
@@ -115,7 +115,7 @@ Trước khi chuyển `Building` hoặc `Floor` từ `DRAFT` sang `PUBLISHED`, B
 
 | Mã luật | Mức độ | Điều kiện kiểm tra | Ngoại lệ hợp lệ & Hành động Admin |
 | :--- | :--- | :--- | :--- |
-| **`VAL_UNPLACED_NODE`** | **ERROR** (Chặn) | `TourNode` thuộc phòng trong tòa nhà (`floorId != null`) nhưng chưa có `(floorPlanId, floorNormX, floorNormY)`. | Đặt tọa độ node lên mặt bằng tầng tương ứng. |
+| **`VAL_UNPLACED_NODE`** | **ERROR** (Chặn) | `TourNode` thuộc `Floor` đã kích hoạt mặt bằng (`floor.activeFloorPlanId != null`) **HOẶC** `floor.requiresFloorPlan === true`, nhưng node chưa có `(floorPlanId, floorNormX, floorNormY)` khớp mặt bằng đang active.<br>*(Theo `OD-10`: Nếu `Floor` chưa có mặt bằng (`activeFloorPlanId == null` và `requiresFloorPlan == false`) hoặc node ngoài trời (`floorId == null`), `TourNode` vẫn được `PUBLISH` độc lập nếu panorama 2:1 `READY` + duyệt Preview + đồ thị hợp lệ — không tạo FloorPlan giả.)* | Nếu tầng đã có mặt bằng active: đặt tọa độ `[0..1]` cho node lên mặt bằng đó; nếu chưa có mặt bằng, giữ `floorPlanId = null` và `requiresFloorPlan = false`. |
 | **`VAL_MEDIA_NOT_READY`** | **ERROR** (Chặn) | `panoramaAsset.processingStatus !== 'READY'`, `isValid2To1 === false` hoặc **`isPreviewApproved === false`**. | Đợi xử lý xong, thay ảnh `2:1` hợp lệ, hoặc mở Preview 360° xác nhận đạt chuẩn. |
 | **`VAL_NODE_REALLIGN_PENDING`** | **ERROR** (Chặn) | `needsRealignment === true` (hoặc tầng có `alignment_status = 'PENDING_REVIEW'`) sau khi thay thế mặt bằng mới. | Mở Ghost Overlay căn chỉnh và bấm xác nhận vị trí. |
 | **`VAL_DEAD_END_NODE`** | **ERROR** (Chặn) | `TourNode` có `outboundEdges = 0` **VÀ** `isTerminalApproved === false` (dễ khiến khách tham quan bị kẹt). | Nối hotspot quay lại hành lang/node trước, **hoặc đánh dấu ngoại lệ `isTerminalApproved = true` kèm lý do** (VD: góc ngắm cảnh ban công, điểm kết thúc tour). |

@@ -1,8 +1,8 @@
 # LỘ TRÌNH TRIỂN KHAI PHASE 2A → 2E — FPT POLYTECHNIC VIRTUAL CAMPUS 360°
 
-**Phiên bản:** 2A.1  
-**Điều kiện tiên quyết:** Chủ dự án phê duyệt bộ 5 tài liệu kiến trúc `docs/phase-2a/*` trước khi khởi tạo mã nguồn `apps/api` và `prisma/`.  
-**Ràng buộc bảo toàn:** Giữ nguyên toàn bộ **19 route hiện tại** ở `apps/web`, bảo toàn trải nghiệm miễn phí không cần đăng nhập trên `/`, `/campus`, `/map`, `/locations`, `/events`, giữ `/games` & `/portal` tương thích, và giữ ẩn tab 3D WebGL khỏi MVP.
+**Phiên bản:** 2A.2 (Aligned with `OD-01` → `OD-10`)  
+**Điều kiện tiên quyết:** Bộ 5 tài liệu `docs/phase-2a/*` và hợp đồng `@fpt-campus/shared` (`packages/shared`) đã khóa đồng bộ theo `OD-01` → `OD-10` trước khi khởi tạo mã nguồn `apps/api` và `prisma/`.  
+**Ràng buộc bảo toàn:** Giữ nguyên toàn bộ **19 route hiện tại** ở `apps/web`, bảo toàn trải nghiệm miễn phí không cần đăng nhập trên `/`, `/campus`, `/map`, `/locations`, `/events`, giữ `/games` & `/portal` tương thích (chưa xây Student/Parent Portal, chưa có Check-in QR hay XP/Leaderboard trong MVP), giữ `/news` & `OFFICIAL_CAMPUS_INFO` ở cấu hình web tĩnh (`OD-03` Phương án B), và giữ ẩn tab 3D WebGL khỏi MVP.
 
 ---
 
@@ -10,13 +10,13 @@
 
 ```mermaid
 flowchart LR
-    G0["Cổng Phê duyệt\nKiến trúc Phase 2A\n(Hiện tại)"] --> P2A1["Phase 2A-1\nDocker Infra, Prisma DB\n& Auth RBAC (admin)"]
-    P2A1 --> P2A2["Phase 2A-2\nMedia S3/MinIO & Worker\n(Panorama 2:1 + PDF/SVG FloorPlan)"]
-    P2A1 & P2A2 --> P2A3["Phase 2A-3\nLocations, TourGraph Engine\n& Pre-Publish Validator API"]
+    G0["Cổng Hợp đồng 2A.2\ndocs/phase-2a + @fpt-campus/shared\n(Đã đồng bộ OD-01..OD-10)"] --> P2A1["Phase 2A-1\nPostgreSQL 16 (Docker), Prisma DB,\nBootstrap Seed, Auth/RBAC & Core Read APIs"]
+    P2A1 --> P2A2["Phase 2A-2\nRedis 7 + BullMQ + StorageAdapter\n(MinIO/S3 hoặc LOCAL_FS) & Media/FloorPlan"]
+    P2A1 & P2A2 --> P2A3["Phase 2A-3\nAdmin CRUD (Campus/Locations/Events),\nTourGraph Engine & Pre-Publish Validator"]
     P2A3 --> P2B["Phase 2B\nTích hợp Frontend Web\n+ FloorPlan UI + Admin Studio 3 Vùng"]
-    P2B --> P2C["Phase 2C\nNạp dữ liệu thật QTSC\n(Tòa nhà, Tầng, Ảnh chụp 360°)"]
+    P2B --> P2C["Phase 2C\nNạp dữ liệu thật QTSC\n(Tòa nhà, Tầng, Mặt bằng, Ảnh chụp 360°)"]
     P2C --> P2D["Phase 2D\nKiểm thử tải, Bảo mật\n& Xuất bản Production"]
-    P2D -. "Tùy chọn sau MVP" .-> P2E["Phase 3+ (Mở rộng)\n3D Dollhouse Asset / Multi-Campus"]
+    P2D -. "Tùy chọn sau MVP" .-> P2E["Phase 3+ (Mở rộng)\nStudent Portal / Check-in QR / XP / 3D"]
 ```
 
 ---
@@ -24,33 +24,36 @@ flowchart LR
 ## 2. Chi tiết từng Giai đoạn & Tiêu chí nghiệm thu (Acceptance Criteria)
 
 ### Phase 2A — Nền tảng Backend, CSDL, Media & Tour Engine (`apps/api`)
-*Không mở rộng sang 3D WebGL hay Student/Parent Portal (`/portal`) trong MVP; phần tài khoản hỗ trợ đầy đủ 3 nhóm người dùng (`ADMIN`/`STAFF`, `STUDENT`/`PARENT` Open Day, và Khách tham quan tự do không cần tài khoản).*
+*Không mở rộng sang 3D WebGL, Student/Parent Portal (`/portal`), Check-in QR (`OD-05`), hay XP/Leaderboard (`OD-08`) trong MVP; phần tài khoản hỗ trợ đầy đủ 3 nhóm người dùng (`ADMIN`/`STAFF`, `STUDENT`/`PARENT` Open Day — đăng nhập bằng `username | email | phone` theo `OD-04`, và Khách tham quan tự do không cần tài khoản).*
 
 > [!IMPORTANT]
-> **Nguyên tắc triển khai ưu tiên luồng xuyên suốt (Vertical Slice First):**  
-> Đừng xây dàn trải nhiều màn hình Admin CRUD trước khi luồng cốt lõi chạy thông. Phải ưu tiên nối thông mạch nghiệp vụ:  
-> **Tạo tòa nhà → Tạo tầng → Upload bản vẽ mặt bằng → Đặt phòng (`Location`) & điểm chụp (`TourNode`) → Upload panorama 2:1 & duyệt Preview → Nối hotspot (`TourEdge`) → Validate đồ thị → Publish → Khách mở `/campus` đi lại được xuyên tầng.**
+> **Nguyên tắc triển khai tuần tự theo `OD-07` & `OD-10`:**  
+> - **Phase 2A-1 chỉ dựng PostgreSQL 16** (không ép Redis/MinIO ngay ở bước kiểm chứng Schema/Seed/Auth/Core Read).  
+> - **`TourNode` độc lập có ảnh panorama 2:1 hợp lệ được `PUBLISH` ở Phase 2A-1/2A-3 ngay cả khi chưa có `FloorPlan`** (`floor_plan_id = NULL`, không tạo mặt bằng giả — `OD-10`).  
+> - Luồng đầy đủ Floor Plan → Ghost Overlay → Validator → Publish được mở khóa sạch ở Phase 2A-2/2A-3.
 
-1. **Bước 2A-1: Khung Backend, PostgreSQL, Prisma & Auth/RBAC (`3–4 ngày`)**
-   - Mở rộng `docker-compose.yml`: `postgres:16-alpine`, `redis:7-alpine`, `minio/minio` (+ `minio-init`).
-   - Khởi tạo `apps/api` (NestJS + Prisma Client + Shared DTO chuẩn tên `TourNode` ở `packages/shared`, mọi endpoint dùng prefix `/api/v1`).
-   - Áp dụng schema `prisma/schema.prisma` theo đúng `PHASE_2A_DATABASE_DESIGN.md` và chạy bootstrap seed tạo **01 tài khoản gốc duy nhất (`admin` · `userType = ADMIN` · `SUPER_ADMIN`)** lấy secret từ biến môi trường (`ADMIN_BOOTSTRAP_PASSWORD`, tuyệt đối không đặt mật khẩu mặc định trong source code), bắt buộc `must_change_password = true` ở lần đăng nhập đầu tiên.
-   - Triển khai `AuthModule` (`/api/v1/auth/login`, `/refresh` HttpOnly cookie, `/logout`, `/me`, `/me/password`, `/activate/validate`, `/activate/complete`) + `UsersRbacModule` (mô hình `users` thống nhất tách riêng `UserType`, `RBAC`, `AccountStatus`, `ActivationStatus`, `ProvisioningMethod`, `EventParticipation`, hỗ trợ tạo thủ công, cấp phát kép `ADMIN_DIRECT` & `EMAIL_SMS_INVITATION`, và Import `.xlsx`/`.csv` 5 bước **không lưu file/tên/đường dẫn gốc**) + `AuditLogModule` + `RateLimitGuard`. Access Token chỉ giữ trong RAM/React state. Tuyệt đối không mở API tự đăng ký công khai.
-   - **Tiêu chí nghiệm thu:** Chạy `docker compose up` sạch; `POST /api/v1/auth/login` sai trả 401 chung, đúng trả Access Token + `mustChangePassword=true` yêu cầu đổi pass lần đầu; kiểm tra refresh rotation & reuse detection thu hồi `family_id`.
+1. **Bước 2A-1: Khung Backend, PostgreSQL 16, Prisma, Bootstrap Seed, Auth/RBAC & Core Public Read (`3–4 ngày`)**
+   - Rà soát `docker-compose.yml` & `.env.example`: Phase 2A-1 chỉ chạy container **`postgres:16-alpine`** (DB `virtual_campus_360`, healthcheck dùng `${POSTGRES_USER}` & `${POSTGRES_DB}`), dùng `RATE_LIMIT_STORE=memory` & `STORAGE_DRIVER=local` ánh xạ 8 ảnh QTSC có sẵn.
+   - Khởi tạo `apps/api` (NestJS Modular Monolith + Prisma Client + import trực tiếp `@fpt-campus/shared`), mọi endpoint dùng prefix `/api/v1`.
+   - Áp dụng schema `prisma/schema.prisma` + custom SQL constraints theo đúng `PHASE_2A_DATABASE_DESIGN.md` v2A.2 (đủ **partial unique indexes `WHERE deleted_at IS NULL`** trên `campuses`, `buildings`, `floors`, `locations`, `tour_nodes`, `users(username/email/phone)`, `open_day_events`; đủ enum `BuildingCategory`, `MapBuildingIconKey`, `SessionPeriod`, `ParticipationStatus`, `PublishStatus`; đủ `hotspots CHECK` constraint).
+   - Chạy idempotent `prisma/seed.ts`: tạo **01 tài khoản gốc duy nhất (`admin` · `userType = ADMIN` · `SUPER_ADMIN`)** từ `ADMIN_BOOTSTRAP_PASSWORD` (bắt buộc tồn tại, cấm fallback, cấm `Fpoly@2026`), đặt `must_change_password = true`; seed dữ liệu QTSC thực tế (`5` tòa nhà WGS84 Leaflet + `routeWaypoints`, `6` địa điểm với `loc-the-thao.primary_node_id = NULL` theo `OD-02`, `5` `TourNode` với `floor_plan_id = NULL` theo `OD-10`, `open_day_events`, `open_day_sessions`, `open_day_faqs`, `open_day_quiz_items`).
+   - Triển khai `AuthModule` (`/api/v1/auth/login` hỗ trợ `username | email | phone`, `/refresh` HttpOnly rotation + reuse revocation, `/logout`, `/me`, `/me/password`, `/activate/validate`, `/activate/complete` — cấm `/register`), `UsersRbacModule`, `AuditLogModule`, và Public Read endpoints cốt lõi (`/api/v1/public/campus`, `/buildings/:slug`, `/locations`, `/locations/:slug`, `/tour/nodes`, `/tour/nodes/:slug`, `/events`, `POST /api/v1/public/quiz/verify` stateless) + Adapter `DATA_SOURCE=api|mock` trên `apps/web`.
+   - **Tiêu chí nghiệm thu:** Khớp 100% Section 12 của [`PHASE_2A_READINESS_AND_DATA_CONTRACT_VERIFICATION.md`](../project-audit/PHASE_2A_READINESS_AND_DATA_CONTRACT_VERIFICATION.md).
 
-2. **Bước 2A-2: MinIO/S3, Media Pipeline Panorama & Floor Plan Pipeline (`4–5 ngày`)**
-   - Triển khai `MediaPipelineModule` & BullMQ Worker:
-     - Chặn file thô chưa ghép (`.insv`/`.insp`/dual-fisheye) hoặc ảnh cylinder cắt dọc (`5.77:1`) ngay ở `/api/v1/admin/media/presign`; chỉ nhận `JPG/PNG/WebP` đã ghép `2:1` (`≤ 50MB`, `≥ 2048×1024`).
+2. **Bước 2A-2: Redis + BullMQ, `StorageAdapter` (MinIO/S3 hoặc `LOCAL_FS`), Media & Floor Plan Pipeline (`4–5 ngày`)**
+   - Bổ sung `redis:7-alpine` (+ `minio/minio` khi dùng `STORAGE_DRIVER=s3`) vào stack Docker / worker; nâng `RATE_LIMIT_STORE=redis`.
+   - Triển khai `MediaPipelineModule` & BullMQ Worker qua `StorageAdapter`:
+     - Chặn file thô chưa ghép (`.insv`/`.insp`/dual-fisheye) hoặc ảnh cylinder (`5.77:1`) ngay ở `/api/v1/admin/media/presign`; chỉ nhận `JPG/PNG/WebP` `2:1` (`≤ 50MB`, `≥ 2048×1024`).
      - Giữ bản gốc, tự động xuất 3 biến thể WebP (`4096×2048`, `2048×1024`, `512×256`), hỗ trợ trạng thái `isPreviewApproved` sau khi Admin xem 360°.
    - Triển khai `FloorPlanModule`:
      - Nhận `PNG`, `JPG`, `SVG` (sanitize XSS), `PDF` (chọn trang render `WebP` 300 DPI ≤ 3200px).
-     - Lưu phiên bản (`version`), tạo `floor_plan_alignment_snapshots` & **luôn bật `needsRealignment = true`** mỗi khi thay bản vẽ mới (không dựa vào aspect ratio để tự pass), cung cấp API overlay & confirm alignment.
+     - Lưu phiên bản (`version`), tạo `floor_plan_alignment_snapshots`, bật `needsRealignment = true`, cung cấp `/alignment-overlay` & `/confirm-alignment` (bắt buộc cập nhật `tour_nodes.floor_plan_id = floorPlanId`, bật `floors.requires_floor_plan = true` và `active_floor_plan_id`).
    - **Tiêu chí nghiệm thu:** Upload thử cả 4 định dạng mặt bằng (SVG chứa `<script>` bị tước sạch, PDF nhiều trang render đúng trang chọn) + upload thử ảnh `5.77:1` bị chặn và ảnh `2:1` xuất đủ 3 biến thể WebP.
 
-3. **Bước 2A-3: Tour Engine — Campus, Location, TourNode, Hotspot & Validator API (`4–5 ngày`)**
-   - Hoàn thiện toàn bộ endpoints `Admin CRUD` (`/api/v1/admin/buildings`, `/floors`, `/locations`, `/tour/nodes`, `/hotspots` hỗ trợ `createReverseEdge`, `/tour/validate`, `/publish`) và `Public APIs` (`/api/v1/public/campus`, `/buildings/:slug/floors`, `/tour/nodes/:slug`, `/locations`, `/events`).
-   - Triển khai **Pre-Publish Graph Validator** kiểm tra đủ 7 luật kèm **ngoại lệ được Admin phê duyệt (`isTerminalApproved`, `isOneWayApproved` + lý do)**.
-   - **Tiêu chí nghiệm thu:** Chạy thông E2E Vertical Slice từ Tạo tòa nhà → Upload Floor Plan → Đặt Location & N `TourNode` → Upload Panorama → Nối `TourEdge` → Validate (có test ngoại lệ 1 chiều hợp lệ vẫn pass & node cô lập bị chặn HTTP `422`) → Publish → Public API đọc tour xuyên tầng.
+3. **Bước 2A-3: Full Admin CRUD (Campus/Locations/Events), Tour Engine & Validator API (`4–5 ngày`)**
+   - Hoàn thiện toàn bộ endpoints `Admin CRUD`: `/api/v1/admin/campus`, `/buildings`, `/floors`, `/locations`, `/tour/nodes` (soft-delete kèm xóa transactional `tour_edges`/`hotspots`), `/hotspots` (`createReverseEdge`), `/events` & `sessions`/`faqs`/`quiz-items` (`OD-03`), `/users/import` 5 bước (`email -> phone` dedup, cấm lưu file/tên gốc), `/tour/validate`, và `/publish` (`NODE` / `FLOOR` / `BUILDING` scope).
+   - Triển khai **Pre-Publish Graph Validator** kiểm tra đủ 7 luật (gồm `VAL_UNPLACED_NODE` theo `OD-10`: chỉ chặn khi `floor.activeFloorPlanId != null` hoặc `requiresFloorPlan === true`, và ngoại lệ `isTerminalApproved` / `isOneWayApproved` có lý do).
+   - **Tiêu chí nghiệm thu:** E2E Vertical Slice thông suốt cho cả trường hợp `TourNode` không có `FloorPlan` (`OD-10`) lẫn trường hợp tầng đã gắn `FloorPlan` và thay thế bằng Ghost Overlay.
 
 ---
 
@@ -101,21 +104,21 @@ flowchart LR
 
 | Chủ đề | `DATABASE_DESIGN` | `API_CONTRACT` | `PANORAMA_WORKFLOW` | `SYSTEM_ARCH` & `ROADMAP` |
 | :--- | :--- | :--- | :--- | :--- |
-| **Tên thực thể 360° chuẩn** | `tour_nodes` (`TourNode`) | `/api/v1/.../tour/nodes` | `TourNode` (gắn từ asset `2:1`) | Thống nhất thay `tour_scenes` cũ |
-| **Quan hệ `Location`–`TourNode`** | `locations (1) — (N) tour_nodes` | `siblingNodes[]` + `locationId` | 1 phòng lớn có `2–4 TourNode` | Đã sửa khỏi quan hệ `1–1` |
-| **API Base Prefix** | Khớp Prisma models | Toàn bộ dùng `/api/v1/*` | Calls `/api/v1/admin/*` | Khớp `.env.example` & Nginx |
-| **Floor Plan Replacement** | `floor_plans.version` + `snapshots` + `needs_realignment` | `/alignment-overlay` & `/confirm-alignment` | Ghost Overlay + Zoom/Pan + Realign | Chốt **DEC-01** |
-| **Panorama Input & Duyệt** | `is_valid_2_to_1` + `is_preview_approved` | Chặn `400` file chưa ghép + `/approve-preview` | Phân biệt Stitched `2:1` vs RAW/Cylinder | Chốt **DEC-02** |
-| **Graph Validator & Ngoại lệ** | `is_terminal_approved`, `is_one_way_approved` | `POST /api/v1/admin/tour/validate` | 7 mã luật + cơ chế phê duyệt ngoại lệ | Chốt **DEC-05** |
-| **Auth, Users & Open Day Provisioning** | Tách `UserType`/`RBAC`/`AccountStatus`/`ActivationStatus`/`ProvisioningMethod` + `account_invitations` + `event_participations` + `user_import_batches` (không lưu Excel gốc) | Login RAM JWT + HttpOnly Cookie + Activate + 5-step Excel Import (`preview`/`confirm`), không `/register` | Admin Studio quản lý tài khoản & bảng theo dõi lời mời | Chốt **DEC-04**, không Portal UI ở MVP |
+| **GIS Campus Map (`OD-01`)** | `campuses.origin_point_json`, `buildings.lat/lng NOT NULL`, `route_waypoints_json`, `map_icon_key`, `gis_x/y NULLABLE` | `GET /public/campus` trả full Leaflet WGS84 + `originPoint` | Tách biệt Hệ tọa độ 1 (WGS84 Leaflet) khỏi `[0..1]` | Chuẩn hóa Leaflet + OpenStreetMap (FixNear) |
+| **Tên thực thể 360° & `OD-02`** | `tour_nodes` (`TourNode`); `Location (1) — (N) TourNode`; `loc-the-thao.primary_node_id = NULL` | `/api/v1/public/tour/nodes` & `/:slug` + `primaryNodeSlug: string \| null` | `TourNode` 2:1, không gắn chéo giả | Nhất quán tên `TourNode` trên cả Web & API |
+| **Optional `FloorPlan` (`OD-10`)** | `floors.requires_floor_plan`, `tour_nodes.floor_plan_id NULLABLE` | `POST .../publish` hỗ trợ `NODE` scope độc lập; `confirm-alignment` set `floor_plan_id` | `VAL_UNPLACED_NODE` chỉ chặn khi Floor đã có `active_floor_plan_id` / `requires_floor_plan = true` | Cho phép seed QTSC & node 360° thuần xuất bản không cần mặt bằng giả |
+| **Open Day & Static CMS (`OD-03`, `OD-05`, `OD-08`)** | `open_day_events`, `open_day_sessions`, `open_day_faqs`, `open_day_quiz_items` (không `CHECKED_IN`, không XP) | `GET /public/events` (ẩn `correctIndex`), `POST /public/quiz/verify`, Admin CRUD `/admin/events/*` | Không tạo bảng/API Check-in hay XP | `/news` & `OFFICIAL_CAMPUS_INFO` giữ static config; Quiz public không tài khoản |
+| **Auth & Phone (`OD-04`)** | Partial unique `WHERE deleted_at IS NULL` trên `username`, `email`, `phone` (E.164/VN) | `POST /auth/login` hỗ trợ `username \| email \| phone`; Excel dedup `email -> phone` | Cấm dedup theo `(fullName, phone)` hay `fullName` | `ADMIN_BOOTSTRAP_PASSWORD`, Dual Provisioning, không `/register` |
+| **Shared Contract (`OD-09`)** | `@fpt-campus/shared` khớp 100% Prisma schema v2A.2 | Typed Request/Response & `ApiEnvelope` | Dùng chung Validation Error Codes | `packages/shared` build `./dist/*` & tích hợp vào `apps/web` |
+| **Infrastructure (`OD-07`)** | Schema áp dụng cho PostgreSQL 16 (`Phase 2A-1`) | `StorageAdapter` trừu tượng `LOCAL_FS` vs `S3_MINIO` | Xử lý Sharp/Poppler ở Worker Phase 2A-2 | Phase 2A-1 chỉ dựng PostgreSQL 16; Redis/MinIO mở ở Phase 2A-2 |
 
 ---
 
-## 5. Checklist Nghiệm thu Kiến trúc Phase 2A (Sẵn sàng chuyển Code Backend)
+## 5. Checklist Nghiệm thu Kiến trúc Phase 2A (Sẵn sàng bước Phase 2A-1 Code)
 
-- [x] Thống nhất chuẩn tên **`TourNode`** (`tour_nodes`) và quan hệ **`Location (1) — (N) TourNode`** trên cả 5 tài liệu.
-- [x] Phân tách rạch ròi 3 lớp không gian (`GIS Campus` ↔ `Floor Plan [0..1]` ↔ `Panorama Spherical (yaw, pitch, fov)`).
-- [x] Bổ sung quy trình Panorama phân biệt file chưa ghép vs `2:1` đã ghép, bước Preview duyệt ảnh, SOP chụp 6 loại không gian và quy tắc không bịa không gian bằng AI.
-- [x] Sửa lỗ hổng Floor Plan Versioning (luôn giữ snapshot + bật Ghost Overlay + bắt xác nhận khi thay thế bản vẽ mới).
-- [x] Siết bảo mật Bootstrap Admin (`ADMIN_BOOTSTRAP_PASSWORD` từ môi trường, ép đổi pass lần đầu, JWT trong RAM, cấm mật khẩu chung/plaintext) và cập nhật kiến trúc 3 nhóm người dùng, Dual Provisioning (`ADMIN_DIRECT` & `EMAIL_SMS_INVITATION`), đa sự kiện Open Day & Import Excel 5 bước không lưu file/tên/path gốc.
-- [x] Giữ nguyên 19 route hiện tại của `apps/web`, giữ `/games` & `/portal` tương thích (chưa xây Student/Parent Portal trong MVP), và ẩn 3D WebGL khỏi MVP.
+- [x] Đồng bộ đầy đủ `OD-01` → `OD-10` trên cả 5 tài liệu `docs/phase-2a/*` (phiên bản `2A.2`).
+- [x] Chuẩn hóa Hệ tọa độ 1 sang **Leaflet + OpenStreetMap + WGS84 (`lat, lng NOT NULL`)**, `origin_point_json`, `route_waypoints_json` (`OD-01`).
+- [x] Khóa chặt `Location (1) — (N) TourNode`, đặt `loc-the-thao.primary_node_id = NULL` (`OD-02`), cho phép `TourNode` xuất bản không cần `FloorPlan` giả (`OD-10`).
+- [x] Hoàn thiện lược đồ `open_day_events`, `open_day_sessions`, `open_day_faqs`, `open_day_quiz_items` (bỏ Check-in QR `OD-05` & XP/Leaderboard `OD-08`; phân ranh tĩnh `/news` & `OFFICIAL_CAMPUS_INFO` theo `OD-03`).
+- [x] Bổ sung toàn bộ bản vá toàn vẹn SQL (`partial unique WHERE deleted_at IS NULL` kể cả `phone`, `CHECK hotspots`, soft-delete cleanup, đầy đủ enums — `OD-04`, `OD-06`).
+- [x] Viết lại `@fpt-campus/shared` sạch, build `dist/` và tích hợp `apps/web` (`OD-09`), giữ nguyên toàn bộ 19 route và tách rõ Phase 2A-1 chỉ chạy PostgreSQL 16 (`OD-07`).

@@ -1,6 +1,13 @@
 # PROJECT_STATUS — FPT Polytechnic Virtual Campus 360°
 
-> **Nguồn sự thật duy nhất (Single Source of Truth)** về hiện trạng thực tế của dự án tại `E:\Virtual Campus FPT Poly`. Được lập dựa trên kết quả kiểm toán mã nguồn & lệnh kiểm tra thực tế (Read-only Audit). Toàn bộ báo cáo chi tiết nằm tại [`docs/project-audit/`](docs/project-audit/01-executive-summary.md).
+> [!NOTE]
+> **Bản ghi lịch sử kiểm toán lúc 11:11 sáng 11/11/2026 (Đã chuyển bộ 14 báo cáo chi tiết sang [`docs/_archive/project-audit/`](docs/_archive/project-audit/01-executive-summary.md)).**  
+> Hiện trạng mới nhất và các quyết định điều chỉnh đã được cập nhật trong:
+> - [`PROJECT_HEALTH_CHECK_AND_REPOSITORY_CLEANUP_AUDIT_2026-11-11.md`](docs/project-audit/PROJECT_HEALTH_CHECK_AND_REPOSITORY_CLEANUP_AUDIT_2026-11-11.md) (Đối soát code thực tế 19 route, build/lint PASS)
+> - [`PHASE_0_REPOSITORY_FOUNDATION_REPORT.md`](docs/project-audit/PHASE_0_REPOSITORY_FOUNDATION_REPORT.md) (Nghiệm thu Phase 0: Git, pnpm, Docs)
+> - [`MVP_SCOPE_AND_ROUTE_DECISIONS.md`](docs/decisions/MVP_SCOPE_AND_ROUTE_DECISIONS.md) (Quyết định sản phẩm & Auth đã phê duyệt)
+
+> **Tuyên bố gốc tại thời điểm 11/11/2026 (11:11 AM):** Tài liệu kiểm toán mã nguồn & lệnh kiểm tra thực tế (Read-only Audit). Bộ phụ lục chi tiết lịch sử nằm tại [`docs/_archive/project-audit/`](docs/_archive/project-audit/01-executive-summary.md).
 
 - **Cơ sở mục tiêu:** Trường Cao đẳng FPT Polytechnic TP.HCM — CVPM Quang Trung, Quận 12.
 - **Ngày kiểm toán gần nhất:** `11/11/2026`
@@ -82,7 +89,7 @@
 
 ## 7. Công Việc Còn Lại & 10 Hành Động Tiếp Theo (Next Actions)
 
-Chi tiết backlog `P0–P3` và lộ trình 5 giai đoạn xem tại [`docs/project-audit/12-implementation-roadmap.md`](docs/project-audit/12-implementation-roadmap.md). Dưới đây là đúng **10 hành động phải thực hiện ngay theo thứ tự**:
+Chi tiết backlog `P0–P3` và lộ trình 5 giai đoạn xem tại [`docs/_archive/project-audit/12-implementation-roadmap.md`](docs/_archive/project-audit/12-implementation-roadmap.md). Dưới đây là đúng **10 hành động phải thực hiện ngay theo thứ tự**:
 
 1. Khôi phục hoàn chỉnh `apps/web/src/app/globals.css` (dòng 114–115 và các class typography thiếu) để `npm run build` pass.
 2. Sửa toàn bộ 2 errors + 3 warnings ESLint (`Campus3DViewer.tsx:285,795,842,1021`, `OpenDayMiniGame.tsx:263`), xóa `apps/web/test-height.mjs` và dời `capture-pages.mjs` ra khỏi gốc `apps/web`.
@@ -97,19 +104,19 @@ Chi tiết backlog `P0–P3` và lộ trình 5 giai đoạn xem tại [`docs/pro
 
 ---
 
-## Phụ Lục Tài Liệu Kiểm Toán (`docs/project-audit/`)
+## Phụ Lục Tài Liệu Kiểm Toán Lịch Sử (`docs/_archive/project-audit/`)
 
-- [01-executive-summary.md](docs/project-audit/01-executive-summary.md) — Tóm tắt điều hành & Ước lượng hoàn thành
-- [02-current-project-status.md](docs/project-audit/02-current-project-status.md) — Bảng trạng thái `S0–S6` 13 mảng & từng module FE/BE
-- [03-page-by-page-audit.md](docs/project-audit/03-page-by-page-audit.md) — Kiểm toán 12 nhóm sản phẩm & đối chiếu Stitch
-- [04-frontend-audit.md](docs/project-audit/04-frontend-audit.md) — Kiểm toán 20 tiêu chí Next.js / Tailwind / TypeScript
-- [05-backend-audit.md](docs/project-audit/05-backend-audit.md) — Kiểm toán 23 NestJS modules
-- [06-database-audit.md](docs/project-audit/06-database-audit.md) — Kiểm toán PostgreSQL, Prisma & Sơ đồ ERD Mermaid
-- [07-virtual-campus-audit.md](docs/project-audit/07-virtual-campus-audit.md) — Kiểm toán 360°, 3D, GIS, Media, Open Day, Game & Admin CMS
-- [08-security-audit.md](docs/project-audit/08-security-audit.md) — Kiểm toán Xác thực, RBAC & 17 hạng mục bảo mật
-- [09-performance-audit.md](docs/project-audit/09-performance-audit.md) — Kiểm toán Hiệu năng, Mở rộng & Kiểm thử
-- [10-deployment-audit.md](docs/project-audit/10-deployment-audit.md) — Kiểm toán Hạ tầng & DevOps Hybrid
-- [11-technical-debt.md](docs/project-audit/11-technical-debt.md) — Nợ kỹ thuật phân loại theo 10 nhóm
-- [12-implementation-roadmap.md](docs/project-audit/12-implementation-roadmap.md) — Backlog `P0–P3`, Lộ trình 5 Phase & 10 Hành động kế tiếp
-- [13-mvp-readiness.md](docs/project-audit/13-mvp-readiness.md) — Trả lời 12 câu hỏi MVP Readiness (`YES/PARTIALLY/NO/UNKNOWN`)
-- [14-project-architecture.md](docs/project-audit/14-project-architecture.md) — Kiến trúc Hiện tại vs Mục tiêu (Mermaid)
+- [01-executive-summary.md](docs/_archive/project-audit/01-executive-summary.md) — Tóm tắt điều hành & Ước lượng hoàn thành
+- [02-current-project-status.md](docs/_archive/project-audit/02-current-project-status.md) — Bảng trạng thái `S0–S6` 13 mảng & từng module FE/BE
+- [03-page-by-page-audit.md](docs/_archive/project-audit/03-page-by-page-audit.md) — Kiểm toán 12 nhóm sản phẩm & đối chiếu Stitch
+- [04-frontend-audit.md](docs/_archive/project-audit/04-frontend-audit.md) — Kiểm toán 20 tiêu chí Next.js / Tailwind / TypeScript
+- [05-backend-audit.md](docs/_archive/project-audit/05-backend-audit.md) — Kiểm toán 23 NestJS modules
+- [06-database-audit.md](docs/_archive/project-audit/06-database-audit.md) — Kiểm toán PostgreSQL, Prisma & Sơ đồ ERD Mermaid
+- [07-virtual-campus-audit.md](docs/_archive/project-audit/07-virtual-campus-audit.md) — Kiểm toán 360°, 3D, GIS, Media, Open Day, Game & Admin CMS
+- [08-security-audit.md](docs/_archive/project-audit/08-security-audit.md) — Kiểm toán Xác thực, RBAC & 17 hạng mục bảo mật
+- [09-performance-audit.md](docs/_archive/project-audit/09-performance-audit.md) — Kiểm toán Hiệu năng, Mở rộng & Kiểm thử
+- [10-deployment-audit.md](docs/_archive/project-audit/10-deployment-audit.md) — Kiểm toán Hạ tầng & DevOps Hybrid
+- [11-technical-debt.md](docs/_archive/project-audit/11-technical-debt.md) — Nợ kỹ thuật phân loại theo 10 nhóm
+- [12-implementation-roadmap.md](docs/_archive/project-audit/12-implementation-roadmap.md) — Backlog `P0–P3`, Lộ trình 5 Phase & 10 Hành động kế tiếp
+- [13-mvp-readiness.md](docs/_archive/project-audit/13-mvp-readiness.md) — Trả lời 12 câu hỏi MVP Readiness (`YES/PARTIALLY/NO/UNKNOWN`)
+- [14-project-architecture.md](docs/_archive/project-audit/14-project-architecture.md) — Kiến trúc Hiện tại vs Mục tiêu (Mermaid)

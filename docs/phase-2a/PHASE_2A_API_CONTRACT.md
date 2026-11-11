@@ -48,7 +48,7 @@
 
 | HTTP Code | Ý nghĩa & Chuẩn xử lý |
 | :--- | :--- |
-| `200` / `201` / `202` | `202 Accepted` dùng cho tác vụ xử lý ảnh/PDF bất đồng bộ (`Media`, `FloorPlan`) ở Phase 2A-2+ |
+| `200` / `201` / `202` | `202 Accepted` dùng cho tác vụ xử lý ảnh/PDF bất đồng bộ (`Media`, `FloorPlan`) ở Phase 2A-3+ |
 | `400` | Sai DTO validation (`class-validator` / `zod`), sai tỷ lệ panorama 2:1, sai file magic bytes |
 | `401` | Thiếu / hết hạn Access Token hoặc sai thông tin đăng nhập (luôn trả câu thông báo chung) |
 | `403` | Thiếu Permission RBAC tương ứng hoặc `PASSWORD_CHANGE_REQUIRED` khi `mustChangePassword === true` |
@@ -231,7 +231,7 @@ Phục vụ `/locations` (lọc theo `?buildingCode=`, `?category=common|lab|stu
 - `PATCH /api/v1/admin/floors/:id` / `DELETE /api/v1/admin/floors/:id` (từ chối nếu còn `TourNode` `PUBLISHED` trừ khi force archive)
 
 ### 4.2. Pipeline Upload, Thay thế & Căn chỉnh Mặt bằng Tầng (`floorplan:write`)
-*(Trừu tượng qua `StorageAdapter` theo `OD-07`: nếu `STORAGE_DRIVER=local` ở Phase 2A-1/dev cục bộ, `uploadUrl` trỏ về endpoint `POST /api/v1/admin/storage/local-upload/:token`; nếu `STORAGE_DRIVER=s3`, trả về Presigned PUT URL của MinIO/S3/R2.)*
+*(Trừu tượng qua `StorageAdapter` theo `OD-07`: khởi tạo `STORAGE_DRIVER=local` từ Phase 2A-2 cho Public Read/dev cục bộ; khi mở luồng upload Business Modules ở Phase 2A-3, `uploadUrl` trỏ về `POST /api/v1/admin/storage/local-upload/:token` nếu dùng `local`, hoặc Presigned PUT URL của MinIO/S3/R2 nếu bật `STORAGE_DRIVER=s3`.)*
 - **`POST /api/v1/admin/floors/:floorId/floor-plans/presign`**
   - Request: `{ "filename": "tang3.pdf", "mimeType": "application/pdf", "fileSizeBytes": 4200100, "sourcePageNumber": 1, "replaceMode": "NEW_VERSION" }`
   - Response: `{ "floorPlanId": "uuid", "version": 2, "storageDriver": "s3 | local", "uploadUrl": "..." }`

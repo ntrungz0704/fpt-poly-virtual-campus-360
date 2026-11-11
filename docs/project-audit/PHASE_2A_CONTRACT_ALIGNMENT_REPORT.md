@@ -2,8 +2,8 @@
 
 **Ngày lập báo cáo:** 2026-11-12  
 **Baseline trước Alignment:** Commit `d331ae7` trên nhánh `main` ([PHASE_2A_READINESS_AND_DATA_CONTRACT_VERIFICATION.md](./PHASE_2A_READINESS_AND_DATA_CONTRACT_VERIFICATION.md))  
-**Phiên bản Spec sau Alignment:** `v2A.2`  
-**Trạng thái cổng (Gate Decision):** **`READY TO PROCEED TO PHASE 2A-1`**
+**Phiên bản Spec sau Alignment:** `v2A.2` *(Phạm vi triển khai Section 9 được chuẩn hóa trong [PHASE_2A_SCOPE_FINALIZATION_REPORT.md](./PHASE_2A_SCOPE_FINALIZATION_REPORT.md))*  
+**Trạng thái cổng (Gate Decision):** **`ACCEPTED — SCOPE FINALIZED (Awaiting Explicit Go for Phase 2A-1 Database Bootstrap)`**
 
 ---
 
@@ -26,12 +26,12 @@ Các mục tiêu đạt được trong đợt Alignment này:
 
 | File | Quy mô | Nội dung cập nhật chính |
 | --- | --- | --- |
-| [PHASE_2A_DATABASE_DESIGN.md](../phase-2a/PHASE_2A_DATABASE_DESIGN.md) | 512 dòng | ERD, GIS WGS84 `NOT NULL` + `gis_x/gis_y` `NULLABLE`, `floors.requires_floor_plan`, `locations.primary_node_id` `NULLABLE`, `tour_nodes.floor_plan_id` `NULLABLE`, 18 Prisma enums, partial unique indexes `WHERE deleted_at IS NULL`, `hotspots` `CHECK` constraint, cleanup khi soft-delete `TourNode`, bảng `open_day_*` (`OD-03`), `users.phone` unique & dedup (`OD-04`), bỏ `CHECKED_IN`/`quiz_attempts` (`OD-05`/`OD-08`), thứ tự FK seed & `OD-10`. |
-| [PHASE_2A_API_CONTRACT.md](../phase-2a/PHASE_2A_API_CONTRACT.md) | 319 dòng | Hợp đồng `GET /public/campus`, `GET /public/buildings/:slug`, `GET /public/tour/nodes` & `/:slug`, `GET /public/locations` & `/:slug`, `GET /public/events` (ẩn đáp án) + `POST /public/quiz/verify`, `POST /auth/login` (`identifier` = `username \| email \| phone`), Admin `/campus`, `/events/*` CRUD, `/tour/nodes/:nodeId/publish` (cho phép independent node `OD-10`), `DELETE /tour/nodes/:id`, `confirm-alignment`, `StorageAdapter` (`local \| s3`), ranh giới static config (`/news`, `OFFICIAL_CAMPUS_INFO`). |
-| [PHASE_2A_SYSTEM_ARCHITECTURE.md](../phase-2a/PHASE_2A_SYSTEM_ARCHITECTURE.md) | 202 dòng | Kiến trúc Leaflet WGS84, FloorPlan tùy chọn (`OD-10`), `StorageAdapter` (`LOCAL_FS` vs `S3_MINIO`), phân tầng PG-only `2A-1` vs Redis/BullMQ/MinIO `2A-2+` (`OD-07`), xác thực & import Excel qua `email`/`phone`, ranh giới CMS Open Day vs static config, quyết định `DEC-01..DEC-05`. |
+| [PHASE_2A_DATABASE_DESIGN.md](../phase-2a/PHASE_2A_DATABASE_DESIGN.md) | 519 dòng | ERD, GIS WGS84 `NOT NULL` + `gis_x/gis_y` `NULLABLE`, `floors.requires_floor_plan`, `locations.primary_node_id` `NULLABLE`, `tour_nodes.floor_plan_id` `NULLABLE`, 18 Prisma enums, partial unique indexes `WHERE deleted_at IS NULL`, `hotspots` `CHECK` constraint, cleanup khi soft-delete `TourNode`, bảng `open_day_*` (`OD-03`), `users.phone` unique & dedup (`OD-04`), bỏ `CHECKED_IN`/`quiz_attempts` (`OD-05`/`OD-08`), thứ tự FK seed, ràng buộc kiểm chứng SQL migration & `OD-10`. |
+| [PHASE_2A_API_CONTRACT.md](../phase-2a/PHASE_2A_API_CONTRACT.md) | 319 dòng | Hợp đồng `GET /public/campus`, `GET /public/buildings/:slug`, `GET /public/tour/nodes` & `/:slug`, `GET /public/locations` & `/:slug`, `GET /public/events` (ẩn đáp án) + `POST /public/quiz/verify`, `POST /auth/login` (`identifier` = `username \| email \| phone`), Admin `/campus`, `/events/*` CRUD, `/tour/nodes/:nodeId/publish` (cho phép independent node `OD-10`), `DELETE /tour/nodes/:id`, `confirm-alignment`, `StorageAdapter` (`local` từ `2A-2` / `s3` từ `2A-3`), ranh giới static config (`/news`, `OFFICIAL_CAMPUS_INFO`). |
+| [PHASE_2A_SYSTEM_ARCHITECTURE.md](../phase-2a/PHASE_2A_SYSTEM_ARCHITECTURE.md) | 204 dòng | Kiến trúc Leaflet WGS84, FloorPlan tùy chọn (`OD-10`), phân kỳ `2A-1` (Database Bootstrap PG 16) → `2A-2` (NestJS Core/Auth + `StorageAdapter LOCAL_FS` + Public Read) → `2A-3` (Business Modules + Redis/BullMQ & tùy chọn `S3_MINIO` + nối Frontend), xác thực & import Excel qua `email`/`phone`, ranh giới CMS Open Day vs static config, quyết định `DEC-01..DEC-05`. |
 | [PHASE_2A_PANORAMA_WORKFLOW.md](../phase-2a/PHASE_2A_PANORAMA_WORKFLOW.md) | 139 dòng | Quy trình xử lý panorama 2:1, quy tắc kiểm định `VAL_UNPLACED_NODE` có điều kiện (`active_floor_plan_id != null \|\| requires_floor_plan === true`) theo `OD-10`. |
-| [PHASE_2A_IMPLEMENTATION_ROADMAP.md](../phase-2a/PHASE_2A_IMPLEMENTATION_ROADMAP.md) | 124 dòng | Sơ đồ phụ thuộc `v2A.2`, chia phase `2A-1` (PG-only), `2A-2`, `2A-3`, ma trận đồng nhất liên tài liệu (Consistency Matrix) và Checklist Section 5. |
-| [PHASE_2A_CONTRACT_ALIGNMENT_REPORT.md](./PHASE_2A_CONTRACT_ALIGNMENT_REPORT.md) | Tài liệu này | Báo cáo tổng hợp kết quả đồng bộ Phase 2A và cổng sẵn sàng sang `Phase 2A-1`. |
+| [PHASE_2A_IMPLEMENTATION_ROADMAP.md](../phase-2a/PHASE_2A_IMPLEMENTATION_ROADMAP.md) | 152 dòng | Sơ đồ phụ thuộc `v2A.2`, phân chia phạm vi-đầu ra-tiêu chí nghiệm thu riêng biệt cho `2A-1` (Database Bootstrap), `2A-2` (Core Backend & Auth), `2A-3` (Business Modules & Web Integration), ma trận Consistency Matrix và Checklist Section 5. |
+| [PHASE_2A_CONTRACT_ALIGNMENT_REPORT.md](./PHASE_2A_CONTRACT_ALIGNMENT_REPORT.md) | Tài liệu này | Báo cáo tổng hợp kết quả đồng bộ Phase 2A và phân định phạm vi `2A-1 → 2A-3`. |
 
 ### 2.2. Package hợp đồng dùng chung (`packages/shared/*`)
 
@@ -68,7 +68,7 @@ Các mục tiêu đạt được trong đợt Alignment này:
 | **OD-04** | Chênh lệch đăng nhập & deduplication Excel | `POST /auth/login` nhận `identifier` (`username \| email \| normalized phone` E.164/VN); `users.phone` có partial unique; import Excel match ưu tiên `email` rồi normalized `phone` (không match theo `fullName`), báo `IDENTITY_CONFLICT` khi khớp tách biệt 2 user. | `PHASE_2A_DATABASE_DESIGN.md`, `PHASE_2A_API_CONTRACT.md`, `PHASE_2A_SYSTEM_ARCHITECTURE.md`, `packages/shared/src/auth.ts`, `api.ts` | `LoginRequest.identifier` và `ApiErrorCode` (`"IDENTITY_CONFLICT"`) đã có mặt trong `@fpt-campus/shared`. |
 | **OD-05** | Nghiệp vụ Check-in QR & vé sự kiện (Option A) | Không triển khai Check-in QR, `ticketCode`, `checkedInAt`, hay trạng thái `CHECKED_IN` trong MVP. | `PHASE_2A_DATABASE_DESIGN.md`, `PHASE_2A_API_CONTRACT.md`, `packages/shared/src/events.ts` | `ParticipationStatus` chỉ còn `"INVITED" \| "CONFIRMED" \| "CANCELLED"`; `rg` xác nhận 0 kết quả cho `checkedIn`/`ticketCode`/`checkIn` trong `packages/shared/src` và `shared-contracts.ts` (mock UI preview cũ ở `/admin/*` & `/portal` chưa đụng tới giữ nguyên tới bước nối API). |
 | **OD-06** | 5 điểm toàn vẹn Schema cần khóa chặt | (1) Partial unique `WHERE deleted_at IS NULL` cho mọi unique key có soft-delete; (2) Đủ 18 Prisma enums; (3) `hotspots` `CHECK` ràng buộc `SCENE_LINK <-> edge_id`; (4) Transaction hard-cleanup `tour_edges`/`hotspots` khi soft-delete `TourNode`; (5) `confirm-alignment` cập nhật tường minh `tour_nodes.floor_plan_id = floorPlanId`. | `PHASE_2A_DATABASE_DESIGN.md`, `PHASE_2A_API_CONTRACT.md` | Khớp 100% giữa ERD, bảng chi tiết Section 3, ràng buộc Section 4 và API Contract. |
-| **OD-07** | Hạ tầng `2A-1` vs Storage driver | Phase `2A-1` chỉ chạy **PostgreSQL 16** (`docker compose up -d postgres`); `StorageAdapter` (`STORAGE_DRIVER=local \| s3`) trừu tượng hóa lưu trữ file; Redis/BullMQ & MinIO chuyển sang `2A-2+`. | `PHASE_2A_SYSTEM_ARCHITECTURE.md`, `PHASE_2A_API_CONTRACT.md`, `PHASE_2A_IMPLEMENTATION_ROADMAP.md`, `common.ts`, `campus.ts`, `tour.ts` | `StorageDriver = "local" \| "s3"` nằm trong `FloorPlanPresignResponse` & `MediaPresignResponse`. |
+| **OD-07** | Hạ tầng `2A-1..2A-3` vs Storage driver | Phase `2A-1` chỉ chạy **PostgreSQL 16** (`Database Bootstrap`); Phase `2A-2` khởi tạo NestJS + **`StorageAdapter` (`STORAGE_DRIVER=local`)** + Auth + Public Read; Phase `2A-3` mở Business Modules + Redis/BullMQ & tùy chọn `STORAGE_DRIVER=s3` (MinIO). | `PHASE_2A_SYSTEM_ARCHITECTURE.md`, `PHASE_2A_API_CONTRACT.md`, `PHASE_2A_IMPLEMENTATION_ROADMAP.md`, `common.ts`, `campus.ts`, `tour.ts` | `StorageDriver = "local" \| "s3"` nằm trong `FloorPlanPresignResponse` & `MediaPresignResponse`. |
 | **OD-08** | Quiz định hướng chưa tách khỏi XP / tài khoản | Orientation Quiz public không cần đăng nhập, không lưu `quiz_attempts`, bỏ `xpPoints` / `xpReward` / `QuizAttemptResult`; `GET /public/events` không trả `correctIndex`/`explanation`; thêm `POST /public/quiz/verify` stateless. | `PHASE_2A_DATABASE_DESIGN.md`, `PHASE_2A_API_CONTRACT.md`, `packages/shared/src/events.ts`, `shared-contracts.ts` | `PublicQuizQuestionDto` ẩn đáp án; `verifyFallbackQuizStateless` chấm điểm stateless khớp `QuizVerifyResponse`. |
 | **OD-09** | `packages/shared` chưa đóng gói và chưa gắn `apps/web` | Viết lại `@fpt-campus/shared` theo module, compile `./dist`, cập nhật `exports` trong `package.json`, gắn `"@fpt-campus/shared": "workspace:*"` vào `apps/web`. | `packages/shared/*`, `apps/web/package.json`, `campus-data.ts`, `shared-contracts.ts`, `pnpm-lock.yaml` | `pnpm --filter @fpt-campus/shared build`, `pnpm typecheck`, `pnpm lint`, `pnpm build` đều PASS (exit 0). |
 | **OD-10** | Xung đột giữa independent `TourNode` và rule `FloorPlan` | Cho phép `TourNode` độc lập (`floor_plan_id = NULL`) được `PUBLISH` khi panorama 2:1 `READY`, preview đã duyệt và `TourGraph` hợp lệ; `VAL_UNPLACED_NODE` chỉ kích hoạt khi `Floor.active_floor_plan_id != null` hoặc `Floor.requires_floor_plan === true`. | `PHASE_2A_DATABASE_DESIGN.md`, `PHASE_2A_API_CONTRACT.md`, `PHASE_2A_SYSTEM_ARCHITECTURE.md`, `PHASE_2A_PANORAMA_WORKFLOW.md`, `PHASE_2A_IMPLEMENTATION_ROADMAP.md`, `tour.ts` | `TourNodeSummaryDto.floorPlanId` có kiểu `UUID \| null`; không còn ép tạo `FloorPlan` giả khi seed. |
@@ -123,10 +123,10 @@ Các mục tiêu đạt được trong đợt Alignment này:
 ## 6. Shared Contracts (`@fpt-campus/shared`) & Frontend Integration
 
 1. **Cấu trúc module sạch (`packages/shared/src/*`):** Thay thế file đơn cũ bằng 7 module domain (`common.ts`, `api.ts`, `campus.ts`, `location.ts`, `tour.ts`, `auth.ts`, `events.ts`) và `index.ts`.
-2. **Đóng gói build (`packages/shared/package.json`):** Xuất `./dist/index.js` và `./dist/index.d.ts` kèm sourcemaps/declarations cho cả ESM `import` và CJS `require`, tương thích đồng thời với Next.js 16 Turbopack (`apps/web`) và NestJS (`apps/api` ở Phase 2A-1).
+2. **Đóng gói build (`packages/shared/package.json`):** Xuất `./dist/index.js` và `./dist/index.d.ts` kèm sourcemaps/declarations cho cả ESM `import` và CJS `require`, tương thích đồng thời với Next.js 16 Turbopack (`apps/web`) và NestJS (`apps/api` ở Phase 2A-2).
 3. **Runtime & Math Helpers:** Xuất khẩu và sử dụng chung `DEFAULT_QTSC_CAMPUS_CODE`, `DEFAULT_ENTRY_NODE_SLUG`, `isApiSuccessEnvelope`, `isApiErrorEnvelope`, `haversineDistanceMeters`, `computeRouteDistanceMeters`, `formatDistanceEstimate` — loại bỏ hàm tính khoảng cách trùng lặp trong `campus-data.ts`.
 4. **Dọn dẹp ký hiệu cũ:** Rà soát bằng `rg` xác nhận `rg exit code: 1` (0 kết quả) cho `CampusCode`, `PanoramaScene`, `LocationRoom`, `UserRole`, `xpPoints`, `xpReward`, `QuizAttemptResult`, `EventRegistrationRequest`, `checkedIn`, `ticketCode`, `checkIn` trong toàn bộ `packages/shared/src` và [`apps/web/src/lib/shared-contracts.ts`](../../apps/web/src/lib/shared-contracts.ts); trong `apps/web/src`, chỉ còn `checkedIn`/`ticketCode` tại UI preview chưa chỉnh sửa (`admin/events`, `admin/users`, `AdminDashboardMetrics`, `/portal` và bản ghi `AdminUserMockRecord` trong `campus-data.ts`).
-5. **Tích hợp kiểu chặt vào `apps/web`:** File [apps/web/src/lib/shared-contracts.ts](../../apps/web/src/lib/shared-contracts.ts) chuẩn hóa mapper chuyển đổi toàn bộ QTSC fallback data sang DTO của `@fpt-campus/shared`, sẵn sàng cho lớp chuyển nguồn `DATA_SOURCE=api` ở Phase 2A-1 mà không làm thay đổi hành vi UI hiện tại.
+5. **Tích hợp kiểu chặt vào `apps/web`:** File [apps/web/src/lib/shared-contracts.ts](../../apps/web/src/lib/shared-contracts.ts) chuẩn hóa mapper chuyển đổi toàn bộ QTSC fallback data sang DTO của `@fpt-campus/shared`, sẵn sàng cho lớp chuyển nguồn `DATA_SOURCE=api` theo từng module ở Phase 2A-3 mà không làm thay đổi hành vi UI hiện tại.
 
 ---
 
@@ -160,27 +160,32 @@ Các mục tiêu đạt được trong đợt Alignment này:
 
 Các hạng mục sau được giữ nguyên trạng thái trì hoãn có chủ đích theo ranh giới MVP và lộ trình:
 
-1. **Chuyển `apps/web` sang đọc API thật (`DATA_SOURCE=api`):** Các page/component giao diện công khai hiện vẫn dùng dữ liệu từ `campus-data.ts`; mapper [shared-contracts.ts](../../apps/web/src/lib/shared-contracts.ts) đã khóa hợp đồng DTO để bước kết nối API tại `Phase 2A-1` & `2A-2` thay thế nguồn dữ liệu sạch sẽ.
-2. **Hạ tầng Async & Object Storage (`Phase 2A-2+`):** Redis, BullMQ worker, pipeline cắt/nén panorama đa tầng, PDF FloorPlan rasterizer, và MinIO/S3 (`STORAGE_DRIVER=s3`) chưa cần khởi động ở `2A-1`.
-3. **Excel Batch Import & Invitation Delivery (`Phase 2A-3`):** DTO preview/confirm đã có trong `packages/shared/src/auth.ts`; triển khai endpoint & worker gửi Email/SMS được xếp lịch sau `Core Read & Auth`.
+1. **Chuyển `apps/web` sang đọc API thật (`DATA_SOURCE=api`):** Các page/component giao diện công khai hiện vẫn dùng dữ liệu từ `campus-data.ts`; mapper [shared-contracts.ts](../../apps/web/src/lib/shared-contracts.ts) đã khóa hợp đồng DTO để bước kết nối API theo từng module tại `Phase 2A-3` thay thế nguồn dữ liệu sạch sẽ.
+2. **Hạ tầng Async & Object Storage (`Phase 2A-3+`):** Redis, BullMQ worker, pipeline cắt/nén panorama đa tầng, PDF FloorPlan rasterizer, và MinIO/S3 (`STORAGE_DRIVER=s3`) không chạy ở `2A-1` (Database Bootstrap) hay `2A-2` (`StorageAdapter` `local` + Core Public/Auth).
+3. **Excel Batch Import & Invitation Delivery (`Phase 2A-3`):** DTO preview/confirm đã có trong `packages/shared/src/auth.ts`; triển khai endpoint & worker gửi Email/SMS được xếp lịch trong Business Modules (`Phase 2A-3`).
 4. **Static Content Boundary (`OD-03` Option B):** Chuyên mục `/news` (`CAMPUS_GUIDE_ARTICLES`) và hằng số thể chế `OFFICIAL_CAMPUS_INFO` tiếp tục nằm ở static config phía web trong MVP.
 5. **Post-MVP Scope:** Student/Parent Portal (`/portal`), 3D WebGL, hệ thống Check-in QR/vé (`OD-05`), và Quiz XP/Bảng xếp hạng (`OD-08`) nằm ngoài phạm vi MVP.
 
 ---
 
-## 9. Exact Scope & Readiness Gate for `Phase 2A-1`
+## 9. Exact Scope & Readiness Gate (`Phase 2A-1` → `Phase 2A-3`, Finalized)
 
-**Điều kiện mở cổng `Phase 2A-1` đã thỏa mãn 100%:** Toàn bộ Contract (`OD-01..OD-10`), Shared Package (`@fpt-campus/shared`), và Frontend Type Alignment đã chốt và build xanh.
+**Điều kiện tiên quyết đã chốt 100%:** Toàn bộ Contract (`OD-01..OD-10`), Shared Package (`@fpt-campus/shared`), và Frontend Type Alignment đã khóa; lộ trình triển khai phân tách nghiêm ngặt thành 3 phase tuần tự để kiểm soát rủi ro (**Database -> Core Backend -> Business Modules**):
 
-### Trong phạm vi `Phase 2A-1` (Database + Core Backend Bootstrap):
-- Khởi chạy duy nhất dịch vụ **PostgreSQL 16** (`docker compose up -d postgres`).
-- Khởi tạo workspace `apps/api/` (NestJS + Prisma ORM) dùng trực tiếp `@fpt-campus/shared`.
-- Tạo `prisma/schema.prisma`, migration đầu tiên (bao gồm toàn bộ partial unique indexes `WHERE deleted_at IS NULL`, 18 enums, và `hotspots` `CHECK` constraint).
-- Viết Seed dữ liệu QTSC Quận 12 chuẩn FK-order (`loc-the-thao.primary_node_id = NULL`, không tạo `FloorPlan` giả nhờ `OD-10`, tạo tài khoản Admin bootstrap đổi mật khẩu lần đầu).
-- Triển khai `StorageAdapter` ở chế độ `STORAGE_DRIVER=local`.
-- Triển khai `POST /auth/login` (`username | email | phone`), `POST /auth/change-password`, `GET /auth/me` và các Public Read APIs (`/public/campus`, `/public/buildings/:slug`, `/public/locations`, `/public/locations/:slug`, `/public/tour/nodes`, `/public/tour/nodes/:slug`, `/public/events`, `POST /public/quiz/verify`).
+### 9.1. `Phase 2A-1` — Database Bootstrap *(Chỉ DB, chưa Backend/Auth/API)*
+- **Phạm vi:**
+  - PostgreSQL 16 chạy local bằng Docker Compose (`postgres:16-alpine`).
+  - Hoàn thiện environment configuration (`.env.example` / `.env` cục bộ không commit).
+  - Khởi tạo Prisma và `prisma/schema.prisma`.
+  - Tạo SQL migrations với đầy đủ **18 Prisma enums**, indexes, **partial unique indexes (`WHERE deleted_at IS NULL`) hiện diện thực sự trong file SQL migration**, và **`hotspots` `CHECK` constraint (`SCENE_LINK <-> edge_id`) trong file SQL migration**.
+  - Seed dữ liệu QTSC theo đúng FK order (Admin dùng `ADMIN_BOOTSTRAP_PASSWORD` từ environment băm **Argon2id**, cấm hardcode mật khẩu; `loc-the-thao.primary_node_id = NULL`; `tour_nodes.floor_plan_id = NULL`; không lưu ảnh panorama lớn trực tiếp vào PostgreSQL).
+  - Kiểm tra migration, seed idempotent, reset/re-initialize (`prisma migrate reset`) và database integrity (kèm test vi phạm `hotspots CHECK` constraint).
+- **Ngoài phạm vi `Phase 2A-1`:** Không khởi tạo `apps/api/`, không viết code NestJS, Auth/RBAC, `StorageAdapter` hay API handlers; chưa chạy Redis/BullMQ/MinIO.
 
-### Ngoài phạm vi `Phase 2A-1`:
-- Redis / BullMQ workers, MinIO (`STORAGE_DRIVER=s3`), Upload & xử lý Panorama / PDF FloorPlan bất đồng bộ (`2A-2`).
-- Nhập danh sách sinh viên/phụ huynh từ Excel & gửi link kích hoạt Email/SMS (`2A-3`).
-- Bất kỳ thay đổi giao diện ngoài việc nối `DATA_SOURCE=api` hoặc các module Post-MVP (`/portal`, 3D WebGL, QR Check-in, Quiz XP).
+### 9.2. `Phase 2A-2` — Core Backend & Authentication
+- **Phạm vi:** Khởi tạo NestJS Modular Monolith (`apps/api/`), tích hợp Prisma và `@fpt-campus/shared`, triển khai Auth (chuẩn hóa `users.phone` trước khi kiểm tra uniqueness & login; `username | email | phone`; Argon2id; JWT RAM + Refresh Token cookie quay vòng; không `/register`), RBAC + `audit_logs`, `StorageAdapter` local (`STORAGE_DRIVER=local`), và toàn bộ Public Read APIs (`/public/campus`, `/buildings/:slug`, `/buildings/:slug/floors`, `/locations`, `/locations/:slug`, `/tour/nodes`, `/tour/nodes/:slug`, `/events`, `POST /public/quiz/verify` stateless).
+
+### 9.3. `Phase 2A-3` — Business Modules & Frontend API Integration
+- **Phạm vi:** CRUD Campus/Building/Floor/Location; Floor Plan (upload/versioning/snapshot/Ghost Overlay, `confirm-alignment` cập nhật đúng `tour_nodes.floor_plan_id`), Panorama (Worker BullMQ/Redis & tùy chọn MinIO/S3, không lưu ảnh nhị phân vào DB), `TourNode` (xóa mềm xử lý `tour_edges` & `hotspots` trong cùng transaction, Validator 7 luật theo `OD-10`), `TourEdge`, `Hotspot`; Open Day CMS (`/admin/events/*`), 5-step Excel/CSV import (chuẩn hóa `phone`, `email -> phone` dedup, cấm lưu file/tên gốc) & Admin workflows; và kết nối `apps/web` (`DATA_SOURCE=api`) với API thật theo từng module.
+
+*(Chi tiết đối chiếu phạm vi, đầu ra và tiêu chí nghiệm thu từng phase xem tại [PHASE_2A_SCOPE_FINALIZATION_REPORT.md](./PHASE_2A_SCOPE_FINALIZATION_REPORT.md) và [PHASE_2A_IMPLEMENTATION_ROADMAP.md](../phase-2a/PHASE_2A_IMPLEMENTATION_ROADMAP.md).)*

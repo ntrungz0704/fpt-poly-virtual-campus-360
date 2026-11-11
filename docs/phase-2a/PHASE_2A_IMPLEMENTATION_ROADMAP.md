@@ -10,10 +10,10 @@
 
 ```mermaid
 flowchart LR
-    G0["Cổng Hợp đồng 2A.2\ndocs/phase-2a + @fpt-campus/shared\n(Đã đồng bộ OD-01..OD-10)"] --> P2A1["Phase 2A-1\nPostgreSQL 16 (Docker), Prisma DB,\nBootstrap Seed, Auth/RBAC & Core Read APIs"]
-    P2A1 --> P2A2["Phase 2A-2\nRedis 7 + BullMQ + StorageAdapter\n(MinIO/S3 hoặc LOCAL_FS) & Media/FloorPlan"]
-    P2A1 & P2A2 --> P2A3["Phase 2A-3\nAdmin CRUD (Campus/Locations/Events),\nTourGraph Engine & Pre-Publish Validator"]
-    P2A3 --> P2B["Phase 2B\nTích hợp Frontend Web\n+ FloorPlan UI + Admin Studio 3 Vùng"]
+    G0["Cổng Hợp đồng 2A.2\ndocs/phase-2a + @fpt-campus/shared\n(Đã đồng bộ OD-01..OD-10)"] --> P2A1["Phase 2A-1 — Database Bootstrap\nPostgreSQL 16 (Docker), Env Config,\nPrisma schema, Migrations & Seed QTSC"]
+    P2A1 --> P2A2["Phase 2A-2 — Core Backend & Auth\nNestJS Modular Monolith, Prisma + Shared,\nAuth/RBAC, StorageAdapter (local) & Public Read"]
+    P2A2 --> P2A3["Phase 2A-3 — Business Modules\nAdmin CRUD (Campus/Locations/Events),\nFloorPlan, Panorama/TourGraph & Nối Frontend"]
+    P2A3 --> P2B["Phase 2B — Nâng cấp Studio UI\nFloorPlan Interactive Drawer\n& Admin Studio 3 Vùng"]
     P2B --> P2C["Phase 2C\nNạp dữ liệu thật QTSC\n(Tòa nhà, Tầng, Mặt bằng, Ảnh chụp 360°)"]
     P2C --> P2D["Phase 2D\nKiểm thử tải, Bảo mật\n& Xuất bản Production"]
     P2D -. "Tùy chọn sau MVP" .-> P2E["Phase 3+ (Mở rộng)\nStudent Portal / Check-in QR / XP / 3D"]
@@ -27,45 +27,72 @@ flowchart LR
 *Không mở rộng sang 3D WebGL, Student/Parent Portal (`/portal`), Check-in QR (`OD-05`), hay XP/Leaderboard (`OD-08`) trong MVP; phần tài khoản hỗ trợ đầy đủ 3 nhóm người dùng (`ADMIN`/`STAFF`, `STUDENT`/`PARENT` Open Day — đăng nhập bằng `username | email | phone` theo `OD-04`, và Khách tham quan tự do không cần tài khoản).*
 
 > [!IMPORTANT]
-> **Nguyên tắc triển khai tuần tự theo `OD-07` & `OD-10`:**  
-> - **Phase 2A-1 chỉ dựng PostgreSQL 16** (không ép Redis/MinIO ngay ở bước kiểm chứng Schema/Seed/Auth/Core Read).  
-> - **`TourNode` độc lập có ảnh panorama 2:1 hợp lệ được `PUBLISH` ở Phase 2A-1/2A-3 ngay cả khi chưa có `FloorPlan`** (`floor_plan_id = NULL`, không tạo mặt bằng giả — `OD-10`).  
-> - Luồng đầy đủ Floor Plan → Ghost Overlay → Validator → Publish được mở khóa sạch ở Phase 2A-2/2A-3.
+> **Nguyên tắc phân kỳ triển khai chuẩn (Kiểm soát rủi ro Data -> Core -> Business, `OD-07` & `OD-10`):**  
+> - **Phase 2A-1 chỉ dựng Database Bootstrap (PostgreSQL 16 + Prisma + Migrations + Seed):** Chưa khởi tạo `apps/api/`, chưa triển khai NestJS, Auth hay API handlers để tách bạch và xác minh toàn vẹn data model trước.  
+> - **`TourNode` độc lập có ảnh panorama 2:1 hợp lệ được `PUBLISH` ở Phase 2A-2/2A-3 ngay cả khi chưa có `FloorPlan`** (`floor_plan_id = NULL`, không tạo mặt bằng giả — `OD-10`).  
+> - **Không lưu ảnh panorama lớn trực tiếp vào PostgreSQL:** DB chỉ lưu object key / đường dẫn tham chiếu trong `media_assets` ở mọi phase.
 
-1. **Bước 2A-1: Khung Backend, PostgreSQL 16, Prisma, Bootstrap Seed, Auth/RBAC & Core Public Read (`3–4 ngày`)**
-   - Rà soát `docker-compose.yml` & `.env.example`: Phase 2A-1 chỉ chạy container **`postgres:16-alpine`** (DB `virtual_campus_360`, healthcheck dùng `${POSTGRES_USER}` & `${POSTGRES_DB}`), dùng `RATE_LIMIT_STORE=memory` & `STORAGE_DRIVER=local` ánh xạ 8 ảnh QTSC có sẵn.
-   - Khởi tạo `apps/api` (NestJS Modular Monolith + Prisma Client + import trực tiếp `@fpt-campus/shared`), mọi endpoint dùng prefix `/api/v1`.
-   - Áp dụng schema `prisma/schema.prisma` + custom SQL constraints theo đúng `PHASE_2A_DATABASE_DESIGN.md` v2A.2 (đủ **partial unique indexes `WHERE deleted_at IS NULL`** trên `campuses`, `buildings`, `floors`, `locations`, `tour_nodes`, `users(username/email/phone)`, `open_day_events`; đủ enum `BuildingCategory`, `MapBuildingIconKey`, `SessionPeriod`, `ParticipationStatus`, `PublishStatus`; đủ `hotspots CHECK` constraint).
-   - Chạy idempotent `prisma/seed.ts`: tạo **01 tài khoản gốc duy nhất (`admin` · `userType = ADMIN` · `SUPER_ADMIN`)** từ `ADMIN_BOOTSTRAP_PASSWORD` (bắt buộc tồn tại, cấm fallback, cấm `Fpoly@2026`), đặt `must_change_password = true`; seed dữ liệu QTSC thực tế (`5` tòa nhà WGS84 Leaflet + `routeWaypoints`, `6` địa điểm với `loc-the-thao.primary_node_id = NULL` theo `OD-02`, `5` `TourNode` với `floor_plan_id = NULL` theo `OD-10`, `open_day_events`, `open_day_sessions`, `open_day_faqs`, `open_day_quiz_items`).
-   - Triển khai `AuthModule` (`/api/v1/auth/login` hỗ trợ `username | email | phone`, `/refresh` HttpOnly rotation + reuse revocation, `/logout`, `/me`, `/me/password`, `/activate/validate`, `/activate/complete` — cấm `/register`), `UsersRbacModule`, `AuditLogModule`, và Public Read endpoints cốt lõi (`/api/v1/public/campus`, `/buildings/:slug`, `/locations`, `/locations/:slug`, `/tour/nodes`, `/tour/nodes/:slug`, `/events`, `POST /api/v1/public/quiz/verify` stateless) + Adapter `DATA_SOURCE=api|mock` trên `apps/web`.
-   - **Tiêu chí nghiệm thu:** Khớp 100% Section 12 của [`PHASE_2A_READINESS_AND_DATA_CONTRACT_VERIFICATION.md`](../project-audit/PHASE_2A_READINESS_AND_DATA_CONTRACT_VERIFICATION.md).
+1. **Phase 2A-1 — Database Bootstrap (`2–3 ngày`)**
+   - **Phạm vi:**
+     - Chạy local **PostgreSQL 16** bằng Docker Compose (`postgres:16-alpine`, database `virtual_campus_360`, healthcheck dùng `${POSTGRES_USER}` & `${POSTGRES_DB}`).
+     - Hoàn thiện environment configuration (`.env.example` và `.env` cục bộ không commit: `DATABASE_URL`, `POSTGRES_*`, `ADMIN_BOOTSTRAP_PASSWORD`, `STORAGE_DRIVER=local`, `WEB_ORIGIN`, `DATA_SOURCE`).
+     - Khởi tạo Prisma và `prisma/schema.prisma` khớp 100% `PHASE_2A_DATABASE_DESIGN.md` v2A.2.
+     - Tạo SQL migrations với đầy đủ **18 Prisma enums**, indexes, **partial unique indexes (`WHERE deleted_at IS NULL`) hiện diện thực sự trong file SQL migration** (trên `campuses`, `buildings`, `floors`, `locations`, `tour_nodes`, `users(username/email/phone)`, `open_day_events`), và **`hotspots` `CHECK` constraint (`SCENE_LINK <-> edge_id`) trong file SQL migration**.
+     - Viết `prisma/seed.ts` idempotent theo đúng thứ tự khóa ngoại (tạo **01 tài khoản gốc duy nhất `admin`** đọc `ADMIN_BOOTSTRAP_PASSWORD` từ environment và băm bằng **Argon2id**, tuyệt đối không hardcode mật khẩu; seed QTSC gồm `5` tòa nhà Leaflet WGS84 + `routeWaypoints`, `6` địa điểm với `loc-the-thao.primary_node_id = NULL` theo `OD-02`, `5` `TourNode` với `floor_plan_id = NULL` theo `OD-10`, `8` metadata ảnh cục bộ trong `media_assets`, và dữ liệu `open_day_*`).
+     - Kiểm tra migration, seed, reset/re-initialize (`prisma migrate reset`) và database integrity (bao gồm test vi phạm `hotspots CHECK` constraint).
+     - **Chưa khởi tạo `apps/api/`, chưa triển khai NestJS, Auth, `StorageAdapter` hoặc API handlers.**
+   - **Đầu ra:** `docker-compose.yml` chuẩn `postgres:16`, `.env.example`, `prisma/schema.prisma`, `prisma/migrations/*` (có custom SQL cho partial unique & CHECK), `prisma/seed.ts`, nhật ký kiểm chứng DB reset/seed/constraint.
+   - **Tiêu chí nghiệm thu (Phase 2A-1):**
+     1. Container `postgres:16` đạt `healthy` khi dùng biến môi trường trong `.env`.
+     2. `prisma migrate deploy` và chu kỳ `prisma migrate reset --force` (reset & tái khởi tạo DB sạch) chạy thành công.
+     3. Truy vấn `pg_indexes` / `pg_constraint` và đối chiếu file `.sql` trong `prisma/migrations/` xác nhận **partial unique indexes (`WHERE deleted_at IS NULL`)** và **`hotspots` `CHECK` constraint** thực sự tồn tại trong SQL migration, kèm test cố tình chèn bản ghi vi phạm `hotspots` `CHECK` bị PostgreSQL từ chối.
+     4. `prisma/seed.ts` chạy lặp lại (idempotent) không lỗi/nhân bản; thiếu `ADMIN_BOOTSTRAP_PASSWORD` bị từ chối; tài khoản `admin` duy nhất có `password_hash` chuẩn `$argon2id$` và `must_change_password = true`; `media_assets` chỉ chứa key/path (không lưu ảnh nhị phân lớn trong PostgreSQL).
+     5. Xác nhận **chưa có `apps/api/`**, chưa có NestJS/Auth/API handler, và `apps/web` vẫn build/typecheck/lint `exit 0`.
 
-2. **Bước 2A-2: Redis + BullMQ, `StorageAdapter` (MinIO/S3 hoặc `LOCAL_FS`), Media & Floor Plan Pipeline (`4–5 ngày`)**
-   - Bổ sung `redis:7-alpine` (+ `minio/minio` khi dùng `STORAGE_DRIVER=s3`) vào stack Docker / worker; nâng `RATE_LIMIT_STORE=redis`.
-   - Triển khai `MediaPipelineModule` & BullMQ Worker qua `StorageAdapter`:
-     - Chặn file thô chưa ghép (`.insv`/`.insp`/dual-fisheye) hoặc ảnh cylinder (`5.77:1`) ngay ở `/api/v1/admin/media/presign`; chỉ nhận `JPG/PNG/WebP` `2:1` (`≤ 50MB`, `≥ 2048×1024`).
-     - Giữ bản gốc, tự động xuất 3 biến thể WebP (`4096×2048`, `2048×1024`, `512×256`), hỗ trợ trạng thái `isPreviewApproved` sau khi Admin xem 360°.
-   - Triển khai `FloorPlanModule`:
-     - Nhận `PNG`, `JPG`, `SVG` (sanitize XSS), `PDF` (chọn trang render `WebP` 300 DPI ≤ 3200px).
-     - Lưu phiên bản (`version`), tạo `floor_plan_alignment_snapshots`, bật `needsRealignment = true`, cung cấp `/alignment-overlay` & `/confirm-alignment` (bắt buộc cập nhật `tour_nodes.floor_plan_id = floorPlanId`, bật `floors.requires_floor_plan = true` và `active_floor_plan_id`).
-   - **Tiêu chí nghiệm thu:** Upload thử cả 4 định dạng mặt bằng (SVG chứa `<script>` bị tước sạch, PDF nhiều trang render đúng trang chọn) + upload thử ảnh `5.77:1` bị chặn và ảnh `2:1` xuất đủ 3 biến thể WebP.
+2. **Phase 2A-2 — Core Backend & Authentication (`3–4 ngày`)**
+   - **Phạm vi:**
+     - Khởi tạo **NestJS Modular Monolith (`apps/api/`, prefix `/api/v1`)**.
+     - Tích hợp Prisma Client và dùng chung types/DTO từ `@fpt-campus/shared`.
+     - Triển khai **`AuthModule`**, **`UsersRbacModule`**, **`AuditLogModule`**:
+       - `POST /api/v1/auth/login` hỗ trợ `username | email | normalized phone` (**chuẩn hóa `users.phone` theo `E.164/VN` trước khi kiểm tra uniqueness và đăng nhập**), verify **Argon2id**.
+       - Session/token lifecycle: Access JWT ngắn hạn (chỉ giữ RAM ở client), Refresh Token 64-byte quay vòng trong cookie `HttpOnly` (thu hồi toàn bộ `family_id` khi reuse attack), ép `403 PASSWORD_CHANGE_REQUIRED` khi `mustChangePassword === true`, hỗ trợ `/refresh`, `/logout`, `/me`, `/me/password`, `/activate/validate`, `/activate/complete` (**cấm `/register`**).
+       - RBAC Guards & ghi `audit_logs` cho mọi thao tác xác thực/quản trị.
+     - Triển khai **`StorageAdapter` local (`STORAGE_DRIVER=local`)** ánh xạ bộ ảnh QTSC cục bộ đã seed và `RATE_LIMIT_STORE=memory`.
+     - Triển khai toàn bộ **Public Read APIs** theo contract đã khóa: `/api/v1/public/campus`, `/buildings/:slug`, `/buildings/:slug/floors`, `/locations`, `/locations/:slug`, `/tour/nodes`, `/tour/nodes/:slug`, `/events` (ẩn đáp án quiz), và `POST /api/v1/public/quiz/verify` (stateless).
+   - **Đầu ra:** Ứng dụng `apps/api/` chạy ổn định với `PostgreSQL 16`, Auth/RBAC, `StorageAdapter` local và toàn bộ Public Read endpoints.
+   - **Tiêu chí nghiệm thu (Phase 2A-2):**
+     1. `apps/api` build/typecheck sạch, nhập trực tiếp `@fpt-campus/shared`, kết nối PostgreSQL qua Prisma.
+     2. Auth hoạt động chuẩn bảo mật: login qua `username`/`email`/`phone` (đã chuẩn hóa `phone`), bắt buộc đổi bootstrap password lần đầu, refresh rotation + reuse detection, không có `/auth/register`.
+     3. Toàn bộ Public Read APIs trả đúng dữ liệu QTSC `PUBLISHED & deleted_at IS NULL` từ PostgreSQL (`loc-the-thao.primaryNodeSlug = null`, `quizItems` không lộ `correctIndex`/`explanation`, `0` rò rỉ `password_hash`/`token_hash`/`DRAFT`).
+     4. `StorageAdapter` local phục vụ đúng đường dẫn media hạt giống mà chưa cần MinIO/Redis.
 
-3. **Bước 2A-3: Full Admin CRUD (Campus/Locations/Events), Tour Engine & Validator API (`4–5 ngày`)**
-   - Hoàn thiện toàn bộ endpoints `Admin CRUD`: `/api/v1/admin/campus`, `/buildings`, `/floors`, `/locations`, `/tour/nodes` (soft-delete kèm xóa transactional `tour_edges`/`hotspots`), `/hotspots` (`createReverseEdge`), `/events` & `sessions`/`faqs`/`quiz-items` (`OD-03`), `/users/import` 5 bước (`email -> phone` dedup, cấm lưu file/tên gốc), `/tour/validate`, và `/publish` (`NODE` / `FLOOR` / `BUILDING` scope).
-   - Triển khai **Pre-Publish Graph Validator** kiểm tra đủ 7 luật (gồm `VAL_UNPLACED_NODE` theo `OD-10`: chỉ chặn khi `floor.activeFloorPlanId != null` hoặc `requiresFloorPlan === true`, và ngoại lệ `isTerminalApproved` / `isOneWayApproved` có lý do).
-   - **Tiêu chí nghiệm thu:** E2E Vertical Slice thông suốt cho cả trường hợp `TourNode` không có `FloorPlan` (`OD-10`) lẫn trường hợp tầng đã gắn `FloorPlan` và thay thế bằng Ghost Overlay.
+3. **Phase 2A-3 — Business Modules (`5–6 ngày`)**
+   - **Phạm vi:**
+     - **CRUD Campus, Building, Floor, Location:** `/api/v1/admin/campus`, `/buildings`, `/floors`, `/locations` (hỗ trợ đầy đủ Leaflet WGS84 + metadata `OD-01`, `primaryNodeId NULLABLE` theo `OD-02`).
+     - **Floor Plan, Panorama, TourNode, TourEdge, Hotspot & Media Pipeline:**
+       - Tích hợp hàng đợi **Redis 7 + BullMQ** và mở rộng **`StorageAdapter`** sang tùy chọn **`S3/MinIO` (`STORAGE_DRIVER=s3`)** khi xử lý upload thực tế.
+       - `MediaPipelineModule`: chặn ảnh chưa ghép/cylinder `5.77:1`, kiểm magic bytes, xuất 3 biến thể WebP (`4K/2K/Thumb 512`), duyệt preview 360°.
+       - `FloorPlanModule`: hỗ trợ `PNG/JPG/SVG/PDF` (SVG sanitizer chống XSS, PDF 300 DPI sandbox), lưu version & snapshot, Ghost Overlay, và **`confirm-alignment` bắt buộc cập nhật đúng `tour_nodes.floor_plan_id = floorPlanId`**, `floor_norm_x/y`, `floors.active_floor_plan_id`, `floors.requires_floor_plan = true`.
+       - `TourGraphModule`: tạo/sửa `TourNode`, **xóa mềm `TourNode` phải xử lý dọn `tour_edges` và `hotspots` trong cùng PostgreSQL transaction**, tạo hotspot hai chiều, Graph Validator 7 luật (gồm `VAL_UNPLACED_NODE` có điều kiện theo `OD-10`) và Publish (`NODE`/`FLOOR`/`BUILDING`).
+     - **Open Day CMS & Admin Workflows:** CRUD `/api/v1/admin/events/*` (`events`, `sessions`, `faqs`, `quiz-items` theo `OD-03`, `OD-05`, `OD-08`), quản lý user & quy trình Import Excel/CSV 5 bước (chuẩn hóa `phone` trước check uniqueness, dedup `email -> phone`, báo `IDENTITY_CONFLICT`, cấm lưu file/tên gốc) và phát hành lời mời.
+     - **Kết nối Frontend với API thật theo từng module (`apps/web`):** Chuyển dần từ fallback mock sang gọi NestJS API qua Adapter (`DATA_SOURCE=api`) cho từng nhóm (`/map`, `/locations`, `/campus`, `/events`, `/games`, `/login`, `/activate`, `/admin/*`) mà vẫn giữ nguyên 19 routes & ranh giới MVP.
+   - **Đầu ra:** Hệ thống Business APIs đầy đủ, Media/FloorPlan workers, Pre-Publish Validator, và `apps/web` kết nối trực tiếp Backend API theo từng module.
+   - **Tiêu chí nghiệm thu (Phase 2A-3):**
+     1. Xóa mềm `TourNode` dọn sạch `tour_edges` & `hotspots` trong cùng transaction; `confirm-alignment` cập nhật đúng `tour_nodes.floor_plan_id`; `VAL_UNPLACED_NODE` tuân thủ `OD-10` (không bắt `FloorPlan` giả).
+     2. Upload thử `SVG` chứa `<script>` bị tước sạch, `PDF` nhiều trang render đúng trang, ảnh `5.77:1` bị chặn và ảnh `2:1` tạo đủ 3 bản WebP không lưu nhị phân vào PostgreSQL.
+     3. Chuẩn hóa `phone` khi check uniqueness/import Excel (`IDENTITY_CONFLICT` khi lệch user), Open Day CMS CRUD & stateless quiz đồng bộ DB.
+     4. Frontend (`apps/web`) bật `DATA_SOURCE=api` hoạt động thông suốt từng module đã nối; `pnpm build`, `typecheck`, `lint` PASS (`exit 0`), 19 routes trả HTTP `200`.
 
 ---
 
-### Phase 2B — Tích hợp Frontend `apps/web` & Nâng cấp Admin Studio (`5–6 ngày`)
-1. **Nối Auth `/login`, `/activate` & `/admin/*`:** Kết nối giao diện xác thực thực tế (sau khi `prototype-auth.ts` đã gỡ ở Phase 1) với HTTP client gọi `/api/v1/auth/*` (tự động refresh token ngầm trong RAM, bảo vệ route `/admin/*`, luồng kích hoạt 1 lần cho tài khoản Open Day và quy trình Admin Import Excel 5 bước không lưu file gốc). *(Student/Parent Portal `/portal` tiếp tục chưa mở trong MVP.)*
-2. **Nâng cấp Public `/campus` & `/locations/[slug]`:**
+### Phase 2B — Nâng cấp UI Chuyên sâu (`Admin Studio 3 Vùng` & `Floor Plan Interactive Drawer`, `3–4 ngày`)
+*(Sau khi `Phase 2A-3` đã nối xong API thật theo từng module cho các màn hiện hữu, `Phase 2B` tập trung hoàn thiện phần giao diện nâng cấp mới:)*
+1. **Nâng cấp Public `/campus` & `/locations/[slug]` (Floor Plan Drawer):**
    - Giữ nguyên trải nghiệm Three.js `PanoramaStage.tsx` (kéo xoay + tự xoay sau 3s).
-   - Bổ sung **Floor Plan Interactive Drawer / Overlay** bên cạnh bản đồ GIS: cho phép chuyển tầng (`Tầng 1, 2, 3...`), xem chấm vị trí đang đứng trên mặt bằng 2D `[0..1]`, bấm vào phòng học (kể cả phòng `Cửa -> Trong phòng`) hoặc thang máy/cầu thang để nhảy thẳng sang panorama tương ứng.
-3. **Nâng cấp `/admin/locations`, `/admin/media`, `/admin/virtual-tour`:**
-   - Màn hình upload & chọn trang `Floor Plan` (`PNG/JPG/SVG/PDF`) + công cụ đặt tọa độ `Location`/`TourNode` chuẩn hóa `[0..1]` và chế độ **Ghost Overlay** khi thay thế mặt bằng.
-   - Bố cục **Admin Studio 3 Vùng** + nút **"Kiểm duyệt & Xuất bản Tour"** gọi `/validate` & `/publish`.
-   - Đọc dữ liệu công khai qua Adapter API (với fallback cache ISR của Next.js 16).
+   - Bổ sung **Floor Plan Interactive Drawer / Overlay** bên cạnh bản đồ GIS: chuyển tầng (`Tầng 1, 2, 3...`), xem chấm vị trí đang đứng `[0..1]`, bấm vào phòng hoặc thang máy/cầu thang để nhảy thẳng sang panorama tương ứng.
+2. **Nâng cấp UI `/admin/locations`, `/admin/media`, `/admin/virtual-tour`:**
+   - Giao diện chọn trang `Floor Plan` (`PNG/JPG/SVG/PDF`) + đặt tọa độ `[0..1]` và **Ghost Overlay** trực quan khi thay mặt bằng.
+   - Bố cục **Admin Studio 3 Vùng** hoàn chỉnh + thao tác kiểm duyệt & xuất bản trực quan.
 
 ---
 
@@ -110,15 +137,16 @@ flowchart LR
 | **Open Day & Static CMS (`OD-03`, `OD-05`, `OD-08`)** | `open_day_events`, `open_day_sessions`, `open_day_faqs`, `open_day_quiz_items` (không `CHECKED_IN`, không XP) | `GET /public/events` (ẩn `correctIndex`), `POST /public/quiz/verify`, Admin CRUD `/admin/events/*` | Không tạo bảng/API Check-in hay XP | `/news` & `OFFICIAL_CAMPUS_INFO` giữ static config; Quiz public không tài khoản |
 | **Auth & Phone (`OD-04`)** | Partial unique `WHERE deleted_at IS NULL` trên `username`, `email`, `phone` (E.164/VN) | `POST /auth/login` hỗ trợ `username \| email \| phone`; Excel dedup `email -> phone` | Cấm dedup theo `(fullName, phone)` hay `fullName` | `ADMIN_BOOTSTRAP_PASSWORD`, Dual Provisioning, không `/register` |
 | **Shared Contract (`OD-09`)** | `@fpt-campus/shared` khớp 100% Prisma schema v2A.2 | Typed Request/Response & `ApiEnvelope` | Dùng chung Validation Error Codes | `packages/shared` build `./dist/*` & tích hợp vào `apps/web` |
-| **Infrastructure (`OD-07`)** | Schema áp dụng cho PostgreSQL 16 (`Phase 2A-1`) | `StorageAdapter` trừu tượng `LOCAL_FS` vs `S3_MINIO` | Xử lý Sharp/Poppler ở Worker Phase 2A-2 | Phase 2A-1 chỉ dựng PostgreSQL 16; Redis/MinIO mở ở Phase 2A-2 |
+| **Infrastructure (`OD-07`)** | Schema, partial unique & CHECK migration cho PostgreSQL 16 (`Phase 2A-1`) | `StorageAdapter` local ở `2A-2`, nâng lên upload/`S3_MINIO` ở `2A-3` | Xử lý Sharp/Poppler ở Worker Phase `2A-3` | `2A-1` chỉ DB Bootstrap; `2A-2` NestJS + Auth + Public Read; `2A-3` Business Modules + Redis/MinIO + Nối Web |
 
 ---
 
-## 5. Checklist Nghiệm thu Kiến trúc Phase 2A (Sẵn sàng bước Phase 2A-1 Code)
+## 5. Checklist Nghiệm thu Kiến trúc & Phân kỳ Phase 2A (Sẵn sàng bước Phase 2A-1 Database Bootstrap)
 
 - [x] Đồng bộ đầy đủ `OD-01` → `OD-10` trên cả 5 tài liệu `docs/phase-2a/*` (phiên bản `2A.2`).
 - [x] Chuẩn hóa Hệ tọa độ 1 sang **Leaflet + OpenStreetMap + WGS84 (`lat, lng NOT NULL`)**, `origin_point_json`, `route_waypoints_json` (`OD-01`).
 - [x] Khóa chặt `Location (1) — (N) TourNode`, đặt `loc-the-thao.primary_node_id = NULL` (`OD-02`), cho phép `TourNode` xuất bản không cần `FloorPlan` giả (`OD-10`).
 - [x] Hoàn thiện lược đồ `open_day_events`, `open_day_sessions`, `open_day_faqs`, `open_day_quiz_items` (bỏ Check-in QR `OD-05` & XP/Leaderboard `OD-08`; phân ranh tĩnh `/news` & `OFFICIAL_CAMPUS_INFO` theo `OD-03`).
 - [x] Bổ sung toàn bộ bản vá toàn vẹn SQL (`partial unique WHERE deleted_at IS NULL` kể cả `phone`, `CHECK hotspots`, soft-delete cleanup, đầy đủ enums — `OD-04`, `OD-06`).
-- [x] Viết lại `@fpt-campus/shared` sạch, build `dist/` và tích hợp `apps/web` (`OD-09`), giữ nguyên toàn bộ 19 route và tách rõ Phase 2A-1 chỉ chạy PostgreSQL 16 (`OD-07`).
+- [x] Viết lại `@fpt-campus/shared` sạch, build `dist/` và tích hợp `apps/web` (`OD-09`), giữ nguyên toàn bộ 19 route.
+- [x] Chốt ranh giới phân kỳ **2A-1 (Database Bootstrap)** → **2A-2 (Core Backend, Auth, StorageAdapter local & Public Read)** → **2A-3 (Business Modules, Media/FloorPlan Pipeline & Frontend API Cutover)** (`OD-07`).

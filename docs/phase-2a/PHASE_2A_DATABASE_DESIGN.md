@@ -510,3 +510,10 @@ Do tồn tại các vòng tham chiếu hợp lệ (`campuses.default_entry_node_
 4. `tour_nodes` (`floor_plan_id = NULL` theo `OD-10`), `tour_edges`, `hotspots`.
 5. `UPDATE` ngược `locations.primary_node_id` (giữ `loc-the-thao.primary_node_id = NULL` theo `OD-02`), `buildings.default_node_id`, và `campuses.default_entry_node_id = 'cong-chao-qtsc'`.
 6. `open_day_events`, `open_day_sessions`, `open_day_faqs`, `open_day_quiz_items`.
+
+### Ràng buộc kiểm chứng SQL Migration & Bảo mật DB (`Phase 2A-1` → `Phase 2A-3`):
+- **Partial Unique Indexes trong SQL Migration thực tế (`Phase 2A-1`):** Toàn bộ chỉ mục duy nhất có điều kiện (`WHERE deleted_at IS NULL`, gồm `campuses.code`, `buildings.code/slug`, `floors.(building_id, code)`, `locations.slug/code`, `tour_nodes.slug`, `open_day_events.event_key`, và `users.username`, `users.email`, `users.phone` khi `NOT NULL`) bắt buộc được viết trực tiếp trong file SQL migration, không chỉ mô tả trên `schema.prisma`.
+- **`hotspots CHECK` constraint & Test vi phạm (`Phase 2A-1`):** Ràng buộc `CHECK ((hotspot_type = 'SCENE_LINK' AND edge_id IS NOT NULL) OR (hotspot_type <> 'SCENE_LINK' AND edge_id IS NULL))` phải có mặt trong SQL migration và được kiểm chứng bằng testcase cố ý vi phạm.
+- **Seed Admin an toàn (`Phase 2A-1`):** `ADMIN_BOOTSTRAP_PASSWORD` đọc từ environment và hash bằng **Argon2id**; tuyệt đối không hardcode mật khẩu.
+- **Không lưu ảnh panorama lớn trong PostgreSQL:** Cột `media_assets.*_key` chỉ lưu object key / đường dẫn tham chiếu.
+- **Chuẩn hóa SĐT & Giao dịch (`Phase 2A-2` / `Phase 2A-3`):** Chuẩn hóa `users.phone` (`E.164/VN`) trước khi kiểm tra uniqueness và login (`Phase 2A-2`); xóa mềm `TourNode` xử lý `tour_edges`/`hotspots` trong cùng transaction và `confirm-alignment` cập nhật đúng `tour_nodes.floor_plan_id` (`Phase 2A-3`).

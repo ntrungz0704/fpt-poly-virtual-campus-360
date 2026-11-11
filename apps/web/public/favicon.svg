@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="#ffffff" stroke="#e2e8f0" stroke-width="2" />
+  <!-- Official FPT 3-color slanted stripes -->
+  <path d="M12.5 24C13.6 21.4 16 19.5 19.2 19.5H27.2L19.8 41.5H10.5L12.5 24Z" fill="#0054A6" />
+  <path d="M27.8 20.5C28.9 17.4 31.6 15.5 34.8 15.5H42.8L34.2 44.5H25.2L27.8 20.5Z" fill="#F37021" />
+  <path d="M41.5 23.5C42.6 20.8 45.2 19 48.2 19H55L47.8 41.5H39L41.5 23.5Z" fill="#009E49" />
+  <!-- Crisp stylized F P T strokes -->
+  <text x="19" y="34" font-family="Arial, sans-serif" font-style="italic" font-weight="900" font-size="11.5" fill="#ffffff" text-anchor="middle">F</text>
+  <text x="33.5" y="34" font-family="Arial, sans-serif" font-style="italic" font-weight="900" font-size="11.5" fill="#ffffff" text-anchor="middle">P</text>
+  <text x="47" y="34" font-family="Arial, sans-serif" font-style="italic" font-weight="900" font-size="11.5" fill="#ffffff" text-anchor="middle">T</text>
+  <text x="32" y="54.5" font-family="Arial, sans-serif" font-weight="800" font-size="7.5" fill="#F37021" text-anchor="middle" letter-spacing="0.8">POLYTECHNIC</text>
+</svg>

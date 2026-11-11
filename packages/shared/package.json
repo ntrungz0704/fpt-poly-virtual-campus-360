@@ -1,0 +1,13 @@
+{
+  "name": "@fpt-campus/shared",
+  "version": "1.0.0",
+  "description": "Shared TypeScript definitions and interfaces for FPT Polytechnic Virtual Campus 360",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

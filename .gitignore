@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+**/node_modules/
+.pnpm-store/
+**/.pnpm-store/
+
+# Environment variables & private credentials (keep .env.example tracked)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Build & TypeScript incremental artifacts
+.next/
+**/.next/
+out/
+**/out/
+dist/
+**/dist/
+build/
+**/build/
+*.tsbuildinfo
+**/*.tsbuildinfo
+next-env.d.ts
+**/next-env.d.ts
+
+# Test, coverage & script outputs
+coverage/
+**/coverage/
+tmp-*
+**/tmp-*
+
+# Debug logs & OS artifacts
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.DS_Store
+Thumbs.db

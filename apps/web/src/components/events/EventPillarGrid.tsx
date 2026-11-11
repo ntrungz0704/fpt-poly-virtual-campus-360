@@ -16,17 +16,17 @@ const ACCESS_STEPS = [
   },
   {
     step: "02",
-    icon: "mark_email_read",
-    title: "Nhận tài khoản mời từ Ban Tổ Chức",
+    icon: "explore",
+    title: "Định hướng trước bằng Bản đồ GIS & 360°",
     description:
-      "Khách mời tham gia workshop chuyên sâu nhận mã tài khoản và mật khẩu tạm qua Zalo, SMS hoặc Email.",
+      "Khách tham quan xác định vị trí Tòa Innovation, Tòa T, Tòa F, Tòa P và quan sát trước không gian thực tế không cần đăng nhập.",
   },
   {
     step: "03",
-    icon: "qr_code_2",
-    title: "Đăng nhập để nhận QR & lịch cá nhân",
+    icon: "school",
+    title: "Trải nghiệm Workshop & Tư vấn tại QTSC",
     description:
-      "Đổi mật khẩu bảo mật ở lần đăng nhập đầu, mở thẻ Check-in QR tại Sảnh Innovation và theo dõi trạm hoạt động.",
+      "Theo dõi khung giờ sáng/trưa/chiều công khai tại Sảnh Innovation và di chuyển trực tiếp đến các phòng Lab, Studio chuyên ngành.",
   },
 ];
 

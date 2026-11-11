@@ -199,7 +199,7 @@ export default function AdminEventsPage() {
     },
     {
       key: "status",
-      header: "Check-in QR",
+      header: "Trạng thái (Preview)",
       render: (row) => (
         <Badge variant={row.checkedIn ? "success" : "neutral"}>
           {row.checkedIn ? "Đã check-in" : "Chưa đến sảnh"}

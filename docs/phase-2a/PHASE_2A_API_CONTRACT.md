@@ -154,18 +154,21 @@ Phục vụ `/events`: trả lịch trình công khai Open Day (`open_day_sessio
 
 ---
 
-## 3. Authentication APIs (`/api/v1/auth/*` — Không có tự đăng ký, không tài khoản khách MVP)
+## 3. Authentication & Activation APIs (`/api/v1/auth/*` — Không có tự đăng ký công khai)
 
 > [!IMPORTANT]
 > Client Web lưu **`accessToken` chỉ trong RAM (React state/closure)** — không bao giờ lưu vào `localStorage` hay `sessionStorage`. Phiên đăng nhập duy trì thông qua cookie `HttpOnly` gọi `/api/v1/auth/refresh`. Nếu `user.mustChangePassword === true` (lần đầu dùng mật khẩu bootstrap), toàn bộ `/api/v1/admin/*` trả `403 PASSWORD_CHANGE_REQUIRED` cho đến khi hoàn tất `PATCH /api/v1/auth/me/password`.
+> Khách tham quan tự do **không cần đăng nhập** và tuyệt đối **không có `POST /api/v1/auth/register`**. Nhóm `STUDENT`/`PARENT` Open Day kích hoạt qua token 1 lần có thời hạn.
 
 | Method & Path | Mô tả | Ghi chú bảo mật |
 | :--- | :--- | :--- |
-| `POST /api/v1/auth/login` | Đăng nhập `{ "username": "admin", "password": "..." }` | Rate limit 5 req/phút/IP; Argon2id verify; set `refresh_token` vào `HttpOnly` cookie; trả `accessToken` + `{ id, username, mustChangePassword, roles, permissions }`. |
+| `POST /api/v1/auth/login` | Đăng nhập `{ "identifier", "password" }` (`username` cho Admin/Staff hoặc `email` đã kích hoạt) | Rate limit 5 req/phút/IP; Argon2id verify; set `refresh_token` vào `HttpOnly` cookie; trả `accessToken` + `{ id, username, userType, accountStatus, activationStatus, mustChangePassword, roles, permissions }`. |
 | `POST /api/v1/auth/refresh` | Đọc `refresh_token` từ Cookie `HttpOnly` | Rotate token mới, revoke token cũ; nếu phát hiện token reuse → thu hồi toàn bộ `family_id`. |
 | `POST /api/v1/auth/logout` | Đăng xuất & thu hồi Refresh Token hiện tại | Clear Cookie `refresh_token` và ghi `audit_logs`. |
-| `GET /api/v1/auth/me` | Lấy thông tin tài khoản quản trị hiện đăng nhập | Guard: Authenticated. |
+| `GET /api/v1/auth/me` | Lấy thông tin tài khoản hiện đăng nhập (gồm `userType`, `roles`, `permissions`, `eventParticipations[]`) | Guard: Authenticated. |
 | `PATCH /api/v1/auth/me/password` | Tự đổi mật khẩu (`{ currentPassword, newPassword }`) | Hạ cờ `mustChangePassword = false`; thu hồi toàn bộ refresh token phiên khác của chính user đó. |
+| `POST /api/v1/auth/activate/validate` | Kiểm tra hợp lệ token/mã kích hoạt dùng 1 lần (`ADMIN_DIRECT` hoặc `EMAIL_SMS_INVITATION`) | Rate limit chặt; băm SHA-256 tra `account_invitations`; **không để lộ thông tin nhạy cảm hay raw token trong log**. |
+| `POST /api/v1/auth/activate/complete` | Hoàn tất kích hoạt: user tự thiết lập mật khẩu riêng (`Argon2id`) | Đánh dấu token `ACTIVATED`, cập nhật `activation_status = 'ACTIVATED'`, cấm mật khẩu yếu; dùng single-use atomic update. |
 
 ---
 
@@ -235,6 +238,10 @@ Phục vụ `/events`: trả lịch trình công khai Open Day (`open_day_sessio
 - **`POST /api/v1/admin/floors/:floorId/publish`** & **`POST /api/v1/admin/buildings/:buildingId/publish`**
   - Chạy lại Validator trong transaction trước khi set `status = 'PUBLISHED'`; trả `422` kèm danh sách lỗi nếu `errors > 0`. Ghi vết vào `audit_logs`.
 
-### 4.6. Quản lý Tài khoản Quản trị & Nhật ký hệ thống (`users:manage`, `audit:read`)
-- **`GET /api/v1/admin/users`**, **`POST /api/v1/admin/users`** (chỉ cấp tài khoản nhân sự quản trị nội bộ, trả token/mật khẩu kích hoạt 1 lần kèm `mustChangePassword = true`), **`PATCH /api/v1/admin/users/:id/status`** (khóa/mở khóa, reset mật khẩu, cấm tự khóa tài khoản `admin` gốc đang đăng nhập). Không có endpoint `register` hoặc `participant`.
-- **`GET /api/v1/admin/audit-logs`** (phân trang theo `actor`, `action`, `resourceType`, khoảng thời gian).
+### 4.6. Quản lý Tài khoản Thống nhất, Cấp phát Kép, Import Excel 5 Bước & Audit (`users:manage`, `users:provision_openday`, `audit:read`)
+- **`GET /api/v1/admin/users`** (lọc theo `userType`, `accountStatus`, `activationStatus`, `provisioningMethod`, `openDayEventKey`), **`POST /api/v1/admin/users`** (cấp thủ công cho `STAFF` hoặc Open Day `STUDENT`/`PARENT` kèm danh sách sự kiện `eventKeys[]` theo 1 trong 2 phương thức `ADMIN_DIRECT` [trả mã/link kích hoạt 1 lần có thời hạn] hoặc `EMAIL_SMS_INVITATION` — **tuyệt đối không sinh mật khẩu mặc định dùng chung hay mật khẩu plaintext**), **`PATCH /api/v1/admin/users/:id/status`** (khóa/mở khóa, reset luồng kích hoạt, cấm tự khóa tài khoản `admin` gốc đang đăng nhập). Không có endpoint tự đăng ký công khai `/register`.
+- **`POST /api/v1/admin/users/:id/invitations/resend`**: Vô hiệu hóa token lời mời cũ và phát hành/gửi lại token mới (`INVITATION_PENDING → SENT`), theo dõi `SENT / EXPIRED / ACTIVATED / FAILED`.
+- **Import Excel/CSV 5 bước (`.xlsx`/`.csv` — Cấm lưu file gốc / tên file / đường dẫn file gốc):**
+  - `POST /api/v1/admin/users/import/preview`: Đọc luồng tệp tạm trong bộ nhớ (Upload → đọc ô & tự nhận diện cột), áp dụng ánh xạ cột (`columnMapping`) và trả preview kiểm tra hợp lệ từng dòng (thiếu dữ liệu, sai định dạng, trùng lặp); **bộ đệm file hủy ngay sau khi parse, không lưu DB hay MinIO/S3, không lưu filename/path**.
+  - `POST /api/v1/admin/users/import/confirm`: Tạo/cập nhật hàng loạt bản ghi chuẩn hóa trong `users` + `event_participations` + phát hành batch kích hoạt (`ADMIN_DIRECT` hoặc `EMAIL_SMS_INVITATION`), ghi bảng tổng hợp `user_import_batches` (không chứa filename/path gốc) và trả **báo cáo kết quả từng dòng** (thành công/bỏ qua/lỗi).
+- **`GET /api/v1/admin/audit-logs`** (phân trang theo `actor`, `action`, `resourceType`, khoảng thời gian — cấm chứa raw token, mật khẩu hoặc tên file Excel gốc).

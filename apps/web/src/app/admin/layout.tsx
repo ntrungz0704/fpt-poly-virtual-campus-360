@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { clearPrototypeSession } from "@/lib/prototype-auth";
 
 const ADMIN_MODULES = [
   { href: "/admin", label: "Dashboard", icon: "dashboard" },
@@ -169,9 +168,8 @@ export default function AdminLayout({
           </Link>
           <Link
             href="/login"
-            onClick={() => clearPrototypeSession()}
-            aria-label="Về màn hình đăng nhập"
-            title="Về màn hình đăng nhập"
+            aria-label="Xem trạng thái xác thực"
+            title="Xem trạng thái xác thực (chưa triển khai)"
             className="w-10 h-10 rounded-lg text-secondary hover:text-error hover:bg-error-container/60 transition-colors flex items-center justify-center shrink-0"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
@@ -216,6 +214,30 @@ export default function AdminLayout({
         </header>
 
         <main className="flex-1 p-4 md:p-space-xl overflow-y-auto">
+          <div
+            role="alert"
+            className="mb-6 rounded-xl border border-amber-400/60 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm"
+          >
+            <div className="flex items-start gap-3">
+              <span
+                className="material-symbols-outlined mt-0.5 text-amber-700 shrink-0"
+                aria-hidden="true"
+              >
+                warning
+              </span>
+              <div className="space-y-1 text-xs md:text-sm leading-relaxed">
+                <p className="font-bold uppercase tracking-wide text-amber-900">
+                  Admin Preview nội bộ · Chưa có Authentication &amp; Server Guard
+                </p>
+                <p className="text-amber-900/90">
+                  Khu vực <code className="font-mono font-semibold">/admin/*</code> hiện chỉ là giao diện Preview
+                  nội bộ để đánh giá UX/UI (chưa có xác thực Server, Session hay RBAC — chờ Backend Phase 3).{" "}
+                  <strong>Không triển khai lên Internet công khai</strong> khi chưa có Auth Backend; thanh cảnh báo
+                  này chỉ mang tính thông tin và <strong>không phải cơ chế bảo mật</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
           {children}
         </main>
       </div>

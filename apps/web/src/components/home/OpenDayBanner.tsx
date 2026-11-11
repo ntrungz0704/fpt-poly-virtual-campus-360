@@ -32,8 +32,8 @@ export function OpenDayBanner() {
                 className="type-h1 text-white"
               />
               <p className="type-body text-slate-300">
-                Xem lịch trình sự kiện công khai và bản đồ khu vực đón tiếp. Khách mời đã được Ban Tổ Chức
-                cấp tài khoản có thể đăng nhập để nhận thẻ Check-in QR và lịch trình cá nhân.
+                Xem lịch trình sự kiện công khai và bản đồ khu vực đón tiếp tại CVPM Quang Trung.
+                Trải nghiệm Tham quan 360°, Bản đồ GIS và các điểm đến học tập hoàn toàn tự do, không cần đăng nhập.
               </p>
             </div>
 

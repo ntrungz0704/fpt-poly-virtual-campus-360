@@ -24,8 +24,8 @@ const QUICK_WORKSPACES = [
   {
     href: "/admin/events",
     icon: "event",
-    title: "Open Day & Check-in",
-    desc: "Cập nhật phiên sự kiện sáng/trưa/chiều và đánh dấu khách mời đã quét QR.",
+    title: "Open Day (Preview)",
+    desc: "Xem trước quản lý phiên sự kiện sáng/trưa/chiều và danh sách tham dự.",
   },
   {
     href: "/admin/media",
@@ -36,8 +36,8 @@ const QUICK_WORKSPACES = [
   {
     href: "/admin/users",
     icon: "group",
-    title: "Tài khoản & Import CSV",
-    desc: "Cấp tài khoản mời, import danh sách và sao chép hướng dẫn gửi Zalo.",
+    title: "Tài khoản & Import (Preview)",
+    desc: "Xem trước quy trình cấp tài khoản, import bảng danh sách và gửi lời mời kích hoạt.",
   },
 ];
 
@@ -103,10 +103,10 @@ export default function AdminDashboardPage() {
               <div className="rounded-xl border border-surface-container bg-surface-container-low/50 p-3.5 flex items-start justify-between gap-3">
                 <div className="space-y-1">
                   <p className="text-xs font-bold text-on-surface">
-                    Cổng quản trị đang dùng tài khoản Admin duy nhất (admin)
+                    Giao diện Preview vận hành nội bộ (chưa kết nối Auth Backend)
                   </p>
                   <p className="text-xs text-secondary">
-                    Chưa phát sinh tài khoản chờ đổi mật khẩu tạm hoặc tài khoản tạm khóa.
+                    Chưa phát sinh tài khoản chờ kích hoạt hoặc tài khoản tạm khóa trong danh sách Preview.
                   </p>
                 </div>
                 <Link
@@ -122,10 +122,10 @@ export default function AdminDashboardPage() {
                   <div className="rounded-xl border border-surface-container bg-surface-container-low/50 p-3.5 flex items-start justify-between gap-3">
                     <div className="space-y-1">
                       <p className="text-xs font-bold text-on-surface">
-                        {firstLoginPending.length} tài khoản mời chưa đổi mật khẩu tạm
+                        {firstLoginPending.length} tài khoản đang ở trạng thái chờ kích hoạt
                       </p>
                       <p className="text-xs text-secondary">
-                        Kiểm tra danh sách và gửi lại tin nhắn hướng dẫn trước giờ khai mạc.
+                        Kiểm tra danh sách và chuẩn bị gửi lại lời mời kích hoạt trước giờ khai mạc.
                       </p>
                     </div>
                     <Link
@@ -144,7 +144,7 @@ export default function AdminDashboardPage() {
                         {lockedAccounts.length} tài khoản đang ở trạng thái tạm khóa
                       </p>
                       <p className="text-xs text-secondary">
-                        Rà soát yêu cầu mở khóa hoặc cấp lại mật khẩu cho người dùng.
+                        Rà soát trạng thái kích hoạt và xử lý yêu cầu mở khóa tài khoản (Preview).
                       </p>
                     </div>
                     <Link

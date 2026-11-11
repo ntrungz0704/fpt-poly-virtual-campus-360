@@ -144,10 +144,10 @@ export default function AboutPage() {
                     passkey
                   </span>
                 </div>
-                <h3 className="type-h3 text-on-surface relative z-20">2. Open Day (Tài khoản được cấp)</h3>
+                <h3 className="type-h3 text-on-surface relative z-20">2. Trải nghiệm Open Day công khai</h3>
                 <p className="type-body-sm text-secondary leading-relaxed relative z-20">
-                  Lịch sự kiện chung hiển thị công khai tại mục Open Day. Khách mời có tài khoản
-                  do Ban Tổ Chức cấp có thể đăng nhập để xem lịch cá nhân, thẻ Check-in QR và tham gia thử thách ngày hội.
+                  Lịch sự kiện chung, hướng dẫn di chuyển khuôn viên và thử thách định hướng 360° hiển thị công khai tại mục Open Day.
+                  Quy trình kích hoạt tài khoản mời cho các chương trình chuyên biệt sẽ được mở khi Backend Auth hoàn tất.
                 </p>
                 <Link
                   href="/events"

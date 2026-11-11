@@ -24,7 +24,8 @@ export function QuizLeaderboard() {
           Sự kiện sắp tới: {OFFICIAL_CAMPUS_INFO.openDayDateLabel}
         </p>
         <p>
-          Nếu bạn đã được Ban Tổ Chức gửi thông tin đăng nhập qua Zalo hoặc Email, hãy đăng nhập để xem lịch cá nhân và thẻ QR Check-in.
+          Bạn có thể tiếp tục khám phá <strong>Tham quan 360°</strong> hoặc xem{" "}
+          <strong>Lịch trình Open Day công khai</strong> để nắm rõ các khu vực trải nghiệm tại CVPM Quang Trung.
         </p>
       </div>
 

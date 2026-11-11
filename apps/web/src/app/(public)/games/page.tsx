@@ -19,7 +19,7 @@ export default function GamesPage() {
             Câu hỏi nhanh Khám phá {OFFICIAL_CAMPUS_INFO.campusLabel}
           </h1>
           <p className="type-body text-secondary max-w-2xl">
-            Ôn tập nhanh vị trí các tòa nhà và phòng Lab trước khi tham gia Open Day. Hoạt động chính thức của khách mời được mở trong cổng Open Day sau khi đăng nhập.
+            Ôn tập nhanh vị trí các tòa nhà và phòng Lab qua mini-game tích hợp cùng trải nghiệm Tham quan 360° và Bản đồ GIS QTSC.
           </p>
         </div>
 

@@ -1,14 +1,14 @@
 "use client";
 
 import React from "react";
-import { PrototypeParticipantSession } from "@/lib/prototype-auth";
+import { PortalParticipantPreview } from "./portal-types";
 import { Badge } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
 export type PortalTabKey = "program" | "activity" | "password";
 
 interface StudentProfileHeaderProps {
-  session: PrototypeParticipantSession;
+  session: PortalParticipantPreview;
   activeTab: PortalTabKey;
   onTabChange: (tab: PortalTabKey) => void;
 }
@@ -16,7 +16,7 @@ interface StudentProfileHeaderProps {
 const PORTAL_TABS: { key: PortalTabKey; label: string; icon: string }[] = [
   { key: "program", label: "Chương trình của tôi", icon: "event_note" },
   { key: "activity", label: "Thử thách Open Day", icon: "quiz" },
-  { key: "password", label: "Bảo mật & Mật khẩu", icon: "lock_reset" },
+  { key: "password", label: "Trạng thái tài khoản", icon: "verified_user" },
 ];
 
 export function StudentProfileHeader({
@@ -39,17 +39,17 @@ export function StudentProfileHeader({
             Xin chào, {session.fullName}
           </h1>
           <p className="type-body-sm text-secondary">
-            Quản lý lịch trình tham gia tại khuôn viên CVPM Quang Trung và xuất trình mã QR tại quầy check-in Sảnh Innovation.
+            Quản lý lịch trình tham gia tại khuôn viên CVPM Quang Trung và theo dõi hoạt động Open Day.
           </p>
         </div>
 
         <div className="rounded-xl bg-surface-container-low border border-surface-container px-4 py-3 text-xs space-y-1 shrink-0">
-          <p className="font-semibold text-secondary">Trạng thái mật khẩu</p>
+          <p className="font-semibold text-secondary">Trạng thái kích hoạt</p>
           <p className="font-bold text-on-surface">
-            {session.updatedPasswordAt
-              ? `Đã cập nhật lúc ${session.updatedPasswordAt}`
-              : session.mustChangePassword
-              ? "Cần đổi mật khẩu tạm"
+            {session.updatedAt
+              ? `Đã cập nhật lúc ${session.updatedAt}`
+              : session.activationPending
+              ? "Chờ kích hoạt tài khoản"
               : "Đã kích hoạt cá nhân"}
           </p>
         </div>

@@ -2,11 +2,11 @@
 
 import React, { useMemo, useState } from "react";
 import { OFFICIAL_CAMPUS_INFO } from "@/data/campus-data";
-import { PrototypeParticipantSession } from "@/lib/prototype-auth";
+import { PortalParticipantPreview } from "./portal-types";
 import { Button, StatusToast } from "@/components/ui";
 
 interface DigitalPassCardProps {
-  session: PrototypeParticipantSession;
+  session: PortalParticipantPreview;
 }
 
 /** Deterministic high-contrast visual matrix derived from ticketCode */
@@ -77,11 +77,11 @@ export function DigitalPassCard({ session }: DigitalPassCardProps) {
         </p>
       </div>
 
-      {/* High-Contrast QR Matrix Block */}
+      {/* High-Contrast Pass Matrix Block */}
       <div className="p-6 flex flex-col items-center gap-4 text-center bg-surface">
         <div
           className="p-4 rounded-2xl bg-white border-2 border-slate-900 shadow-xs"
-          aria-label={`Mã QR Check-in ${session.ticketCode}`}
+          aria-label={`Mã tham dự Open Day ${session.ticketCode}`}
         >
           <svg
             width="150"
@@ -89,7 +89,7 @@ export function DigitalPassCard({ session }: DigitalPassCardProps) {
             viewBox="0 0 15 15"
             shapeRendering="crispEdges"
             role="img"
-            aria-label={`QR Code ${session.ticketCode}`}
+            aria-label={`Mã định danh ${session.ticketCode}`}
           >
             <rect width="15" height="15" fill="#FFFFFF" />
             {matrix.map((row, r) =>
@@ -107,7 +107,7 @@ export function DigitalPassCard({ session }: DigitalPassCardProps) {
             {session.ticketCode}
           </p>
           <p className="text-xs text-secondary">
-            Xuất trình tại Quầy Check-in Sảnh Innovation · {OFFICIAL_CAMPUS_INFO.openDayDateLabel}
+            Mã tham dự tại Sảnh Đón tiếp Innovation · {OFFICIAL_CAMPUS_INFO.openDayDateLabel}
           </p>
         </div>
 
@@ -128,7 +128,7 @@ export function DigitalPassCard({ session }: DigitalPassCardProps) {
             onClick={handlePrint}
             className="flex-1"
           >
-            In thẻ QR
+            In thẻ tham dự
           </Button>
         </div>
       </div>

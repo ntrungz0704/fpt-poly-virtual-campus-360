@@ -31,15 +31,15 @@ export const CAMPUS_GUIDE_ARTICLES: CampusGuideArticle[] = [
     slug: "lich-trinh-open-day-tai-cvpm-quang-trung",
     tag: "Open Day 2026",
     date: "14/05/2026",
-    title: "Tách bạch trải nghiệm Tự do và Không gian Tham dự Open Day theo tài khoản mời",
+    title: "Trải nghiệm Tham quan 360° Tự do và Lịch trình Open Day Công khai",
     excerpt:
-      "Thông tin thời khóa biểu công khai trên /events và cách sử dụng tài khoản được Ban Tổ Chức cấp để mở thẻ Check-in QR tại /portal.",
+      "Thông tin thời khóa biểu công khai trên /events và định hướng không gian QTSC Quận 12 thông qua Bản đồ GIS và Tham quan 360°.",
     imageUrl: "/images/locations/auditorium-hall.jpg",
     relatedSceneId: "sanh-innovation",
     content: [
       `Sự kiện Open Day dự kiến diễn ra vào ${OFFICIAL_CAMPUS_INFO.openDayDateLabel} (${OFFICIAL_CAMPUS_INFO.openDayTimeLabel}) tại khu vực Sảnh Đón Tiếp và Hội trường Tòa Nhà Innovation.`,
-      "Toàn bộ lịch trình các phiên công khai đều hiển thị rõ trên trang /events. Riêng các phiên Workshop chuyên sâu tại phòng Lab và Thử thách Trạm Open Day dành cho khách mời đã được Admin cấp tài khoản qua Zalo/Email.",
-      "Khi đăng nhập lần đầu bằng mật khẩu tạm trên /login, hệ thống hướng dẫn bạn thiết lập mật khẩu riêng trước khi hiển thị mã QR check-in và lịch trình cá nhân.",
+      "Toàn bộ lịch trình các phiên công khai đều hiển thị rõ trên trang /events, kết hợp Bản đồ GIS và Tham quan 360° giúp khách tham quan tự do định hướng đường đi trước khi đến trường.",
+      "Trong giai đoạn tích hợp Backend tiếp theo, Ban Tổ Chức sẽ bổ sung quy trình cấp và kích hoạt tài khoản mời Open Day qua liên kết một lần hoặc lời mời Email/SMS cho các chương trình chuyên biệt.",
     ],
   },
   {

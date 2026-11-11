@@ -80,7 +80,7 @@ export default function AdminUsersPage() {
     setNewForm({ accountCode: "", fullName: "", contactChannel: "" });
     setToast({
       open: true,
-      message: `Đã tạo tài khoản ${created.accountCode} ở trạng thái chờ đổi mật khẩu lần đầu.`,
+      message: `Đã thêm bản ghi Preview ${created.accountCode} ở trạng thái chờ kích hoạt.`,
     });
   };
 
@@ -98,15 +98,15 @@ export default function AdminUsersPage() {
     setToast({ open: true, message: "Đã cập nhật trạng thái truy cập tài khoản." });
   };
 
-  const handleCopyZaloMessage = async (user: AdminParticipantUser) => {
-    const msg = `[FPT Polytechnic QTSC] Thư mời Open Day (${OFFICIAL_CAMPUS_INFO.openDayDateLabel}): Tài khoản của ${user.fullName} là ${user.accountCode}. Đăng nhập và đổi mật khẩu lần đầu tại /login.`;
+  const handleCopyInvitationNotice = async (user: AdminParticipantUser) => {
+    const msg = `[FPT Polytechnic QTSC] Thư mời Open Day (${OFFICIAL_CAMPUS_INFO.openDayDateLabel}): Dành cho ${user.fullName} (${user.accountCode}). Liên kết kích hoạt một lần sẽ được gửi qua Email/SMS khi hệ thống Backend Auth vận hành.`;
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard) {
         await navigator.clipboard.writeText(msg);
       }
       setToast({
         open: true,
-        message: `Đã sao chép tin nhắn hướng dẫn cho ${user.accountCode} để gửi qua Zalo.`,
+        message: `Đã sao chép mẫu thông báo mời cho ${user.accountCode} (UI Preview).`,
       });
     } catch {
       setToast({
@@ -136,7 +136,7 @@ export default function AdminUsersPage() {
           line: i + 1,
           accountCode: code || `THIẾU-MÃ-${i + 1}`,
           fullName: rawName || "Chưa có họ tên",
-          contactChannel: rawContact || "Zalo / SMS",
+          contactChannel: rawContact || "Email / SMS",
           valid,
           note: duplicate
             ? "Trùng mã tài khoản"
@@ -203,7 +203,7 @@ export default function AdminUsersPage() {
     },
     {
       key: "status",
-      header: "Trạng thái mật khẩu",
+      header: "Trạng thái kích hoạt",
       render: (row) => {
         if (row.passwordStatus === "locked") {
           return <Badge variant="error">Đang khóa</Badge>;
@@ -229,9 +229,9 @@ export default function AdminUsersPage() {
               variant="ghost"
               size="sm"
               icon="content_copy"
-              onClick={() => handleCopyZaloMessage(row)}
+              onClick={() => handleCopyInvitationNotice(row)}
             >
-              Copy tin Zalo
+              Copy lời mời
             </Button>
             <Button
               variant="outline"
@@ -250,9 +250,9 @@ export default function AdminUsersPage() {
     <div className="max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="type-h1 text-on-surface">Tài khoản Tham dự &amp; Import CSV</h1>
+          <h1 className="type-h1 text-on-surface">Tài khoản Tham dự &amp; Import Danh sách (Preview)</h1>
           <p className="type-body-sm text-secondary mt-1">
-            Admin cấp tài khoản mời Open Day và gửi hướng dẫn đăng nhập qua Zalo, SMS hoặc Email.
+            Giao diện Preview quản lý tài khoản mời Open Day (kích hoạt trực tiếp hoặc qua Email/SMS ở Phase 3; chỉ lưu dữ liệu trích xuất, không lưu file Excel gốc).
           </p>
         </div>
 
@@ -290,18 +290,18 @@ export default function AdminUsersPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onClear={() => setQuery("")}
-              placeholder="Tìm mã tài khoản, họ tên hoặc SĐT Zalo..."
+              placeholder="Tìm mã tài khoản, họ tên hoặc Email / SĐT..."
               containerClassName="w-full sm:max-w-sm"
             />
 
             <Select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              aria-label="Lọc trạng thái mật khẩu"
+              aria-label="Lọc trạng thái kích hoạt"
               containerClassName="w-full sm:w-56"
             >
               <option value="ALL">Tất cả trạng thái</option>
-              <option value="must_change">Chờ đổi mật khẩu lần đầu</option>
+              <option value="must_change">Chờ kích hoạt</option>
               <option value="updated">Đã kích hoạt</option>
               <option value="locked">Đang tạm khóa</option>
             </Select>
@@ -332,8 +332,8 @@ export default function AdminUsersPage() {
             required
           />
           <Input
-            label="Kênh gửi thông tin (Zalo / Email)"
-            placeholder="VD: 09xx xxx xxx (Zalo)"
+            label="Kênh liên hệ (Email / SMS)"
+            placeholder="VD: email@fpt.edu.vn hoặc 09xx xxx xxx"
             value={newForm.contactChannel}
             onChange={(e) => setNewForm((f) => ({ ...f, contactChannel: e.target.value }))}
           />
@@ -422,10 +422,10 @@ export default function AdminUsersPage() {
             </div>
             <div className="space-y-1">
               <h3 className="type-h3 text-on-surface">
-                Đã thêm {importedCount} tài khoản vào danh sách
+                Đã thêm {importedCount} bản ghi Preview vào danh sách
               </h3>
               <p className="type-body-sm text-secondary">
-                Các tài khoản mới được đặt trạng thái yêu cầu đổi mật khẩu ở lần đăng nhập đầu tiên.
+                Dữ liệu trích xuất hiển thị ở trạng thái chờ kích hoạt (chỉ phục vụ Preview giao diện, chưa lưu Excel hay kết nối Backend).
               </p>
             </div>
             <Button variant="primary" size="md" onClick={() => setImportOpen(false)}>

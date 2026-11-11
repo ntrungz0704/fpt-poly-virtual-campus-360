@@ -168,10 +168,10 @@ export function NotFoundState({
 }
 
 export function AuthGateState({
-  title = "Khu vực dành riêng cho tài khoản Open Day",
-  description = "Hoạt động chuyên sâu, thẻ QR check-in và lịch trình cá nhân yêu cầu đăng nhập bằng tài khoản do Ban Tổ Chức FPT Polytechnic cấp.",
-  actionLabel = "Đăng nhập ngay",
-  actionHref = "/login?next=/portal",
+  title = "Khu vực tài khoản đang chờ triển khai",
+  description = "Chức năng tài khoản và xác thực sẽ được tích hợp ở giai đoạn Backend tiếp theo. Khách tham quan có thể trải nghiệm Tham quan 360° và xem lịch Open Day công khai tự do không cần đăng nhập.",
+  actionLabel = "Tham quan 360° tự do",
+  actionHref = "/campus",
   secondaryLabel = "Xem lịch Open Day công khai",
   secondaryHref = "/events",
   className,

@@ -1,7 +1,7 @@
 {
   "name": "FPT Polytechnic Virtual Campus 360°",
   "short_name": "Poly Campus 360",
-  "description": "Nền tảng tham quan trực tuyến không gian học thuật 360° và bản đồ 3D tương tác FPT Polytechnic",
+  "description": "Nền tảng tham quan trực tuyến không gian học thuật 360°, bản đồ GIS khuôn viên và định hướng cơ sở FPT Polytechnic",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

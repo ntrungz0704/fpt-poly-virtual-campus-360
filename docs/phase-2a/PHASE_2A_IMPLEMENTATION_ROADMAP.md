@@ -24,7 +24,7 @@ flowchart LR
 ## 2. Chi tiết từng Giai đoạn & Tiêu chí nghiệm thu (Acceptance Criteria)
 
 ### Phase 2A — Nền tảng Backend, CSDL, Media & Tour Engine (`apps/api`)
-*Không sửa phá vỡ UI `apps/web` và không mở rộng sang 3D WebGL hay tài khoản sinh viên trong giai đoạn này.*
+*Không mở rộng sang 3D WebGL hay Student/Parent Portal (`/portal`) trong MVP; phần tài khoản hỗ trợ đầy đủ 3 nhóm người dùng (`ADMIN`/`STAFF`, `STUDENT`/`PARENT` Open Day, và Khách tham quan tự do không cần tài khoản).*
 
 > [!IMPORTANT]
 > **Nguyên tắc triển khai ưu tiên luồng xuyên suốt (Vertical Slice First):**  
@@ -34,8 +34,8 @@ flowchart LR
 1. **Bước 2A-1: Khung Backend, PostgreSQL, Prisma & Auth/RBAC (`3–4 ngày`)**
    - Mở rộng `docker-compose.yml`: `postgres:16-alpine`, `redis:7-alpine`, `minio/minio` (+ `minio-init`).
    - Khởi tạo `apps/api` (NestJS + Prisma Client + Shared DTO chuẩn tên `TourNode` ở `packages/shared`, mọi endpoint dùng prefix `/api/v1`).
-   - Áp dụng schema `prisma/schema.prisma` theo đúng `PHASE_2A_DATABASE_DESIGN.md` và chạy bootstrap seed tạo **01 tài khoản gốc duy nhất (`admin` · `SUPER_ADMIN`)** lấy secret từ biến môi trường (`ADMIN_BOOTSTRAP_PASSWORD`, tuyệt đối không đặt mật khẩu mặc định trong source code), bắt buộc `must_change_password = true` ở lần đăng nhập đầu tiên.
-   - Triển khai `AuthModule` (`/api/v1/auth/login`, `/refresh` HttpOnly cookie, `/logout`, `/me`, `/me/password`) + `AuditLogModule` + `RateLimitGuard`. Access Token chỉ giữ trong RAM/React state. Không xây tài khoản `PARTICIPANT`/khách.
+   - Áp dụng schema `prisma/schema.prisma` theo đúng `PHASE_2A_DATABASE_DESIGN.md` và chạy bootstrap seed tạo **01 tài khoản gốc duy nhất (`admin` · `userType = ADMIN` · `SUPER_ADMIN`)** lấy secret từ biến môi trường (`ADMIN_BOOTSTRAP_PASSWORD`, tuyệt đối không đặt mật khẩu mặc định trong source code), bắt buộc `must_change_password = true` ở lần đăng nhập đầu tiên.
+   - Triển khai `AuthModule` (`/api/v1/auth/login`, `/refresh` HttpOnly cookie, `/logout`, `/me`, `/me/password`, `/activate/validate`, `/activate/complete`) + `UsersRbacModule` (mô hình `users` thống nhất tách riêng `UserType`, `RBAC`, `AccountStatus`, `ActivationStatus`, `ProvisioningMethod`, `EventParticipation`, hỗ trợ tạo thủ công, cấp phát kép `ADMIN_DIRECT` & `EMAIL_SMS_INVITATION`, và Import `.xlsx`/`.csv` 5 bước **không lưu file/tên/đường dẫn gốc**) + `AuditLogModule` + `RateLimitGuard`. Access Token chỉ giữ trong RAM/React state. Tuyệt đối không mở API tự đăng ký công khai.
    - **Tiêu chí nghiệm thu:** Chạy `docker compose up` sạch; `POST /api/v1/auth/login` sai trả 401 chung, đúng trả Access Token + `mustChangePassword=true` yêu cầu đổi pass lần đầu; kiểm tra refresh rotation & reuse detection thu hồi `family_id`.
 
 2. **Bước 2A-2: MinIO/S3, Media Pipeline Panorama & Floor Plan Pipeline (`4–5 ngày`)**
@@ -55,7 +55,7 @@ flowchart LR
 ---
 
 ### Phase 2B — Tích hợp Frontend `apps/web` & Nâng cấp Admin Studio (`5–6 ngày`)
-1. **Nối Auth `/login` & `/admin/*`:** Thay thế `prototype-auth.ts` bằng HTTP client gọi `/api/v1/auth/*` (tự động refresh token ngầm, bảo vệ route `/admin/*`).
+1. **Nối Auth `/login`, `/activate` & `/admin/*`:** Kết nối giao diện xác thực thực tế (sau khi `prototype-auth.ts` đã gỡ ở Phase 1) với HTTP client gọi `/api/v1/auth/*` (tự động refresh token ngầm trong RAM, bảo vệ route `/admin/*`, luồng kích hoạt 1 lần cho tài khoản Open Day và quy trình Admin Import Excel 5 bước không lưu file gốc). *(Student/Parent Portal `/portal` tiếp tục chưa mở trong MVP.)*
 2. **Nâng cấp Public `/campus` & `/locations/[slug]`:**
    - Giữ nguyên trải nghiệm Three.js `PanoramaStage.tsx` (kéo xoay + tự xoay sau 3s).
    - Bổ sung **Floor Plan Interactive Drawer / Overlay** bên cạnh bản đồ GIS: cho phép chuyển tầng (`Tầng 1, 2, 3...`), xem chấm vị trí đang đứng trên mặt bằng 2D `[0..1]`, bấm vào phòng học (kể cả phòng `Cửa -> Trong phòng`) hoặc thang máy/cầu thang để nhảy thẳng sang panorama tương ứng.
@@ -81,7 +81,7 @@ flowchart LR
 ---
 
 ### Phase 2E (Tùy chọn sau MVP — Phase 3+)
-- Đánh giá bổ sung **3D Dollhouse** (nếu trường thực hiện scan LiDAR/Matterport hoặc dựng `.glb` kiến trúc chuẩn), **Định vị đường đi ngắn nhất giữa 2 phòng xuyên tầng (BFS Pathfinding trên `TourGraph`)**, và quản lý tài khoản khách mời Open Day theo đợt.
+- Đánh giá bổ sung **3D Dollhouse** (nếu trường thực hiện scan LiDAR/Matterport hoặc dựng `.glb` kiến trúc chuẩn), **Định vị đường đi ngắn nhất giữa 2 phòng xuyên tầng (BFS Pathfinding trên `TourGraph`)**, và xem xét mở **Student/Parent Portal (`/portal`)** sau khi hoàn tất nền tảng Auth & Open Day ở Phase 3.
 
 ---
 
@@ -107,7 +107,7 @@ flowchart LR
 | **Floor Plan Replacement** | `floor_plans.version` + `snapshots` + `needs_realignment` | `/alignment-overlay` & `/confirm-alignment` | Ghost Overlay + Zoom/Pan + Realign | Chốt **DEC-01** |
 | **Panorama Input & Duyệt** | `is_valid_2_to_1` + `is_preview_approved` | Chặn `400` file chưa ghép + `/approve-preview` | Phân biệt Stitched `2:1` vs RAW/Cylinder | Chốt **DEC-02** |
 | **Graph Validator & Ngoại lệ** | `is_terminal_approved`, `is_one_way_approved` | `POST /api/v1/admin/tour/validate` | 7 mã luật + cơ chế phê duyệt ngoại lệ | Chốt **DEC-05** |
-| **Auth / RBAC MVP** | Chỉ seed `admin` (`must_change_password=true`), không `PARTICIPANT` | JWT RAM + `HttpOnly` Cookie, không `/register` | Admin Studio phân quyền RBAC nội bộ | Chốt **DEC-04**, không Portal auth |
+| **Auth, Users & Open Day Provisioning** | Tách `UserType`/`RBAC`/`AccountStatus`/`ActivationStatus`/`ProvisioningMethod` + `account_invitations` + `event_participations` + `user_import_batches` (không lưu Excel gốc) | Login RAM JWT + HttpOnly Cookie + Activate + 5-step Excel Import (`preview`/`confirm`), không `/register` | Admin Studio quản lý tài khoản & bảng theo dõi lời mời | Chốt **DEC-04**, không Portal UI ở MVP |
 
 ---
 
@@ -117,5 +117,5 @@ flowchart LR
 - [x] Phân tách rạch ròi 3 lớp không gian (`GIS Campus` ↔ `Floor Plan [0..1]` ↔ `Panorama Spherical (yaw, pitch, fov)`).
 - [x] Bổ sung quy trình Panorama phân biệt file chưa ghép vs `2:1` đã ghép, bước Preview duyệt ảnh, SOP chụp 6 loại không gian và quy tắc không bịa không gian bằng AI.
 - [x] Sửa lỗ hổng Floor Plan Versioning (luôn giữ snapshot + bật Ghost Overlay + bắt xác nhận khi thay thế bản vẽ mới).
-- [x] Siết bảo mật Bootstrap Admin (`ADMIN_BOOTSTRAP_PASSWORD` từ môi trường, ép đổi pass lần đầu, JWT trong RAM, không tài khoản khách trong MVP).
-- [x] Giữ nguyên 19 route hiện tại của `apps/web`, giữ `/games` & `/portal` tương thích, và ẩn 3D WebGL khỏi MVP.
+- [x] Siết bảo mật Bootstrap Admin (`ADMIN_BOOTSTRAP_PASSWORD` từ môi trường, ép đổi pass lần đầu, JWT trong RAM, cấm mật khẩu chung/plaintext) và cập nhật kiến trúc 3 nhóm người dùng, Dual Provisioning (`ADMIN_DIRECT` & `EMAIL_SMS_INVITATION`), đa sự kiện Open Day & Import Excel 5 bước không lưu file/tên/path gốc.
+- [x] Giữ nguyên 19 route hiện tại của `apps/web`, giữ `/games` & `/portal` tương thích (chưa xây Student/Parent Portal trong MVP), và ẩn 3D WebGL khỏi MVP.

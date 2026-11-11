@@ -14,11 +14,11 @@ Kết quả quét trực tiếp toàn bộ `apps/web/src/` cho thấy hiện tr�
 ### 1.1. Nơi chứa hoặc tham chiếu thông tin đăng nhập / session giả lập
 | Tệp mã nguồn | Dòng / Thành phần | Vấn đề bảo mật hiện hữu | Kế hoạch xử lý (từ Phase 1+) |
 |---|---|---|---|
-| `apps/web/src/lib/prototype-auth.ts` | `ADMIN_ACCOUNT_CONFIG` (L13–38), `SESSION_KEY` (L11), `sessionStorage` (L43–67) | **Lộ plaintext username & password (`admin` / `Fpoly@2026`) ngay trong client JavaScript bundle**; lưu phiên dạng JSON thuần ở `window.sessionStorage`. | Gỡ bỏ mật khẩu plaintext trong Phase 1; thay hoàn toàn bằng HTTP Auth Client gọi `/api/v1/auth/*` khi triển khai Backend. |
-| `apps/web/src/app/(auth)/login/page.tsx` | `authenticatePrototypeAccount`, `resolveSafeNextPath`, nhánh `first_login_change_password` (L72–97, 212–279) | Gọi `prototype-auth.ts`; điều hướng mặc định sang `/admin`, hỗ trợ `?next=/portal`; có nhánh UI đổi mật khẩu lần đầu không chạm tới vì `mustChangePassword: false`. | Nối với `POST /api/v1/auth/login` + `PATCH /api/v1/auth/me/password` thật ở Phase 3; gỡ luồng `/portal` mời khách ở Phase 1. |
-| `apps/web/src/app/(portal)/portal/page.tsx` & `layout.tsx` | Guard `if (!session)` (L59–71), đổi MK bỏ qua kiểm tra `currentPw` (L74–103), `clearPrototypeSession` | Đọc `sessionStorage` không kiểm tra role; hiển thị `<AuthGateState actionHref="/login?next=/portal" />`. | Gỡ CTA trỏ `/login?next=/portal` ở Phase 1; giữ nguyên file route `/portal` chờ quyết định riêng. |
-| `apps/web/src/components/ui/StateFeedback.tsx` | `AuthGateState` (`actionHref = "/login?next=/portal"`, L170–178) | Mặc định điều hướng về `/login?next=/portal`. | Đổi mặc định/ngữ cảnh MVP trong Phase 1. |
-| `apps/web/src/components/portal/*` | `DigitalPassCard.tsx`, `StudentProfileHeader.tsx` | Import `PrototypeParticipantSession` từ `prototype-auth.ts`. | Giữ nguyên cấu trúc file cho tới khi xử lý dứt điểm `/portal`. |
+| `apps/web/src/lib/prototype-auth.ts` | *(Đã xóa ở Phase 1)* | Từng chứa plaintext username/password (`admin` / `Fpoly@2026`) và `sessionStorage` giả lập. | **Đã gỡ hoàn toàn ở Phase 1**; không còn credential hay fake session phía client. Sang Phase 3 sẽ nối HTTP Auth Client thật tới `/api/v1/auth/*`. |
+| `apps/web/src/app/(auth)/login/page.tsx` | Trang trạng thái Auth | Từng chứa form đăng nhập prototype và nhánh `first_login_change_password` đọc `sessionStorage`. | **Đã chuyển thành màn hình thông báo Auth chưa triển khai ở Phase 1** (không có form giả); nối API `/api/v1/auth/login` + luồng kích hoạt token 1 lần ở Phase 3. |
+| `apps/web/src/app/(portal)/portal/page.tsx` & `layout.tsx` | Route `/portal` (giữ tương thích) | Từng đọc `sessionStorage` và gắn CTA `/login?next=/portal` + copy Check-in QR. | **Đã gỡ `sessionStorage` và CTA `/login?next=/portal` ở Phase 1**; hiển thị thông báo Student/Parent Portal ngoài phạm vi MVP, giữ route nguyên trạng chờ giai đoạn sau. |
+| `apps/web/src/components/ui/StateFeedback.tsx` | `AuthGateState` (`actionHref = "/campus"`, L170–178) | Từng mặc định điều hướng về `/login?next=/portal`. | **Đã sửa ở Phase 1** về trải nghiệm công khai `/campus` & `/events`. |
+| `apps/web/src/components/portal/*` | `DigitalPassCard.tsx`, `StudentProfileHeader.tsx`, `portal-types.ts` | Từng import `PrototypeParticipantSession` từ `prototype-auth.ts` và chứa copy QR / mật khẩu tạm. | **Đã tách sang `portal-types.ts` và làm sạch copy ở Phase 1**; giữ file thành phần cho giai đoạn Portal sau MVP. |
 | `.env.example` & `docker-compose.yml` | Biến mẫu `POSTGRES_PASSWORD`, `JWT_SECRET` | Chỉ là template cấu hình dev local; chưa tồn tại tệp `.env` thật trên ổ đĩa. | Cấm dùng chuỗi mẫu lên Staging/Production; sinh secret ngẫu nhiên `>= 256-bit` khi dựng hạ tầng. |
 
 > [!CAUTION]
@@ -50,17 +50,24 @@ Kết quả quét trực tiếp toàn bộ `apps/web/src/` cho thấy hiện tr�
 
 ## 2. Kiến trúc Xác thực Admin Mục tiêu (Target Auth Architecture)
 
-### 2.1. Chính sách Tài khoản & Phân quyền (RBAC)
-1. **Admin/Staff-Only:** `/login` chỉ cấp quyền truy cập cho tài khoản nhân sự quản trị do người có thẩm quyền tạo hoặc seed qua CLI/DB. **Không có API hoặc giao diện tự đăng ký (`POST /auth/register` không tồn tại).** Không có role `PARTICIPANT`, `STUDENT` hay `PARENT` trong MVP.
-2. **Bootstrap Admin an toàn:**
-   - Khi khởi tạo Database, seed duy nhất **01 tài khoản gốc (`username = "admin"`, role `SUPER_ADMIN`)** đọc mật khẩu khởi tạo từ biến môi trường `ADMIN_BOOTSTRAP_PASSWORD` (hoặc script CLI tương tác).
-   - **Không có giá trị fallback hardcoded** trong source code hay file migration Prisma; script seed phải fail ngay nếu thiếu `ADMIN_BOOTSTRAP_PASSWORD`.
+### 2.1. Chính sách Tài khoản, Phân loại Người dùng & Phân quyền (RBAC)
+1. **Phân tách 3 nhóm người dùng & Không tự đăng ký công khai:**
+   - **Nhóm A (`ADMIN`, `STAFF`):** Tài khoản quản trị và nhân sự nhà trường do Admin / bootstrap CLI cấp.
+   - **Nhóm B (`STUDENT`, `PARENT` — Người tham gia Open Day):** Tài khoản dành cho khách tham dự Open Day (sinh viên/học sinh và phụ huynh quan tâm — **không mặc định là sinh viên chính thức đang theo học**; hỗ trợ tham gia **nhiều sự kiện Open Day**). **Tuyệt đối không mở API tự đăng ký (`POST /auth/register` không tồn tại)** và lưu ý rằng giao diện Student/Parent Portal (`/portal`) vẫn **chưa thuộc phạm vi MVP**.
+   - **Nhóm C (Khách tham quan tự do):** Không cần tài khoản, không đăng nhập khi xem Tour 360°, GIS Map, Địa điểm và lịch Open Day công khai.
+   - **Phân tách rạch ròi các thuộc tính:** Cơ sở dữ liệu và DTO tách riêng `userType` (`ADMIN | STAFF | STUDENT | PARENT`), `roles/permissions` (RBAC quản trị), `accountStatus` (`ACTIVE | LOCKED | SUSPENDED | ARCHIVED`), `activationStatus` (`PENDING_ACTIVATION | INVITATION_SENT | ACTIVATED | EXPIRED | REVOKED`) và `provisioningMethod` (`BOOTSTRAP | ADMIN_DIRECT | EMAIL_SMS_INVITATION`) — **không gộp chung mọi khái niệm vào 1 cột `role`**.
+2. **Bootstrap Admin an toàn & Quy trình Cấp / Kích hoạt Tài khoản Không Mật Khẩu Plaintext:**
+   - Khi khởi tạo Database, seed duy nhất **01 tài khoản gốc (`username = "admin"`, `userType = ADMIN`, role `SUPER_ADMIN`)** đọc mật khẩu khởi tạo từ biến môi trường `ADMIN_BOOTSTRAP_PASSWORD` (hoặc script CLI tương tác); tuyệt đối không có fallback hardcoded trong code và ép đổi mật khẩu ở lần đầu (`must_change_password = true`).
+   - **Cấp phát cho `STUDENT` / `PARENT` & `STAFF` (Single Unified `users` Model — Dual Provisioning):**
+     - **Phương thức A (`ADMIN_DIRECT`):** Admin tạo thủ công hoặc import rồi cấp **mã/liên kết kích hoạt dùng một lần có thời hạn** (lưu hash trong DB) để người dùng tự thiết lập mật khẩu cá nhân ngay lần kích hoạt đầu. **Cấm tuyệt đối mật khẩu mặc định dùng chung (`shared default password`) hoặc lưu/hiển thị mật khẩu plaintext.**
+     - **Phương thức B (`EMAIL_SMS_INVITATION`):** Hệ thống gửi lời mời qua Email hoặc SMS chứa token ngẫu nhiên dùng một lần có thời hạn (**chỉ lưu hash SHA-256 trong DB**, không ghi raw token vào log/AuditLog/URL công khai), theo dõi trạng thái `INVITATION_PENDING → SENT → EXPIRED/FAILED → ACTIVATED` và hỗ trợ **`Resend`** (vô hiệu hóa token cũ, sinh token mới).
+   - **Import Excel/CSV 5 bước (`.xlsx`/`.csv`):** (1) Upload tạm thời trong RAM/stream → (2) Đọc ô & tự nhận diện/ánh xạ lại cột → (3) Preview & Validate → (4) Confirm Import bản ghi chuẩn hóa + `EventParticipation` → (5) Báo cáo kết quả từng dòng. **Quy tắc cứng: Không bao giờ lưu file Excel gốc, tên file gốc hay đường dẫn file gốc vào Database hoặc Object Storage (S3/MinIO); chỉ lưu bản ghi user đã chuẩn hóa và nhật ký tổng hợp đợt import.**
    - Mật khẩu lưu bằng **Argon2id** (`memoryCost >= 65536`, `timeCost >= 3`, `parallelism = 1`).
-   - Tài khoản seed mặc định mang cờ `must_change_password = true` (trạng thái `PENDING_PASSWORD_CHANGE`), ép buộc đổi mật khẩu mới ngay lần đăng nhập đầu tiên trước khi gọi được bất kỳ API `/api/v1/admin/*` nào (trả `403 PASSWORD_CHANGE_REQUIRED`).
 3. **Vai trò & Quyền hạn (RBAC):**
-   - `SUPER_ADMIN`: toàn quyền quản trị hệ thống, tạo/khóa tài khoản nội bộ khác, xem audit logs, publish tour.
-   - Dự phòng mở rộng nội bộ (khi trường phân công nhiều cán bộ): `TOUR_EDITOR` (`campus:write`, `floorplan:write`, `location:write`, `media:upload`, `tour:write`, `tour:publish`), `EVENT_OPERATOR` (`events:write`).
-   - Toàn bộ kiểm tra quyền thực hiện qua **`JwtAuthGuard` → `ForcePasswordChangedGuard` → `RolesGuard` / `PermissionsGuard`** tại tầng NestJS API.
+   - `SUPER_ADMIN`: toàn quyền quản trị hệ thống, tạo/khóa tài khoản nội bộ & Open Day, import danh sách, xem audit logs, publish tour.
+   - Dự phòng mở rộng nội bộ: `TOUR_EDITOR` (`campus:write`, `floorplan:write`, `location:write`, `media:upload`, `tour:write`, `tour:publish`), `EVENT_OPERATOR` (`events:write`, `users:provision_openday`).
+   - Tài khoản Open Day (`STUDENT` / `PARENT`) không được gán quyền quản trị `/api/v1/admin/*` (`RolesGuard`/`PermissionsGuard` từ chối mặc định `403 Forbidden`).
+   - Toàn bộ kiểm tra quyền thực hiện qua **`JwtAuthGuard` → `ForcePasswordChangedGuard` → `AccountActiveGuard` → `RolesGuard` / `PermissionsGuard`** tại tầng NestJS API.
 
 ### 2.2. Token & Vòng đời Phiên (Session Lifecycle)
 ```mermaid
@@ -121,7 +128,7 @@ sequenceDiagram
 
 | Giai đoạn | Trạng thái | Hành động cụ thể |
 |---|---|---|
-| **Phase 0 (Hiện tại)** | Đang hoàn tất | Tài liệu hóa đầy đủ kiến trúc Auth; giữ `/admin` chỉ chạy nội bộ; **không dựng session giả / cookie giả**. |
-| **Phase 1 (Security & MVP Cleanup)** | Chờ duyệt triển khai | Gỡ plaintext credential `Fpoly@2026` khỏi `prototype-auth.ts`; dọn toàn bộ link/copy `/login?next=/portal` sai định hướng MVP; vô hiệu hóa đăng nhập hardcoded trên client (hoặc hiển thị thông báo rõ rằng trang `/admin` đang chờ kết nối Auth Backend nội bộ, không lưu mật khẩu trong code). |
-| **Phase 3 (Backend & DB)** | Sau khi chốt Phase 2 Data Contract | Dựng PostgreSQL `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `refresh_tokens`, `audit_logs`; cài `AuthModule` + `Argon2id` + `Redis` rate-limit + NestJS Guards; nối `/login` & `/admin/*` qua API `/api/v1/auth/*`. |
+| **Phase 0 (Hoàn tất)** | Đã nghiệm thu (`b4f1a94`) | Tài liệu hóa đầy đủ kiến trúc Auth; giữ `/admin` chỉ chạy nội bộ; **không dựng session giả / cookie giả**. |
+| **Phase 1 (Security & MVP Cleanup)** | Đang hoàn tất | Gỡ toàn bộ `Fpoly@2026`, `prototype-auth.ts`, `sessionStorage`; chuyển `/login` thành màn hình trạng thái chưa kích hoạt; gắn banner Preview nội bộ trên `/admin/*`; dọn QR/Zalo/`next=/portal`; đồng bộ đặc tả 3 nhóm user, Dual Provisioning & Import Excel không lưu file gốc. |
+| **Phase 3 (Backend & DB)** | Sau khi chốt Phase 2 Data Contract | Dựng PostgreSQL `users` (tách `user_type`, `account_status`, `activation_status`, `provisioning_method`), `roles`, `permissions`, `user_roles`, `role_permissions`, `account_invitations`, `event_participations`, `user_import_batches`, `refresh_tokens`, `audit_logs`; cài `AuthModule` + `Argon2id` + `Redis` rate-limit + quy trình kích hoạt/import Excel 5 bước + NestJS Guards; nối `/login`, `/activate` & `/admin/*` qua API `/api/v1/auth/*`. |
 | **Pre-Production Gate** | Trước khi mở Internet | Bật HTTPS/TLS, Cookie `Secure=true`, CORS whitelist chặt, Security Headers, xoay mới toàn bộ `JWT_SECRET`, `POSTGRES_PASSWORD`, `ADMIN_BOOTSTRAP_PASSWORD`, chạy checklist OWASP Auth/IDOR. |

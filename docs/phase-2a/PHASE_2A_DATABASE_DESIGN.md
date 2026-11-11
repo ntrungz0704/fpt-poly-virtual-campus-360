@@ -32,10 +32,12 @@ erDiagram
     roles ||--o{ user_roles : granted_to
     roles ||--o{ role_permissions : has
     permissions ||--o{ role_permissions : grants
+    users ||--o{ account_invitations : receives_activation
+    users ||--o{ event_participations : joins_open_day
+    campuses ||--o{ open_day_sessions : publishes_schedule
+    users ||--o{ user_import_batches : executes_import
     users ||--o{ refresh_tokens : holds
     users ||--o{ audit_logs : performs
-
-    campuses ||--o{ open_day_sessions : publishes_schedule
     locations ||--o{ open_day_sessions : venue
 ```
 
@@ -46,7 +48,7 @@ erDiagram
 | `tour_scenes` (`06-database-audit.md`) | **`tour_nodes`** (`TourNode`) | Thống nhất tên thực thể duy nhất giữa DB, API (`/api/v1/public/tour/nodes/:slug`), Shared DTO và Admin UI. |
 | `locations \|\|--o\| tour_scenes` (`1–1`) | **`locations \|\|--o{ tour_nodes` (`1–N`)** | Một phòng thực tế (`Location` như Lab A302 hoặc Hành lang T3) có thể có **nhiều góc đứng chụp 360°** (cửa phòng, giữa phòng, góc máy). |
 | `media_assets \|\|--o\| tour_nodes` | **`media_assets \|\|--o{ tour_nodes` (`1–N`)** | Cho phép quản lý tập trung vòng đời asset tách biệt với gắn/gỡ node an toàn (mỗi node trỏ tới `panorama_asset_id`). |
-| `PARTICIPANT` / `registrations` (`06-database-audit.md`) | **Loại bỏ khỏi phạm vi MVP** | Khách tham quan truy cập tự do không cần tài khoản; MVP chỉ seed duy nhất 1 tài khoản `admin` (`SUPER_ADMIN`). Bảng `open_day_sessions` chỉ lưu nội dung lịch trình công khai. |
+| `PARTICIPANT` / `registrations` (`06-database-audit.md`) | **Chuẩn hóa thành `users` thống nhất + `event_participations` + `account_invitations`** | Phản ánh đúng 3 nhóm: `ADMIN`/`STAFF`, người tham gia Open Day (`STUDENT`/`PARENT` — **không mặc định là sinh viên chính thức**; hỗ trợ nhiều kỳ Open Day qua `event_participations`), và Khách tham quan tự do (không cần tài khoản). Cấp phát kép `ADMIN_DIRECT` & `EMAIL_SMS_INVITATION`, Import Excel không lưu file/tên/path gốc. **Student/Parent Portal (`/portal`) vẫn chưa thuộc MVP.** |
 
 ---
 
@@ -277,18 +279,24 @@ erDiagram
 
 ---
 
-### 3.4. Khối Tài khoản, RBAC, Token & Audit (`Auth, RBAC & Compliance Domain`)
+### 3.4. Khối Tài khoản Thống nhất, Phân quyền, Kích hoạt Kép & Import (`Auth, RBAC, Provisioning & Compliance Domain`)
 
-- **`users`**: `id (UUID PK)`, `username (VARCHAR(64) UNIQUE NOT NULL)` — chỉ seed duy nhất tài khoản gốc `'admin'`, `full_name`, `email (NULLABLE UNIQUE)`, `password_hash (TEXT NOT NULL — Argon2id từ ADMIN_BOOTSTRAP_PASSWORD môi trường, cấm hardcoded default)`, `status ('ACTIVE' | 'LOCKED' | 'PENDING_PASSWORD_CHANGE')`, `must_change_password (BOOLEAN NOT NULL DEFAULT true)`, `failed_login_attempts (INT DEFAULT 0)`, `locked_until (TIMESTAMPTZ NULLABLE)`, `last_login_at (TIMESTAMPTZ NULLABLE)`, `created_at`, `updated_at`, `deleted_at`.
-- **`roles`**: `id (UUID PK)`, `code (VARCHAR(48) UNIQUE)` (`SUPER_ADMIN`, dự phòng nội bộ `TOUR_EDITOR`, `EVENT_OPERATOR`; **không có vai trò `PARTICIPANT` trong MVP**), `name`, `description`.
-- **`permissions`**: `id (UUID PK)`, `code (VARCHAR(80) UNIQUE)` (`campus:write`, `floorplan:write`, `location:write`, `media:upload`, `tour:write`, `tour:publish`, `users:manage`, `audit:read`).
+> [!IMPORTANT]
+> Thiết kế tách bạch hoàn toàn **`user_type`** (`ADMIN | STAFF | STUDENT | PARENT`), **`roles/permissions`** (RBAC), **`account_status`**, **`activation_status`** và **`provisioning_method`** — tuyệt đối **không gộp chung mọi thuộc tính vào một cột `role`**. Không lưu file Excel gốc, tên file gốc hay đường dẫn file gốc; không dùng mật khẩu mặc định dùng chung hay mật khẩu plaintext.
+
+- **`users`**: `id (UUID PK)`, `username (VARCHAR(64) UNIQUE NULLABLE)` — chỉ seed duy nhất tài khoản gốc `'admin'`, `full_name (VARCHAR(160) NOT NULL)`, `email (VARCHAR(160) NULLABLE UNIQUE)`, `phone (VARCHAR(32) NULLABLE)`, `user_type ('ADMIN' | 'STAFF' | 'STUDENT' | 'PARENT')`, `account_status ('ACTIVE' | 'LOCKED' | 'SUSPENDED' | 'ARCHIVED')`, `activation_status ('PENDING_ACTIVATION' | 'INVITATION_SENT' | 'ACTIVATED' | 'EXPIRED' | 'REVOKED')`, `provisioning_method ('BOOTSTRAP' | 'ADMIN_DIRECT' | 'EMAIL_SMS_INVITATION')`, `password_hash (TEXT NULLABLE — Argon2id; bootstrap Admin đọc từ env ADMIN_BOOTSTRAP_PASSWORD; tài khoản mới chờ kích hoạt để null cho tới khi user tự đặt mật khẩu riêng)`, `must_change_password (BOOLEAN NOT NULL DEFAULT false)`, `failed_login_attempts (INT DEFAULT 0)`, `locked_until (TIMESTAMPTZ NULLABLE)`, `last_login_at (TIMESTAMPTZ NULLABLE)`, `created_at`, `updated_at`, `deleted_at`.
+- **`roles`**: `id (UUID PK)`, `code (VARCHAR(48) UNIQUE)` (`SUPER_ADMIN`, `TOUR_EDITOR`, `EVENT_OPERATOR`), `name`, `description`. *(Nhóm `STUDENT` / `PARENT` không mặc định được gán role quản trị Admin.)*
+- **`permissions`**: `id (UUID PK)`, `code (VARCHAR(80) UNIQUE)` (`campus:write`, `floorplan:write`, `location:write`, `media:upload`, `tour:write`, `tour:publish`, `users:manage`, `users:provision_openday`, `events:write`, `audit:read`).
 - **`user_roles`** (`N-N`): `user_id (FK)`, `role_id (FK)`, `PK (user_id, role_id)`.
 - **`role_permissions`** (`N-N`): `role_id (FK)`, `permission_id (FK)`, `PK (role_id, permission_id)`.
+- **`account_invitations`** (Cấp phát kép không plaintext password): `id (UUID PK)`, `user_id (FK -> users.id NOT NULL)`, `channel ('DIRECT_LINK' | 'EMAIL' | 'SMS')`, `token_hash (CHAR(64) UNIQUE NOT NULL — chỉ lưu SHA-256 hash của token/mã kích hoạt dùng 1 lần)`, `status ('INVITATION_PENDING' | 'SENT' | 'EXPIRED' | 'ACTIVATED' | 'FAILED')`, `expires_at (TIMESTAMPTZ NOT NULL)`, `sent_at (TIMESTAMPTZ NULLABLE)`, `activated_at (TIMESTAMPTZ NULLABLE)`, `resend_count (INT NOT NULL DEFAULT 0)`, `failure_reason (TEXT NULLABLE)`, `created_by (UUID FK -> users.id NOT NULL)`, `created_at (TIMESTAMPTZ NOT NULL)`.
+- **`event_participations`** (1 tài khoản Open Day tham gia nhiều sự kiện): `id (UUID PK)`, `user_id (FK -> users.id NOT NULL)`, `open_day_event_key (VARCHAR(80) NOT NULL)`, `event_name (VARCHAR(160) NOT NULL)`, `event_date (DATE NULLABLE)`, `participation_status ('INVITED' | 'CONFIRMED' | 'CANCELLED')`, `provisioned_by (UUID FK -> users.id NULLABLE)`, `created_at`, `updated_at` — `UNIQUE (user_id, open_day_event_key)`.
+- **`user_import_batches`** (Nhật ký kết quả import hàng loạt — **KHÔNG lưu file gốc/tên file/đường dẫn file**): `id (UUID PK)`, `imported_by (UUID FK -> users.id NOT NULL)`, `default_user_type ('STUDENT' | 'PARENT')`, `provisioning_method ('ADMIN_DIRECT' | 'EMAIL_SMS_INVITATION')`, `total_rows (INT NOT NULL)`, `success_count (INT NOT NULL)`, `skipped_count (INT NOT NULL)`, `failed_count (INT NOT NULL)`, `row_results_summary_json (JSONB NOT NULL)` *(chỉ chứa STT dòng, kết quả và lý do lỗi, không chứa thông tin nhạy cảm hay tên file)*, `created_at (TIMESTAMPTZ NOT NULL)`.
 - **`refresh_tokens`**: `id (UUID PK)`, `user_id (FK)`, `token_hash (CHAR(64) UNIQUE)`, `family_id (UUID NOT NULL)` (phát hiện reuse attack), `expires_at`, `revoked_at`, `user_agent`, `ip_address`, `created_at`.
-- **`audit_logs`** (Append-only): `id (UUID PK)`, `actor_user_id (UUID FK NULLABLE)`, `actor_username (VARCHAR(64))`, `action (VARCHAR(80) NOT NULL)` (`LOGIN_SUCCESS`, `LOGIN_FAILED`, `PASSWORD_CHANGED`, `FLOOR_PLAN_REPLACED`, `ALIGNMENT_CONFIRMED`, `TOUR_PUBLISHED`, ...), `resource_type (VARCHAR(64))`, `resource_id (UUID NULLABLE)`, `diff_json (JSONB NULLABLE)`, `ip_address (INET)`, `created_at (TIMESTAMPTZ NOT NULL)`.
+- **`audit_logs`** (Append-only — cấm ghi mật khẩu/raw token/tên file Excel gốc): `id (UUID PK)`, `actor_user_id (UUID FK NULLABLE)`, `actor_username (VARCHAR(64))`, `action (VARCHAR(80) NOT NULL)` (`LOGIN_SUCCESS`, `LOGIN_FAILED`, `PASSWORD_CHANGED`, `USER_CREATED`, `USER_IMPORTED_BATCH`, `INVITATION_SENT`, `INVITATION_RESENT`, `ACCOUNT_ACTIVATED`, `FLOOR_PLAN_REPLACED`, `ALIGNMENT_CONFIRMED`, `TOUR_PUBLISHED`, ...), `resource_type (VARCHAR(64))`, `resource_id (UUID NULLABLE)`, `diff_json (JSONB NULLABLE)`, `ip_address (INET)`, `created_at (TIMESTAMPTZ NOT NULL)`.
 
-### 3.5. Khối Sự kiện Open Day (CMS công khai — Không yêu cầu tài khoản tham dự trong MVP)
-- **`open_day_sessions`**: `id (UUID PK)`, `campus_id (FK)`, `location_id (FK NULLABLE)`, `title`, `session_period ('MORNING' | 'NOON' | 'AFTERNOON')`, `start_time_label`, `end_time_label`, `is_public (BOOLEAN DEFAULT true)`, `description`, `sort_order`, `status`.
+### 3.5. Khối Sự kiện Open Day (CMS công khai & Đa sự kiện — `/portal` vẫn ngoài MVP)
+- **`open_day_sessions`**: `id (UUID PK)`, `campus_id (FK)`, `location_id (FK NULLABLE)`, `event_key (VARCHAR(80) NOT NULL)`, `title`, `session_period ('MORNING' | 'NOON' | 'AFTERNOON')`, `start_time_label`, `end_time_label`, `is_public (BOOLEAN DEFAULT true)`, `description`, `sort_order`, `status`. *(Khách tham quan công khai xem miễn phí không cần đăng nhập; tài khoản mời `STUDENT`/`PARENT` liên kết qua `event_participations`.)*
 - **`open_day_quiz_items`**: `id (UUID PK)`, `tour_node_id (FK NULLABLE)`, `question_text`, `options_json (JSONB)`, `correct_index (INT)`, `explanation`, `status`.
 
 ---
@@ -339,6 +347,48 @@ enum HotspotType {
   SCENE_LINK
   INFO
   QUIZ_TRIGGER
+}
+
+enum UserType {
+  ADMIN
+  STAFF
+  STUDENT
+  PARENT
+}
+
+enum AccountStatus {
+  ACTIVE
+  LOCKED
+  SUSPENDED
+  ARCHIVED
+}
+
+enum ActivationStatus {
+  PENDING_ACTIVATION
+  INVITATION_SENT
+  ACTIVATED
+  EXPIRED
+  REVOKED
+}
+
+enum ProvisioningMethod {
+  BOOTSTRAP
+  ADMIN_DIRECT
+  EMAIL_SMS_INVITATION
+}
+
+enum InvitationChannel {
+  DIRECT_LINK
+  EMAIL
+  SMS
+}
+
+enum InvitationStatus {
+  INVITATION_PENDING
+  SENT
+  EXPIRED
+  ACTIVATED
+  FAILED
 }
 ```
 

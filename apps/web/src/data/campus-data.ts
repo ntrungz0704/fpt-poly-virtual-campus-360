@@ -335,7 +335,7 @@ export const CAMPUS_LOCATIONS: CampusLocationItem[] = [
     categoryLabel: "Không gian Chung",
     shortDesc: "Khu vực đón tiếp khách tham quan, check-in Open Day và định hướng khuôn viên.",
     description:
-      "Điểm dừng chân đầu tiên khi bước vào cơ sở CVPM Quang Trung. Tại đây diễn ra hoạt động đón tiếp khách mời Open Day, quét mã QR check-in và hướng dẫn di chuyển tới các khu phòng Lab.",
+      "Điểm dừng chân đầu tiên khi bước vào cơ sở CVPM Quang Trung. Tại đây diễn ra hoạt động đón tiếp khách tham quan Open Day và hướng dẫn định hướng di chuyển tới các tòa nhà, phòng Lab.",
     highlights: [
       "Quầy đón tiếp & hướng dẫn lịch trình Open Day",
       "Khu vực sảnh mở kết nối trực tiếp lối lên Hội trường",
@@ -526,14 +526,6 @@ export const TOUR_SCENES: TourSceneItem[] = [
         targetSceneId: "studio-imac",
       },
       {
-        id: "hs-to-tang1-test",
-        label: "Test Ảnh Thực tế Tầng 1",
-        yaw: -8,
-        pitch: -1,
-        type: "scene",
-        targetSceneId: "tang-1-sanh-ong-vang",
-      },
-      {
         id: "hs-info-courtyard",
         label: "Điểm tập trung Open Day",
         yaw: -15,
@@ -711,92 +703,6 @@ export const TOUR_SCENES: TourSceneItem[] = [
       },
     ],
   },
-  {
-    id: "tang-1-sanh-ong-vang",
-    name: "Tầng 1 — Sảnh Ong Vàng & Tủ Trưng bày (Test)",
-    buildingCode: "INNOVATION",
-    buildingLabel: "Cơ sở Thực tế (Test 360°)",
-    floor: "Tầng 1",
-    category: "study",
-    bgUrl: "/images/panoramas/tang-1.jpg",
-    thumbUrl: "/images/panoramas/tang-1.jpg",
-    intro:
-      "Ảnh panorama chụp thực tế khu vực Tầng 1 (Sảnh Tiếp đón FPT Polytechnic & khu trưng bày linh vật Ong Vàng). Ảnh góc 3:1 (2170×725) được tự động bù dải trần/sàn để kiểm thử.",
-    linkedLocationSlug: "sanh-innovation",
-    initialView: { yaw: 0, pitch: 0, fov: 68 },
-    status: "published",
-    isEquirectangular2to1: false,
-    hotspots: [
-      {
-        id: "hs-t1-to-t2",
-        label: "Lên Tầng 2 — Dịch vụ Sinh viên",
-        yaw: 22,
-        pitch: 3,
-        type: "scene",
-        targetSceneId: "tang-2-dich-vu-sv",
-      },
-      {
-        id: "hs-t1-to-courtyard",
-        label: "Về Toàn cảnh Khuôn viên QTSC",
-        yaw: -145,
-        pitch: 0,
-        type: "scene",
-        targetSceneId: "cong-chao-qtsc",
-      },
-      {
-        id: "hs-t1-audit-note",
-        label: "Thông số Ảnh Test Tầng 1",
-        yaw: -20,
-        pitch: -2,
-        type: "info",
-        infoText:
-          "Ảnh 2170×725 (tỷ lệ 2.99:1, thiếu trần/sàn chuẩn 2:1 và còn vạch nối nhẹ sau lưng ~30 MAE). Bảng hiệu FPT Polytechnic hiển thị rõ.",
-      },
-    ],
-  },
-  {
-    id: "tang-2-dich-vu-sv",
-    name: "Tầng 2 — Dịch vụ Sinh viên & Tự học (Test)",
-    buildingCode: "INNOVATION",
-    buildingLabel: "Cơ sở Thực tế (Test 360°)",
-    floor: "Tầng 2",
-    category: "study",
-    bgUrl: "/images/panoramas/tang-2.jpg",
-    thumbUrl: "/images/panoramas/tang-2.jpg",
-    intro:
-      "Ảnh panorama chụp thực tế khu vực Dịch vụ Sinh viên & Không gian tự học Tầng 2. Độ nét chữ và đường ghép vòng 360° tốt (13.1 MAE), còn thiếu dải trần/sàn chuẩn 2:1.",
-    linkedLocationSlug: "thu-vien-so-t2",
-    initialView: { yaw: 0, pitch: 0, fov: 68 },
-    status: "published",
-    isEquirectangular2to1: false,
-    hotspots: [
-      {
-        id: "hs-t2-to-t1",
-        label: "Xuống Tầng 1 — Sảnh Ong Vàng",
-        yaw: -24,
-        pitch: -2,
-        type: "scene",
-        targetSceneId: "tang-1-sanh-ong-vang",
-      },
-      {
-        id: "hs-t2-to-lib",
-        label: "Sang Thư viện Số Co-working",
-        yaw: 135,
-        pitch: 0,
-        type: "scene",
-        targetSceneId: "thu-vien",
-      },
-      {
-        id: "hs-t2-audit-note",
-        label: "Thông số Ảnh Test Tầng 2",
-        yaw: 18,
-        pitch: -2,
-        type: "info",
-        infoText:
-          "Ảnh 2172×724 (tỷ lệ 3.00:1). Đường khép vòng khá mượt; khi chụp bản hoàn chỉnh cần đủ 360×180 (4096×2048 trở lên) kèm metadata GPano.",
-      },
-    ],
-  },
 ];
 
 export interface OpenDaySessionItem {
@@ -817,9 +723,9 @@ export const OPEN_DAY_SESSIONS: OpenDaySessionItem[] = [
     id: "od-01",
     timeRange: "08:00 – 08:45",
     period: "morning",
-    title: "Đón khách tham quan tự do & Check-in tài khoản mời",
+    title: "Đón khách tham quan & Định hướng khuôn viên QTSC",
     description:
-      "Khách tham quan tự do trải nghiệm khuôn viên ngoài trời; khách mời có tài khoản quét mã QR tại sảnh để nhận thẻ tham dự chương trình.",
+      "Đón tiếp học sinh, phụ huynh và khách tham quan tự do tại Sảnh Innovation; hướng dẫn trải nghiệm Bản đồ GIS và hành trình tham quan các khu phòng Lab.",
     buildingCode: "INNOVATION",
     locationLabel: "Sảnh Đón Tiếp — Tòa Innovation",
     sceneId: "cong-chao-qtsc",
@@ -869,9 +775,9 @@ export const OPEN_DAY_SESSIONS: OpenDaySessionItem[] = [
     id: "od-05",
     timeRange: "13:30 – 15:30",
     period: "afternoon",
-    title: "Thử thách Khám phá Khuôn viên & Hoạt động Open Day (Tài khoản mời)",
+    title: "Thử thách Khám phá Khuôn viên & Hoạt động Trải nghiệm QTSC",
     description:
-      "Khách mời hoàn thành check-in các điểm trạm và tham gia phiên thử thách hỏi đáp tại Không gian Tham dự Open Day.",
+      "Người tham dự trải nghiệm các trạm định hướng tại các tòa nhà trọng điểm và ôn tập thông tin khuôn viên qua mini-game tích hợp trong tour 360°.",
     buildingCode: "TOA-F",
     locationLabel: "Tòa F & Không gian Tham dự Trực tuyến",
     sceneId: "studio-imac",
@@ -908,15 +814,15 @@ export const OPEN_DAY_FAQ: OpenDayFaqItem[] = [
   },
   {
     id: "faq-2",
-    question: "Tài khoản tham gia Open Day lấy ở đâu và dùng để làm gì?",
+    question: "Tham gia trải nghiệm Open Day và Tham quan 360° có cần tài khoản không?",
     answer:
-      "Tài khoản và mật khẩu tạm được Ban Tổ Chức tạo và gửi qua Zalo hoặc Email cho khách mời trước sự kiện để đăng nhập vào Không gian Tham dự (/portal), xem mã QR check-in và tham gia các phiên workshop giới hạn.",
+      "Khách tham quan tự do không cần đăng ký hoặc đăng nhập để xem lịch Open Day công khai (/events), Bản đồ GIS (/map) và Tham quan 360° (/campus).",
   },
   {
     id: "faq-3",
-    question: "Tôi đăng nhập lần đầu bằng mật khẩu tạm thì cần làm gì?",
+    question: "Khi nào áp dụng tài khoản mời Open Day (kích hoạt trực tiếp / Email-SMS)?",
     answer:
-      "Hệ thống sẽ yêu cầu bạn đổi sang mật khẩu cá nhân ngay trong lần đăng nhập đầu tiên trước khi mở thẻ QR check-in và lịch trình của bạn.",
+      "Quy trình cấp tài khoản cho nhân sự quản trị và khách mời Open Day (qua liên kết kích hoạt dùng một lần hoặc lời mời Email/SMS) sẽ được tích hợp ở giai đoạn Backend Auth tiếp theo.",
   },
   {
     id: "faq-4",
@@ -1060,28 +966,6 @@ export const INITIAL_MEDIA_ASSETS: MediaAssetAdminItem[] = [
     ratioValid: true,
     sizeLabel: "210 KB",
     usedBy: ["Location: studio-imac-f402", "Building: TOA-F"],
-    updatedAt: "11/11/2026",
-  },
-  {
-    id: "med-09",
-    filename: "tang-1.jpg",
-    url: "/images/panoramas/tang-1.jpg",
-    kind: "panorama_2_1",
-    dimensions: "2170 × 725 (3:1 — Thiếu trần/sàn)",
-    ratioValid: false,
-    sizeLabel: "295 KB",
-    usedBy: ["Scene: tang-1-sanh-ong-vang"],
-    updatedAt: "11/11/2026",
-  },
-  {
-    id: "med-10",
-    filename: "tang-2.jpg",
-    url: "/images/panoramas/tang-2.jpg",
-    kind: "panorama_2_1",
-    dimensions: "2172 × 724 (3:1 — Thiếu trần/sàn)",
-    ratioValid: false,
-    sizeLabel: "342 KB",
-    usedBy: ["Scene: tang-2-dich-vu-sv"],
     updatedAt: "11/11/2026",
   },
 ];

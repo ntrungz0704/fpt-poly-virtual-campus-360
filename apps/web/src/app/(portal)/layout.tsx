@@ -3,7 +3,6 @@
 import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { clearPrototypeSession } from "@/lib/prototype-auth";
 
 export default function PortalLayout({
   children,
@@ -13,8 +12,7 @@ export default function PortalLayout({
   const router = useRouter();
 
   const handleSignOut = () => {
-    clearPrototypeSession();
-    router.push("/login");
+    router.push("/events");
   };
 
   return (
@@ -68,7 +66,7 @@ export default function PortalLayout({
               <span aria-hidden="true" className="material-symbols-outlined text-[17px]">
                 logout
               </span>
-              <span className="hidden xs:inline">Đăng xuất</span>
+              <span className="hidden xs:inline">Lịch Open Day</span>
             </button>
           </nav>
         </div>

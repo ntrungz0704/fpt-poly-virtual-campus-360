@@ -46,8 +46,8 @@ export function AdminDashboardMetrics() {
           : `${OPEN_DAY_SESSIONS.length} phiên công khai`,
       note:
         totalParticipants > 0
-          ? "Khách mời đã check-in QR"
-          : "Chưa nạp danh sách khách mời",
+          ? "Bản ghi tham dự Open Day (Preview)"
+          : "Chưa nạp danh sách tham dự",
       href: "/admin/events",
       icon: "event",
     },
@@ -56,8 +56,8 @@ export function AdminDashboardMetrics() {
       value: `${INITIAL_ADMIN_USERS.length} tài khoản · ${INITIAL_MEDIA_ASSETS.length} tệp`,
       note:
         pendingFirstLogin > 0
-          ? `${pendingFirstLogin} chờ đổi mật khẩu tạm`
-          : "Duy nhất tài khoản Admin hoạt động",
+          ? `${pendingFirstLogin} chờ kích hoạt (Preview)`
+          : "Sẵn sàng đồng bộ Backend Phase 3",
       href: "/admin/users",
       icon: "group",
     },

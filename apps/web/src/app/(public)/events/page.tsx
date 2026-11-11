@@ -8,7 +8,7 @@ import { BlurText, FadeContent } from "@/components/animations";
 export const metadata = {
   title: "FPoly Open Day tại CVPM Quang Trung | FPT Polytechnic Virtual Campus",
   description:
-    "Lịch trình công khai Open Day QTSC Quận 12, hướng dẫn di chuyển khuôn viên và cổng đăng nhập dành cho tài khoản mời.",
+    "Lịch trình công khai Open Day QTSC Quận 12, hướng dẫn di chuyển khuôn viên và các phiên trải nghiệm thực tế.",
 };
 
 export default function EventsPage() {
@@ -29,8 +29,8 @@ export default function EventsPage() {
               FPoly Open Day — Trải nghiệm Không gian Thực hành
             </h1>
             <p className="type-body text-slate-300 leading-relaxed">
-              Địa điểm: {OFFICIAL_CAMPUS_INFO.address}. Khách tham quan tự do xem lịch trình bên dưới;
-              khách mời đã có tài khoản do Ban Tổ Chức cấp có thể đăng nhập để nhận thẻ Check-in QR.
+              Địa điểm: {OFFICIAL_CAMPUS_INFO.address}. Khách tham quan tự do theo dõi lịch trình bên dưới
+              và định hướng trước vị trí các khu vực bằng Bản đồ GIS &amp; Tham quan 360°.
             </p>
           </div>
 

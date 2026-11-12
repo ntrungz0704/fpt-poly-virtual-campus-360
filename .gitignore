@@ -28,6 +28,10 @@ next-env.d.ts
 # Test, coverage & script outputs
 coverage/
 **/coverage/
+test-results/
+**/test-results/
+playwright-report/
+**/playwright-report/
 tmp-*
 **/tmp-*
 

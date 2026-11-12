@@ -70,7 +70,7 @@ export class AuthController {
 
   @Public()
   @UseGuards(CsrfCookieGuard)
-  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
   @Post("refresh")
   @HttpCode(HttpStatus.OK)
   async refresh(

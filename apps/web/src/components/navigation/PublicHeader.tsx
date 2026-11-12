@@ -2,7 +2,9 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { canAccessAdmin, getUserInitials } from "@/lib/auth/auth-routing";
 
 const NAV_ITEMS = [
   { href: "/campus", label: "Tham quan 360°", icon: "360" },
@@ -13,7 +15,10 @@ const NAV_ITEMS = [
 
 export function PublicHeader() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { status, user, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -34,6 +39,33 @@ export function PublicHeader() {
   }, [mobileMenuOpen]);
 
   const isLoginActive = pathname.startsWith("/login");
+  const isAuthenticated = status === "authenticated" && user !== null;
+  const workspaceHref = !user
+    ? "/login"
+    : user.mustChangePassword
+      ? "/change-password"
+      : canAccessAdmin(user)
+        ? "/admin"
+        : "/portal";
+  const workspaceLabel = !user
+    ? "Đăng nhập"
+    : user.mustChangePassword
+      ? "Đổi mật khẩu"
+      : canAccessAdmin(user)
+        ? "Quản trị"
+        : "Cổng Open Day";
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await logout();
+      setMobileMenuOpen(false);
+      router.push("/login");
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   return (
     <>
@@ -94,32 +126,71 @@ export function PublicHeader() {
 
             <div className="h-5 w-[1px] bg-surface-container mx-1" aria-hidden="true" />
 
-            <Link
-              href="/login"
-              className={`ui-btn min-h-[40px] px-4 py-2 text-xs whitespace-nowrap ${
-                isLoginActive ? "ui-btn-secondary" : "ui-btn-primary"
-              }`}
-            >
-              <span aria-hidden="true" className="material-symbols-outlined text-[17px]">
-                login
-              </span>
-              <span>Đăng nhập</span>
-            </Link>
+            {isAuthenticated && user ? (
+              <div className="flex items-center gap-2">
+                <Link
+                  href={workspaceHref}
+                  className="ui-btn ui-btn-primary min-h-[40px] px-3.5 py-2 text-xs whitespace-nowrap"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="w-5 h-5 rounded-full bg-white/20 text-white text-[10px] font-bold inline-flex items-center justify-center"
+                  >
+                    {getUserInitials(user.fullName)}
+                  </span>
+                  <span className="max-w-[130px] truncate">{workspaceLabel}</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                  aria-label="Đăng xuất"
+                  title="Đăng xuất"
+                  className="ui-btn ui-btn-outline min-h-[40px] px-3 py-2 text-xs whitespace-nowrap cursor-pointer"
+                >
+                  <span aria-hidden="true" className="material-symbols-outlined text-[17px]">
+                    logout
+                  </span>
+                  <span>Đăng xuất</span>
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                className={`ui-btn min-h-[40px] px-4 py-2 text-xs whitespace-nowrap ${
+                  isLoginActive ? "ui-btn-secondary" : "ui-btn-primary"
+                }`}
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-[17px]">
+                  login
+                </span>
+                <span>Đăng nhập</span>
+              </Link>
+            )}
           </nav>
 
           {/* Tablet & Mobile Controls (< 1024px) */}
           <div className="flex lg:hidden items-center gap-2 shrink-0">
-            <Link
-              href="/login"
-              className={`hidden sm:inline-flex ui-btn min-h-[40px] px-3.5 py-2 text-xs whitespace-nowrap ${
-                isLoginActive ? "ui-btn-secondary" : "ui-btn-primary"
-              }`}
-            >
-              <span aria-hidden="true" className="material-symbols-outlined text-[17px]">
-                login
-              </span>
-              <span>Đăng nhập</span>
-            </Link>
+            {isAuthenticated && user ? (
+              <Link
+                href={workspaceHref}
+                className="hidden sm:inline-flex ui-btn ui-btn-primary min-h-[40px] px-3.5 py-2 text-xs whitespace-nowrap"
+              >
+                <span>{workspaceLabel}</span>
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                className={`hidden sm:inline-flex ui-btn min-h-[40px] px-3.5 py-2 text-xs whitespace-nowrap ${
+                  isLoginActive ? "ui-btn-secondary" : "ui-btn-primary"
+                }`}
+              >
+                <span aria-hidden="true" className="material-symbols-outlined text-[17px]">
+                  login
+                </span>
+                <span>Đăng nhập</span>
+              </Link>
+            )}
             <button
               type="button"
               onClick={() => setMobileMenuOpen((prev) => !prev)}
@@ -150,7 +221,7 @@ export function PublicHeader() {
             <div className="flex flex-col gap-5">
               <div className="flex items-center justify-between pb-3 border-b border-surface-container">
                 <span className="type-caption uppercase text-secondary">
-                  CVPM Quang Trung · Q.12
+                  {isAuthenticated && user ? user.fullName : "CVPM Quang Trung · Q.12"}
                 </span>
                 <span className="ui-badge ui-badge-primary">360°</span>
               </div>
@@ -178,16 +249,42 @@ export function PublicHeader() {
                   );
                 })}
 
-                <Link
-                  href="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="mt-2 ui-btn ui-btn-primary min-h-[44px] w-full justify-center"
-                >
-                  <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
-                    login
-                  </span>
-                  <span>Đăng nhập</span>
-                </Link>
+                {isAuthenticated && user ? (
+                  <>
+                    <Link
+                      href={workspaceHref}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="mt-2 ui-btn ui-btn-primary min-h-[44px] w-full justify-center"
+                    >
+                      <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
+                        account_circle
+                      </span>
+                      <span>{workspaceLabel}</span>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      disabled={loggingOut}
+                      className="ui-btn ui-btn-outline min-h-[44px] w-full justify-center cursor-pointer"
+                    >
+                      <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
+                        logout
+                      </span>
+                      <span>{loggingOut ? "Đang đăng xuất..." : "Đăng xuất"}</span>
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    href="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="mt-2 ui-btn ui-btn-primary min-h-[44px] w-full justify-center"
+                  >
+                    <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
+                      login
+                    </span>
+                    <span>Đăng nhập</span>
+                  </Link>
+                )}
               </nav>
             </div>
 

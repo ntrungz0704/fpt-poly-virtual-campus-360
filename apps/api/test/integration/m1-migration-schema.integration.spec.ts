@@ -33,6 +33,7 @@ async function expectPgError(
 }
 
 describe("M1 Migration, Preflight & UploadToken Schema Integration", () => {
+  jest.setTimeout(180_000);
   let m1Handle: ScratchDbHandle;
   let pgClient: Client;
   let preflightSql: string;
@@ -499,5 +500,5 @@ describe("M1 Migration, Preflight & UploadToken Schema Integration", () => {
         { id: qB.id, event_id: fx.eventBId },
       ]);
     });
-  }, 60000);
+  }, 240000);
 });

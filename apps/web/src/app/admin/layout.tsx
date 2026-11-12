@@ -2,7 +2,17 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/components/auth/AuthProvider";
+import {
+  AdminModulePermissionGuard,
+  ProtectedRoute,
+} from "@/components/auth/ProtectedRoute";
+import {
+  getPrimaryRoleLabel,
+  getUserInitials,
+  hasRequiredAdminPathPermission,
+} from "@/lib/auth/auth-routing";
 
 const ADMIN_MODULES = [
   { href: "/admin", label: "Dashboard", icon: "dashboard" },
@@ -13,18 +23,21 @@ const ADMIN_MODULES = [
   { href: "/admin/users", label: "Tài khoản & Import", icon: "group" },
 ];
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const pathname = usePathname();
+function AdminShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname() || "/admin";
+  const router = useRouter();
+  const { user, logout } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const visibleModules = ADMIN_MODULES.filter((item) =>
+    hasRequiredAdminPathPermission(user, item.href),
+  );
 
   const activeModule =
     ADMIN_MODULES.find((item) =>
-      item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href)
+      item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href),
     ) || ADMIN_MODULES[0];
 
   useEffect(() => {
@@ -41,8 +54,19 @@ export default function AdminLayout({
     };
   }, [mobileDrawerOpen]);
 
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await logout();
+      router.replace("/login");
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-surface-container-low flex overflow-x-clip">
+    <div className="min-h-screen bg-surface-container-low flex overflow-x-clip" data-testid="admin-shell">
       {/* Mobile & Tablet (< 1024px) Slide-over Backdrop */}
       {mobileDrawerOpen && (
         <button
@@ -53,7 +77,7 @@ export default function AdminLayout({
         />
       )}
 
-      {/* Admin P0 6-Module Sidebar (Slide-over drawer <1024px, docked rail >=1024px) */}
+      {/* Admin P0 Sidebar */}
       <aside
         aria-label="Thanh điều hướng Admin P0"
         className={`fixed inset-y-0 left-0 z-50 lg:static bg-surface-container-lowest border-r border-surface-container transition-all duration-300 flex flex-col justify-between shrink-0 lg:translate-x-0 ${
@@ -76,7 +100,7 @@ export default function AdminLayout({
                 />
                 <div className="flex flex-col min-w-0">
                   <span className="font-headline-sm text-sm text-on-surface font-bold leading-tight truncate">
-                    Admin P0
+                    Admin Console
                   </span>
                   <span className="text-[10px] text-primary font-bold tracking-wider uppercase truncate">
                     Virtual Campus
@@ -113,9 +137,9 @@ export default function AdminLayout({
             </button>
           </div>
 
-          {/* 6-Item P0 Navigation List */}
+          {/* Navigation List (filtered by real RBAC permissions) */}
           <nav aria-label="Module quản trị" className="p-2.5 flex flex-col gap-1 overflow-y-auto flex-1">
-            {ADMIN_MODULES.map((item) => {
+            {visibleModules.map((item) => {
               const isActive =
                 item.href === "/admin"
                   ? pathname === "/admin"
@@ -163,19 +187,22 @@ export default function AdminLayout({
               public
             </span>
             {(!sidebarCollapsed || mobileDrawerOpen) && (
-              <span className="truncate">Xem trang công khai</span>
+              <span className="truncate">Trang công khai</span>
             )}
           </Link>
-          <Link
-            href="/login"
-            aria-label="Xem trạng thái xác thực"
-            title="Xem trạng thái xác thực (chưa triển khai)"
-            className="w-10 h-10 rounded-lg text-secondary hover:text-error hover:bg-error-container/60 transition-colors flex items-center justify-center shrink-0"
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            data-testid="admin-sidebar-logout-btn"
+            aria-label="Đăng xuất"
+            title="Đăng xuất khỏi hệ thống"
+            className="w-10 h-10 rounded-lg text-secondary hover:text-error hover:bg-error-container/60 transition-colors flex items-center justify-center shrink-0 cursor-pointer"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
               logout
             </span>
-          </Link>
+          </button>
         </div>
       </aside>
 
@@ -201,46 +228,91 @@ export default function AdminLayout({
           </div>
 
           <div className="flex items-center gap-2.5 shrink-0">
-            <span className="ui-badge ui-badge-info hidden sm:inline-flex">
-              Điều phối viên QTSC
-            </span>
-            <div
-              aria-label="Tài khoản quản trị"
-              className="w-9 h-9 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-bold text-xs shrink-0"
+            {user && (
+              <>
+                <span className="ui-badge ui-badge-info hidden md:inline-flex">
+                  {getPrimaryRoleLabel(user)}
+                </span>
+                <span
+                  data-testid="admin-user-fullname"
+                  className="hidden sm:inline text-xs font-semibold text-on-surface max-w-[160px] truncate"
+                >
+                  {user.fullName}
+                </span>
+                <div
+                  aria-label={`Tài khoản ${user.fullName}`}
+                  className="w-9 h-9 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-bold text-xs shrink-0"
+                >
+                  {getUserInitials(user.fullName)}
+                </div>
+              </>
+            )}
+            <Link
+              href="/change-password"
+              className="ui-btn ui-btn-outline min-h-[38px] px-3 py-1.5 text-xs hidden sm:inline-flex"
             >
-              AD
-            </div>
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
+                password
+              </span>
+              <span>Đổi mật khẩu</span>
+            </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              data-testid="admin-logout-btn"
+              className="ui-btn ui-btn-outline min-h-[38px] px-3 py-1.5 text-xs cursor-pointer"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
+                logout
+              </span>
+              <span className="hidden xs:inline">
+                {loggingOut ? "Đang thoát..." : "Đăng xuất"}
+              </span>
+            </button>
           </div>
         </header>
 
         <main className="flex-1 p-4 md:p-space-xl overflow-y-auto">
           <div
-            role="alert"
-            className="mb-6 rounded-xl border border-amber-400/60 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm"
+            role="status"
+            className="mb-6 rounded-xl border border-primary/25 bg-primary-fixed/40 px-4 py-3 text-on-surface shadow-2xs"
           >
             <div className="flex items-start gap-3">
               <span
-                className="material-symbols-outlined mt-0.5 text-amber-700 shrink-0"
+                className="material-symbols-outlined mt-0.5 text-primary shrink-0"
                 aria-hidden="true"
               >
-                warning
+                verified_user
               </span>
               <div className="space-y-1 text-xs md:text-sm leading-relaxed">
-                <p className="font-bold uppercase tracking-wide text-amber-900">
-                  Admin Preview nội bộ · Chưa có Authentication &amp; Server Guard
+                <p className="font-bold text-on-surface">
+                  Xác thực &amp; Phân quyền RBAC đã kích hoạt · Phiên đồng bộ từ Backend API
                 </p>
-                <p className="text-amber-900/90">
-                  Khu vực <code className="font-mono font-semibold">/admin/*</code> hiện chỉ là giao diện Preview
-                  nội bộ để đánh giá UX/UI (chưa có xác thực Server, Session hay RBAC — chờ Backend Phase 3).{" "}
-                  <strong>Không triển khai lên Internet công khai</strong> khi chưa có Auth Backend; thanh cảnh báo
-                  này chỉ mang tính thông tin và <strong>không phải cơ chế bảo mật</strong>.
+                <p className="text-secondary">
+                  Quyền truy cập <code className="font-mono font-semibold">/admin/*</code> đang được bảo vệ bởi
+                  JWT Bearer + HttpOnly Refresh Cookie + RBAC. Các màn hình biên tập CMS chi tiết (Media,
+                  Địa điểm, Tour 360°, Tài khoản/Import) đang ở chế độ Preview và sẽ được nối API ở các
+                  milestone tiếp theo.
                 </p>
               </div>
             </div>
           </div>
-          {children}
+          <AdminModulePermissionGuard>{children}</AdminModulePermissionGuard>
         </main>
       </div>
     </div>
+  );
+}
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <ProtectedRoute requireAdmin checkModulePermissions={false}>
+      <AdminShell>{children}</AdminShell>
+    </ProtectedRoute>
   );
 }

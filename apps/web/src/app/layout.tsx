@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Inter } from "next/font/google";
+import { AuthProvider } from "@/components/auth/AuthProvider";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -57,7 +58,7 @@ export default function RootLayout({
         suppressHydrationWarning
         className="bg-surface font-body-md text-on-surface antialiased min-h-screen"
       >
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

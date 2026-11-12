@@ -2,7 +2,6 @@ import React from "react";
 import Link from "next/link";
 import {
   CAMPUS_LOCATIONS,
-  INITIAL_ADMIN_USERS,
   INITIAL_MEDIA_ASSETS,
   OPEN_DAY_SESSIONS,
   TOUR_SCENES,
@@ -11,53 +10,35 @@ import {
 export function AdminDashboardMetrics() {
   const totalHotspots = TOUR_SCENES.reduce(
     (sum, scene) => sum + scene.hotspots.length,
-    0
+    0,
   );
-  const pendingFirstLogin = INITIAL_ADMIN_USERS.filter(
-    (u) => u.passwordStatus === "must_change"
-  ).length;
-  const checkedInCount = INITIAL_ADMIN_USERS.filter(
-    (u) => u.role === "participant" && u.checkedIn
-  ).length;
-  const totalParticipants = INITIAL_ADMIN_USERS.filter(
-    (u) => u.role === "participant"
-  ).length;
 
   const cards = [
     {
-      label: "Không gian đã xuất bản",
+      label: "Không gian đã xuất bản (Preview)",
       value: `${CAMPUS_LOCATIONS.filter((l) => l.status === "published").length}/${CAMPUS_LOCATIONS.length}`,
       note: "Địa điểm QTSC hiển thị công khai",
       href: "/admin/locations",
       icon: "location_on",
     },
     {
-      label: "Điểm nhìn & Hotspot 360°",
+      label: "Điểm nhìn & Hotspot 360° (Preview)",
       value: `${TOUR_SCENES.length} cảnh · ${totalHotspots} điểm`,
       note: "Chuẩn 2:1 nội bộ",
       href: "/admin/virtual-tour",
       icon: "360",
     },
     {
-      label: "Lịch & Check-in Open Day",
-      value:
-        totalParticipants > 0
-          ? `${OPEN_DAY_SESSIONS.length} phiên · ${checkedInCount}/${totalParticipants}`
-          : `${OPEN_DAY_SESSIONS.length} phiên công khai`,
-      note:
-        totalParticipants > 0
-          ? "Bản ghi tham dự Open Day (Preview)"
-          : "Chưa nạp danh sách tham dự",
+      label: "Chương trình Open Day",
+      value: `${OPEN_DAY_SESSIONS.length} phiên công khai`,
+      note: "Quản lý lịch & FAQ (M2 Backend sẵn sàng)",
       href: "/admin/events",
       icon: "event",
     },
     {
-      label: "Tài khoản & Media 2:1",
-      value: `${INITIAL_ADMIN_USERS.length} tài khoản · ${INITIAL_MEDIA_ASSETS.length} tệp`,
-      note:
-        pendingFirstLogin > 0
-          ? `${pendingFirstLogin} chờ kích hoạt (Preview)`
-          : "Sẵn sàng đồng bộ Backend Phase 3",
+      label: "Kho Media & Tài khoản",
+      value: `${INITIAL_MEDIA_ASSETS.length} tệp nội bộ`,
+      note: "Xác thực RBAC đã bật · CRUD chờ M3–M5",
       href: "/admin/users",
       icon: "group",
     },

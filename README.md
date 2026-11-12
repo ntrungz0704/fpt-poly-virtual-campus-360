@@ -1,218 +1,200 @@
 # FPT Polytechnic Virtual Campus 360° (Cơ sở QTSC Quận 12)
 
-Nền tảng tham quan khuôn viên số 360°, bản đồ GIS khuôn viên và cổng thông tin sự kiện Open Day dành cho sinh viên, tân sinh viên và phụ huynh tại **FPT Polytechnic TP.HCM — Cơ sở Công viên Phần mềm Quang Trung (QTSC), Quận 12**.
+[![NestJS](https://img.shields.io/badge/Backend-NestJS%2011-ea2845?style=flat&logo=nestjs)](https://nestjs.com/)
+[![Next.js](https://img.shields.io/badge/Frontend-Next.js%2016-black?style=flat&logo=next.js)](https://nextjs.org/)
+[![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL%2016-336791?style=flat&logo=postgresql)](https://www.postgresql.org/)
+[![Prisma](https://img.shields.io/badge/ORM-Prisma%206-2D3748?style=flat&logo=prisma)](https://www.prisma.io/)
+[![TypeScript](https://img.shields.io/badge/Language-TypeScript%205-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
+[![Playwright](https://img.shields.io/badge/E2E-Playwright-45ba4b?style=flat&logo=playwright)](https://playwright.dev/)
 
-- **Repository GitHub:** [`ntrungz0704/fpt-poly-virtual-campus-360`](https://github.com/ntrungz0704/fpt-poly-virtual-campus-360)
-- **Kiến trúc workspace:** Monorepo `fpt-virtual-campus-monorepo` (`pnpm` workspace: `apps/*`, `packages/*`)
-
----
-
-## 1. Trạng thái Giai đoạn Dự án (Milestone Status)
-
-| Giai đoạn | Phạm vi | Trạng thái |
-|---|---|---|
-| **Phase 0 & Phase 1** | Chuẩn hóa monorepo, rà soát bảo mật, làm sạch nguyên mẫu MVP | **Đã hoàn tất & nghiệm thu** |
-| **Phase 2A (`OD-01 → OD-10`)** | Khóa hợp đồng dữ liệu (`@fpt-campus/shared`) và tách phạm vi triển khai | **Đã khóa phạm vi** |
-| **Phase 2A-1 — Database Bootstrap** | PostgreSQL 16 (Docker), Prisma 6 (`26` models, `17` enums), migrations, idempotent seed, kiểm thử toàn vẹn DB & file ảnh trên đĩa | **Đã nghiệm thu (`ACCEPTED` · `7e1753d` · 12/11/2026)** |
-| **Phase 2A-2 — Core Backend (`apps/api/`)** | NestJS Modular Monolith (`health`, `storage` local read, `audit-log`, `users-rbac` non-bulk, `auth` JWT/Refresh/Argon2id/CSRF, `public` read isolation; Public Quiz tạm trả `quizItems: []` / `404`) | **Đã nghiệm thu & merge (`ACCEPTED` · `ff13f14` · 12/11/2026)** |
-| **Phase 2A-3 — Business Backend APIs (`Backend First`)** | Migration `OpenDayQuizItem.eventId`, Admin CMS CRUD (Campus/FloorPlan/Locations/Media/Tour Graph + Validator/OpenDay Events & Quiz), Storage 3 vùng, Redis/BullMQ worker, Bulk Import 5 bước (`D-2A3-01 → D-2A3-08` đã duyệt) | **Đang ở Milestone `M0` (Baseline Reconciliation & Documentation)** *(Chưa mở code `M1–M7`; giữ nguyên `apps/web` theo `D-2A3-01`)* |
-| **Phase 2B & 2C** | Nối `apps/web` (`DATA_SOURCE=api`, `/login`, `/activate`), Admin Studio 3 vùng & FloorPlan Drawer (`2B`); đo đạc QTSC thực địa & chụp Panorama 360°×180° thực tế (`2C`) | **Chưa triển khai** |
-
-> **Lưu ý hiện tại (`main / ff13f14`):** Core Backend `apps/api/` (6 modules Phase 2A-2) và PostgreSQL 16 + Prisma (`prisma/`) đã được nghiệm thu và merge vào `main`. Theo quyết định **`D-2A3-01` (`OWNER APPROVED`)**, `apps/web` tiếp tục chạy ở chế độ `DATA_SOURCE=mock` và **không thay đổi** trong Phase 2A-3 (toàn bộ nối Frontend thuộc Phase 2B). Phase 2A-3 hiện đang thực hiện Milestone **`M0`** (tài liệu & chuẩn bị ranh giới thực thi `M1–M7`).
+> **Virtual Campus 360°** là hệ sinh thái số hóa toàn diện khuôn viên trường học dành cho sinh viên, tân sinh viên, phụ huynh và ban giám hiệu tại **FPT Polytechnic TP.HCM — Cơ sở Công viên Phần mềm Quang Trung (QTSC), Quận 12**. Nền tảng kết hợp công nghệ ảnh toàn cảnh 360° WebGL, bản đồ GIS định vị không gian thực, cổng sự kiện Open Day trực tuyến và hệ thống phân quyền quản trị doanh nghiệp đa cấp.
 
 ---
 
-## 2. Tính năng Chính trên Ứng dụng Web (`apps/web`)
+## 🏛️ Kiến Trúc Tổng Thể (System Architecture)
 
-### Trải nghiệm Công khai & Nhập vai
-- **Trang chủ giới thiệu (`/`)**: Hero 360°, tổng quan 3 lối khám phá khuôn viên, cụm không gian nổi bật và banner Open Day.
-- **Tham quan Khuôn viên 360° (`/campus`)**: Trình xem không gian 360° dựng bằng `Three.js` kết hợp chọn tòa nhà, tầng và điểm tham quan (`TourNode`).
-- **Bản đồ GIS Khuôn viên (`/map`)**: Bản đồ tương tác `Leaflet` (tọa độ `WGS84`), bộ lọc danh mục tòa nhà, tìm kiếm địa điểm, thẻ chi tiết tòa nhà và ước lượng khoảng cách đi bộ.
-- **Danh mục Không gian & Địa điểm (`/locations`, `/locations/[slug]`)**: Lọc theo nhóm không gian (Không gian chung, Phòng Lab CNTT, Studio & Đồ họa), tòa nhà và mở nhanh sang tour 360° hoặc chi tiết phòng.
-- **Sự kiện Open Day & Định hướng Ngành (`/events`, `/games`)**: Lịch trình Open Day, câu hỏi thường gặp và mini-game Quiz định hướng chuyên ngành (stateless).
-- **Tin tức, Giới thiệu & Liên hệ (`/news`, `/news/[slug]`, `/about`, `/contact`)**: Thông tin tuyển sinh, bài viết khuôn viên và kênh hỗ trợ.
+Hệ thống được phát triển theo mô hình **Monorepo** chuẩn mực với `pnpm workspace`, tách biệt rõ ràng giữa tầng hiển thị, nghiệp vụ Backend, hợp đồng dữ liệu dùng chung và cơ sở dữ liệu:
 
-### Xác thực, Route Tương thích & Khu vực Quản trị (UI Preview)
-- **Trạng thái Xác thực (`/login`)**: Màn hình thông báo cổng xác thực đang chờ triển khai Backend Auth ở `Phase 2A-2` (chưa có đăng nhập giả phía client và không có tính năng tự đăng ký cho khách).
-- **Route `/portal` *(Ngoài phạm vi MVP Student/Parent Portal — Giữ tương thích)*:** **Student/Parent Portal KHÔNG thuộc phạm vi MVP.** Route `/portal` chỉ được giữ lại nguyên trạng trong mã nguồn để bảo toàn tập `19` routes tương thích (không xóa hoặc gắn redirect), hiện hiển thị thông báo chưa kích hoạt và điều hướng người dùng về trải nghiệm công khai `/campus` hoặc `/events`.
-- **Khu vực Quản trị (`/admin`, `/admin/locations`, `/admin/events`, `/admin/media`, `/admin/virtual-tour`, `/admin/users`)**: Giao diện Admin UI Preview nội bộ (sẽ kết nối API & RBAC thực tế ở `Phase 2A-2` / `Phase 2A-3`; chưa mở công khai Internet khi chưa có Server Auth).
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        Virtual Campus Ecosystem                        │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+           ┌────────────────────────┴────────────────────────┐
+           ▼                                                 ▼
+┌──────────────────────┐                         ┌───────────────────────┐
+│   Next.js 16 Web     │                         │   NestJS 11 Backend   │
+│   (Port 3000)        │◄─── REST API / Cookie ──►   (Port 4000)         │
+│  - App Router        │      Credentials:       │  - Modular Monolith   │
+│  - React 19          │      "include"          │  - Fastify / Express  │
+│  - Tailwind CSS 4    │                         │  - Argon2id & JWT     │
+│  - Three.js & Leaflet│                         │  - RBAC & Throttler   │
+└──────────┬───────────┘                         └───────────┬───────────┘
+           │                                                 │
+           └────────────────────────┬────────────────────────┘
+                                    ▼
+                     ┌─────────────────────────────┐
+                     │    @fpt-campus/shared       │
+                     │  - Typed Contracts & DTOs   │
+                     │  - Enums, Roles & Validations
+                     └──────────────┬──────────────┘
+                                    ▼
+                     ┌─────────────────────────────┐
+                     │   PostgreSQL 16 Database    │
+                     │  - Prisma ORM 6 (26 Models) │
+                     │  - Full FK & Spatial Indexes│
+                     └─────────────────────────────┘
+```
+
+### Điểm nhấn công nghệ (Tech Stack Highlights)
+- **Frontend (`apps/web`):** Next.js 16 (Turbopack, App Router), React 19, Tailwind CSS 4, Three.js WebGL (360° viewer), Leaflet (GIS map), Motion.
+- **Backend API (`apps/api`):** NestJS 11 Modular Monolith, Prisma ORM 6, Passport JWT, Argon2id password hashing, Throttler rate-limiting.
+- **Shared Contract (`packages/shared`):** Typesafe API schemas, DTOs, Enums, Error response envelopes, Role-Permission mappings.
+- **Database:** PostgreSQL 16 (Dockerized container `fpt_virtual_campus_db`), Prisma migrations, checksum-verified idempotent seed.
 
 ---
 
-## 3. Công nghệ Sử dụng & Cấu trúc Monorepo
+## ✨ Tính Năng Nổi Bật (Key Features)
 
-### Stack kỹ thuật
-- **Frontend:** `Next.js 16.4.6` (App Router, Turbopack), `React 19.3.0`, `TypeScript 5`, `Tailwind CSS 4.3.3` (`@tailwindcss/turbopack`), `Motion 14.12.0`, `Leaflet 1.9.4`, `Three.js 0.187.0`.
-- **Shared Contracts:** `@fpt-campus/shared` (`packages/shared/src/*.ts`).
-- **Database Layer:** `PostgreSQL 16` (`postgres:16-alpine`), `Prisma 6.19.3`, `Argon2` (`argon2`), `pg`, `tsx`.
-- **Package Manager:** `pnpm@10.33.2` (Monorepo workspace).
+### 1. 🌐 Trải Nghiệm Khám Phá Nhập Vai (Public & Immersive Experience)
+- **Tham quan 360° WebGL (`/campus`):** Trình xem ảnh panorama toàn cảnh tỷ lệ chuẩn 2:1 dựng trên nền WebGL Three.js, hỗ trợ xoay góc nhìn 360° × 180°, chuyển đổi giữa các tầng, tòa nhà và tương tác hotspot.
+- **Bản đồ GIS Khuôn viên (`/map`):** Bản đồ tương tác định vị chuẩn tọa độ WGS-84, phân tầng không gian (Tòa Innovation, Tòa T, Hội trường, Thư viện, Khu thể thao), tính toán khoảng cách đi bộ và thời gian di chuyển thực tế từ Cổng QTSC.
+- **Danh mục Địa điểm & Cơ sở vật chất (`/locations`, `/locations/[slug]`):** Phân loại theo chuyên khoa (Lab CNTT, Studio Đồ họa & iMac, Thư viện số, Hội trường), xem chi tiết phòng, sức chứa và thiết bị.
+- **Cổng Sự kiện Open Day (`/events`, `/games`):** Xem lịch trình chi tiết sự kiện tham quan trường học, tham gia Mini-game Quiz định hướng nghề nghiệp và xác thực điểm số trực tiếp từ máy chủ.
 
-### Cấu trúc thư mục
+### 2. 🔐 Hệ Thống Xác Thực & Phân Quyền Bảo Mật Doanh Nghiệp (Enterprise Auth & RBAC)
+- **Kiến trúc Dual-Token an toàn cao:**
+  - `accessToken` (thời hạn ngắn) chỉ lưu trong bộ nhớ RAM (`in-memory memory store`), **tuyệt đối không lưu trong localStorage hay sessionStorage** để triệt tiêu lỗ hổng XSS đánh cắp phiên.
+  - `refreshToken` (thời hạn 7 ngày) được bảo vệ bằng Cookie an toàn: `HttpOnly`, `SameSite=Lax`, `Path=/api/v1/auth`.
+- **Cơ chế chống Race Condition đa luồng (Single-Flight Mutex):** Giải quyết triệt để xung đột làm mới token khi nhiều component hoặc nhiều tab trình duyệt gọi đồng thời.
+- **Quy trình Đổi mật khẩu Bắt buộc (`/change-password`):** Tài khoản mới được cấp hoặc có cờ `mustChangePassword` bắt buộc phải đổi mật khẩu tối thiểu 12 ký tự (chữ hoa, chữ thường, số, ký tự đặc biệt) ngay lần đăng nhập đầu tiên. Backend từ chối mọi quyền truy cập tài nguyên nghiệp vụ cho tới khi đổi mật khẩu thành công.
+- **Phân quyền 5 cấp bậc (RBAC):**
+  1. `SUPER_ADMIN`: Toàn quyền quản trị hệ thống, quản lý người dùng và cấp phát quyền.
+  2. `CAMPUS_ADMIN`: Quản lý không gian tòa nhà, địa điểm, phòng học và tour 360°.
+  3. `EVENT_OPERATOR`: Quản lý sự kiện Open Day, điểm danh check-in và tổ chức mini-game.
+  4. `CONTENT_STAFF`: Quản lý tin tức, truyền thông và bài viết giới thiệu.
+  5. `STUDENT`: Truy cập Cổng thông tin cá nhân (Student Portal), lịch sử tham gia Open Day và điểm danh.
+
+---
+
+## 📁 Cấu Trúc Mã Nguồn (Repository Layout)
+
 ```text
 fpt-poly-virtual-campus-360/
 ├── apps/
-│   └── web/                      # Ứng dụng Next.js 16 (App Router)
-│       ├── public/               # Ảnh 2D địa điểm, 5 panorama placeholder, icons, manifest.json, robots.txt
-│       ├── scripts/              # Script hỗ trợ chụp/kiểm tra UI (capture-pages.mjs)
+│   ├── api/                      # Backend API (NestJS 11 Modular Monolith)
+│   │   ├── src/
+│   │   │   ├── modules/          # Auth, Users/RBAC, Public, Audit-Log, Events, Storage
+│   │   │   ├── guards/           # JwtAuthGuard, ForcePasswordGuard, PermissionsGuard
+│   │   │   └── main.ts           # Cấu hình CORS, CookieParser, Global Pipes
+│   │   └── test/                 # Test tích hợp (Integration & Regression test suites)
+│   └── web/                      # Frontend Web App (Next.js 16 App Router)
+│       ├── e2e/                  # Bộ kịch bản Playwright E2E Runner & Specs
+│       ├── public/               # Ảnh 2D khuôn viên, panorama, icons, manifest.json
 │       └── src/
-│           ├── app/              # 19 routes App Router (public, immersive, auth, portal, admin)
-│           ├── components/       # UI components, 360 viewer, Leaflet GIS map
-│           ├── data/             # Dữ liệu mẫu tĩnh cho chế độ DATA_SOURCE=mock
-│           └── lib/              # Utilities & helpers frontend
+│           ├── app/              # Routes: (public), (auth), (portal), admin
+│           ├── components/       # AuthProvider, ProtectedRoute, 360 Viewer, GIS Map
+│           └── lib/              # Auth routing, api-client, session management
 ├── packages/
-│   └── shared/                   # Gói @fpt-campus/shared (api, auth, campus, common, events, location, tour)
+│   └── shared/                   # Gói hợp đồng dùng chung @fpt-campus/shared
+│       └── src/                  # DTOs, Enums, Roles, Error codes, API contracts
 ├── prisma/
-│   ├── migrations/               # Migration SQL chuẩn PostgreSQL 16 (20261111175635_init)
-│   ├── schema.prisma             # Lược đồ Prisma (26 models, 17 enums)
-│   ├── seed.ts                   # Script seed dữ liệu idempotent (kiểm tra checksum & Argon2id)
-│   └── verify-db-integrity.ts    # Bộ kiểm tra toàn vẹn DB, quan hệ FK & asset media trên đĩa
-├── samples/                      # Mẫu ảnh minh họa tham khảo phục vụ kiểm chứng kỹ thuật
-├── docs/                         # Tài liệu kiến trúc, hợp đồng API/DB, UI & báo cáo nghiệm thu
-├── docker-compose.yml            # Dịch vụ PostgreSQL 16 (container: fpt_virtual_campus_db)
-├── .env.example                  # Mẫu biến môi trường (không chứa bí mật thật)
-└── package.json                  # Scripts điều phối root monorepo
+│   ├── migrations/               # Lịch sử Prisma Database Migrations
+│   ├── schema.prisma             # Lược đồ quan hệ dữ liệu 26 models chuẩn 3NF
+│   ├── seed.ts                   # Dữ liệu mẫu khởi tạo chuẩn hóa (Argon2id)
+│   └── verify-db-integrity.ts    # Kiểm tra toàn vẹn DB & tài nguyên đĩa
+└── docker-compose.yml            # Dịch vụ PostgreSQL 16
 ```
 
 ---
 
-## 4. Hướng dẫn Cài đặt & Chạy Dự án
+## 🚀 Hướng Dẫn Cài Đặt & Khởi Chạy (Getting Started)
 
-### Yêu cầu hệ thống (Prerequisites)
-- **Node.js:** `>= 20.x`
-- **pnpm:** `>= 10.x` (khớp `packageManager: pnpm@10.33.2`; có thể kích hoạt qua `corepack enable`)
-- **Docker / Docker Desktop:** Bắt buộc nếu chạy PostgreSQL 16 cục bộ cho tầng Database (`Phase 2A-1`)
+### Yêu cầu môi trường (Prerequisites)
+- **Node.js:** `>= 20.18.0` (Khuyến nghị Node.js v22 LTS)
+- **pnpm:** `>= 10.0.0` (`corepack enable` hoặc `npm install -g pnpm`)
+- **Docker & Docker Desktop:** Chạy PostgreSQL 16 container
 
-### Bước 1 — Clone mã nguồn & cài đặt thư viện
+### 1. Khởi tạo Cơ sở dữ liệu (PostgreSQL 16)
+Khởi động container cơ sở dữ liệu qua Docker Compose:
 ```bash
-git clone https://github.com/ntrungz0704/fpt-poly-virtual-campus-360.git
-cd fpt-poly-virtual-campus-360
+docker compose up -d
+```
+> Database `virtual_campus_360` sẽ chạy tại cổng `localhost:5432` với user/password mặc định: `postgres:postgres`.
+
+### 2. Cài đặt Dependencies & Build Shared Package
+```bash
 pnpm install --frozen-lockfile
+pnpm --filter @fpt-campus/shared build
 ```
 
-### Bước 2 — Thiết lập file môi trường (`.env`)
-Sao chép từ mẫu `.env.example` (file `.env` đã được khai báo trong `.gitignore`, **tuyệt đối không** đưa lên Git):
+### 3. Đồng bộ Schema & Nạp Dữ liệu Mẫu (Prisma)
+```bash
+pnpm db:migrate
+pnpm db:seed
+```
 
-- **Windows PowerShell:**
-  ```powershell
-  Copy-Item .env.example .env
-  ```
-- **Bash / macOS / Linux:**
-  ```bash
-  cp .env.example .env
-  ```
-
-Mở `.env` và cập nhật các giá trị phù hợp trên máy của bạn:
-
-| Biến môi trường | Mục đích & Lưu ý cấu hình |
-|---|---|
-| `DATA_SOURCE` | Giữ `mock` để chạy giao diện `apps/web` độc lập ở giai đoạn hiện tại |
-| `PORT` / `NEXT_PUBLIC_APP_URL` | Cổng và URL web frontend (mặc định `3000` / `http://localhost:3000`) |
-| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT` | Thông số PostgreSQL 16 trong `docker-compose.yml` (`POSTGRES_PASSWORD` **bắt buộc** khác rỗng) |
-| `DATABASE_URL` | Chuỗi kết nối Prisma tới PostgreSQL (user/pass/port/db phải khớp với 4 biến `POSTGRES_*` ở trên) |
-| `ADMIN_BOOTSTRAP_PASSWORD` | **Bắt buộc** nếu chạy `pnpm db:seed` khi chưa có tài khoản `admin`: tối thiểu **12 ký tự**, **không** bắt đầu bằng `CHANGE_ME_`, và không trùng mật khẩu mẫu yếu bị chặn |
-| `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` | Chuỗi ký JWT chuẩn bị cho `apps/api/` (Phase 2A-2) |
-| `STORAGE_DRIVER`, `LOCAL_MEDIA_ROOT` | Cấu hình lưu trữ media cục bộ (`local`) hoặc S3 (`S3_*`) cho Backend |
+### 4. Khởi chạy Ứng dụng ở Chế độ Phát triển (Development)
+Chạy đồng thời cả Backend API và Frontend Web qua lệnh:
+```bash
+pnpm dev
+```
+- **Frontend Web:** [`http://localhost:3000`](http://localhost:3000)
+- **Backend API:** [`http://localhost:4000/api/v1`](http://localhost:4000/api/v1)
+- **Swagger API Docs:** [`http://localhost:4000/docs`](http://localhost:4000/docs)
 
 ---
 
-### Bước 3A — Chạy nhanh Website (`apps/web`)
-Nếu bạn chỉ muốn mở giao diện website (`DATA_SOURCE=mock`):
+## 🔑 Tài Khoản Thử Nghiệm Mặc Định (Seed Test Accounts)
 
-1. **Chế độ phát triển (Hot Reload):**
-   ```bash
-   pnpm dev
-   ```
-2. **Chế độ Production build & start:**
-   ```bash
-   pnpm build
-   pnpm start
-   ```
-   *(Hoặc chạy trực tiếp web workspace khi đã build sẵn: `pnpm --filter web start`)*
-
-Mở trình duyệt tại: **`http://localhost:3000`**
+| Vai trò (Role) | Tên đăng nhập / Email | Mật khẩu mặc định | Ghi chú |
+|---|---|---|---|
+| **Super Admin** | `admin@poly.edu.vn` | `Admin@123456` | Toàn quyền truy cập `/admin/*` |
+| **Event Operator** | `operator@poly.edu.vn` | `Admin@123456` | Quản lý sự kiện Open Day & Check-in |
+| **Content Staff** | `staff@poly.edu.vn` | `Admin@123456` | Quản trị tin tức & nội dung địa điểm |
+| **Student** | `student1@poly.edu.vn` | `Student@123456` | Đăng nhập Portal `/portal` (Không vào được `/admin`) |
+| **First-Login User** | `firstlogin@poly.edu.vn`| `Temp@123456` | Bắt buộc chuyển hướng đến `/change-password` |
 
 ---
 
-### Bước 3B — Khởi tạo & Kiểm thử PostgreSQL 16 + Prisma (`Phase 2A-1`)
-Thực hiện theo đúng thứ tự sau để khởi chạy CSDL thật, nạp dữ liệu mẫu và xác minh toàn vẹn tệp ảnh:
+## 🧪 Kiểm Thử & Đảm Bảo Chất Lượng (Quality Assurance)
 
-1. **Khởi động PostgreSQL 16 qua Docker Compose:**
-   ```bash
-   docker compose up -d
-   docker compose ps
-   ```
-   Đảm bảo container `fpt_virtual_campus_db` đạt trạng thái `Up (healthy)` ở cổng `5432`.
+Dự án áp dụng quy trình kiểm thử nghiêm ngặt đa tầng, đảm bảo 100% không có lỗi type hoặc gãy luồng nghiệp vụ:
 
-2. **Sinh Prisma Client & chạy Migration:**
-   ```bash
-   pnpm db:generate
-   pnpm db:migrate:deploy
-   pnpm db:status
-   ```
+```bash
+# 1. Kiểm tra Typecheck toàn monorepo
+pnpm typecheck
 
-3. **Nạp dữ liệu khởi tạo (Idempotent Seed):**
-   *(Đảm bảo đã đặt `ADMIN_BOOTSTRAP_PASSWORD` hợp lệ `>= 12` ký tự trong `.env`)*
-   ```bash
-   pnpm db:seed
-   ```
-   > Có thể chạy lại `pnpm db:seed` nhiều lần an toàn; mật khẩu tài khoản `admin` đã tồn tại sẽ được giữ nguyên (`PRESERVED_EXISTING_ADMIN_PASSWORD`).
+# 2. Kiểm tra Lint code chuẩn Clean Code
+pnpm --filter web lint
 
-4. **Chạy bộ kiểm thử toàn vẹn DB & Asset Media trên đĩa:**
-   ```bash
-   pnpm db:test
-   ```
-   Kiểm tra đồng bộ `17` enums, `26` models, quan hệ khóa ngoại và đối chiếu thực tế kích thước/SHA-256 của 11 tệp ảnh trong `apps/web/public/` cùng các ca test âm tính (`AC-07-NEG`).
+# 3. Chạy Unit Tests Frontend
+pnpm --filter web test:unit
 
-5. **Xem dữ liệu trực quan bằng Prisma Studio (tùy chọn):**
-   ```bash
-   pnpm db:studio
-   ```
+# 4. Chạy Integration Tests Backend API (14 suites, 47 tests)
+pnpm --filter api test
+
+# 5. Chạy Playwright E2E Suite kiểm thử toàn diện luồng Auth (Trình duyệt Chromium thật)
+node apps/web/e2e/run-e2e.mjs
+```
+
+### Kết quả kiểm thử tự động (Playwright E2E Results)
+- ✅ **Test 1:** Chặn người dùng ẩn danh truy cập `/portal` & `/admin` và chuyển hướng an toàn về `/login`.
+- ✅ **Test 2:** Xác thực biểu mẫu đăng nhập, từ chối thông tin sai và xử lý hiển thị lỗi backend chuẩn xác.
+- ✅ **Test 3:** Đăng nhập Sinh viên thành công, duy trì phiên khi F5 tải lại trang, chặn 403 khi vào Admin và Đăng xuất sạch phiên.
+- ✅ **Test 4:** Phát hiện tài khoản cần đổi mật khẩu lần đầu, chặn bypass URL, đổi mật khẩu thành công và kiểm tra RBAC Event Operator.
+- ✅ **Test 5:** Khôi phục tự động qua Silent Refresh khi access token hết hạn (401), xử lý đơn luồng single-flight mutex và đăng xuất khi token bị thu hồi.
 
 ---
 
-## 5. Bảng Tham chiếu Lệnh (`package.json`)
-
-| Lệnh | Tác dụng |
-|---|---|
-| `pnpm dev` | Chạy Next.js dev server (`apps/web`) |
-| `pnpm build` | Build `@fpt-campus/shared` và `apps/web` production |
-| `pnpm start` | Chạy `apps/web` ở chế độ production (`next start`) |
-| `pnpm typecheck` | Kiểm tra kiểu TypeScript trên `@fpt-campus/shared` và `apps/web` |
-| `pnpm lint` | Chạy ESLint trên `apps/web` |
-| `pnpm capture` | Chạy `apps/web/scripts/capture-pages.mjs` |
-| `pnpm db:generate` | Sinh `@prisma/client` từ `prisma/schema.prisma` |
-| `pnpm db:migrate:dev` | Tạo & áp dụng migration phát triển local |
-| `pnpm db:migrate:deploy` | Áp dụng migration đã commit lên PostgreSQL |
-| `pnpm db:seed` | Chạy `prisma/seed.ts` (idempotent seed) |
-| `pnpm db:status` | Kiểm tra trạng thái migration Prisma |
-| `pnpm db:studio` | Mở giao diện Prisma Studio |
-| `pnpm db:test` | Chạy bộ kiểm thử toàn vẹn `prisma/verify-db-integrity.ts` |
+## 🔒 Tiêu Chuẩn Bảo Mật (Security Compliance)
+- **OWASP Top 10 Aligned:** Phòng chống IDOR, XSS, CSRF và SQL Injection.
+- **Argon2id:** Mã hóa mật khẩu một chiều với salt ngẫu nhiên chuẩn công nghiệp.
+- **Single-Flight Refresh Mutex:** Đảm bảo tính duy nhất và bảo vệ chống replay attack đối với Refresh Token Rotation.
+- **Zero Mock / 100% Real PostgreSQL:** Mọi thao tác đều ghi nhận và đối chiếu trực tiếp trên cơ sở dữ liệu thật.
 
 ---
 
-## 6. Lưu ý Bảo mật & Nguồn gốc Dữ liệu
-
-- **Quản lý bí mật:** Không bao giờ commit file `.env`, volume `postgres_data`, API key hoặc mật khẩu `ADMIN_BOOTSTRAP_PASSWORD` lên Git.
-- **Nguồn gốc dữ liệu QTSC (`R-06`):** Tọa độ GPS, thông tin tòa nhà, phòng học và sự kiện Open Day trong `prisma/seed.ts` là **dữ liệu phát triển ban đầu** dựng từ nguyên mẫu thiết kế, cần được xác minh thực địa tại QTSC trước khi xuất bản chính thức (Phase 2C).
-- **Trạng thái ảnh Panorama 360° (`D-02` / `R-03`):** Cả 5 tệp `PANORAMA_2_1` (`2048×1024`) trong dữ liệu seed hiện là **AI synthetic placeholder** (`is_preview_approved = false`), và 5 `TourNode` tương ứng được giữ ở trạng thái `DRAFT`. Cần thay bằng ảnh chụp 360°×180° thực tế trước khi go-live.
-
----
-
-## 7. Tài liệu Kiến trúc & Kiểm toán (`docs/`)
-
-- [Quyết định phạm vi MVP & Routes](docs/decisions/MVP_SCOPE_AND_ROUTE_DECISIONS.md)
-- [Kiến trúc Xác thực Admin & Bảo mật](docs/architecture/ADMIN_AUTH_AND_SECURITY_ARCHITECTURE.md)
-- [Kiến trúc Hệ thống Phase 2A](docs/phase-2a/PHASE_2A_SYSTEM_ARCHITECTURE.md)
-- [Thiết kế Cơ sở dữ liệu Phase 2A](docs/phase-2a/PHASE_2A_DATABASE_DESIGN.md)
-- [Đặc tả API Contract Phase 2A](docs/phase-2a/PHASE_2A_API_CONTRACT.md)
-- [Quy trình xử lý Panorama 360°](docs/phase-2a/PHASE_2A_PANORAMA_WORKFLOW.md)
-- [Lộ trình Triển khai Phase 2A](docs/phase-2a/PHASE_2A_IMPLEMENTATION_ROADMAP.md)
-- [Hệ thống Thiết kế Giao diện (UI Design System)](docs/ui/UI_DESIGN_SYSTEM.md)
-- [Báo cáo Chốt phạm vi Phase 2A & Cập nhật Trạng thái](docs/project-audit/PHASE_2A_SCOPE_FINALIZATION_REPORT.md)
-- [Trạng thái Dự án Reconciled (`PROJECT_STATUS.md`)](PROJECT_STATUS.md)
-- [Báo cáo Nghiệm thu Phase 2A-1](docs/project-audit/PHASE_2A_1_FINAL_ACCEPTANCE_REPORT.md)
-- [Báo cáo Đối soát Tài liệu Hậu Phase 2A-1](docs/project-audit/POST_PHASE_2A_1_DOCUMENTATION_RECONCILIATION_REPORT.md)
-- [Báo cáo Khắc phục & Tái kiểm chứng Cuối Phase 2A-2](docs/project-audit/PHASE_2A_2_FINAL_QUIZ_SECURITY_REMEDIATION_REPORT.md)
-- [Phase 2A-3 Scope Lock (`D-2A3-01 → D-2A3-08`)](docs/phase-2a/PHASE_2A_3_SCOPE_LOCK.md)
-- [Phase 2A-3 Decision Register](docs/phase-2a/PHASE_2A_3_DECISION_REGISTER.md)
-- [Phase 2A-3 Implementation Plan (`M0–M7`)](docs/phase-2a/PHASE_2A_3_IMPLEMENTATION_PLAN.md)
+## 📄 Bản quyền (License)
+Dự án được phát triển phục vụ mục đích học thuật và chuyển đổi số khuôn viên trường học tại **FPT Polytechnic TP.HCM**.
+Mọi quyền sở hữu trí tuệ thuộc về nhóm phát triển và FPT Polytechnic.

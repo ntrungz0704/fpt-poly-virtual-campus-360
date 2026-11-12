@@ -64,3 +64,9 @@ export function isApiErrorEnvelope<T>(
 ): envelope is ApiErrorEnvelope {
   return envelope.success === false;
 }
+
+export interface HealthStatusDto {
+  status: "ok" | "error";
+  database: "up" | "down";
+  timestamp: string;
+}

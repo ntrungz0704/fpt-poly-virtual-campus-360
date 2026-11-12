@@ -147,3 +147,57 @@ export interface UserImportConfirmResultDto {
     reasonCode: string | null;
   }>;
 }
+
+export interface AdminUserListItemDto {
+  id: UUID;
+  username: string | null;
+  fullName: string;
+  email: string | null;
+  phone: string | null;
+  userType: UserType;
+  accountStatus: AccountStatus;
+  activationStatus: ActivationStatus;
+  provisioningMethod: ProvisioningMethod;
+  mustChangePassword: boolean;
+  lastLoginAt: ISO8601Timestamp | null;
+  createdAt: ISO8601Timestamp;
+  roles: RoleCode[];
+  eventParticipations: EventParticipationSummaryDto[];
+}
+
+export interface AdminInvitationSummaryDto {
+  id: UUID;
+  channel: InvitationChannel;
+  status: InvitationStatus;
+  expiresAt: ISO8601Timestamp;
+  sentAt: ISO8601Timestamp | null;
+  resendCount: number;
+  /** Returned strictly ONCE when provisioningMethod === "ADMIN_DIRECT"; always null for EMAIL_SMS_INVITATION. */
+  activationToken: string | null;
+}
+
+export interface AdminCreateUserResponse {
+  user: AdminUserListItemDto;
+  invitation: AdminInvitationSummaryDto;
+}
+
+export interface AdminUpdateUserStatusRequest {
+  accountStatus?: AccountStatus;
+  resetActivation?: boolean;
+}
+
+export interface AdminResendInvitationRequest {
+  channel?: InvitationChannel;
+}
+
+export interface AuditLogEntryDto {
+  id: UUID;
+  actorUserId: UUID | null;
+  actorUsername: string | null;
+  action: string;
+  resourceType: string | null;
+  resourceId: UUID | null;
+  diffJson: Record<string, unknown> | null;
+  ipAddress: string | null;
+  createdAt: ISO8601Timestamp;
+}

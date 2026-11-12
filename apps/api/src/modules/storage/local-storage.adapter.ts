@@ -105,6 +105,30 @@ export class LocalStorageAdapter implements StorageAdapter {
     };
   }
 
+  async putObject(objectKey: string, data: Buffer): Promise<void> {
+    const resolvedPath = this.resolveObjectKey(objectKey);
+    const parentDir = path.dirname(resolvedPath);
+    if (!fs.existsSync(parentDir)) {
+      fs.mkdirSync(parentDir, { recursive: true });
+    }
+    await fs.promises.writeFile(resolvedPath, data);
+  }
+
+  async getObject(objectKey: string): Promise<Buffer | null> {
+    const resolvedPath = this.resolveObjectKey(objectKey);
+    if (!fs.existsSync(resolvedPath)) {
+      return null;
+    }
+    return fs.promises.readFile(resolvedPath);
+  }
+
+  async deleteObject(objectKey: string): Promise<void> {
+    const resolvedPath = this.resolveObjectKey(objectKey);
+    if (fs.existsSync(resolvedPath)) {
+      await fs.promises.unlink(resolvedPath);
+    }
+  }
+
   getPublicUrl(objectKey: string | null | undefined): string | null {
     if (!objectKey) {
       return null;

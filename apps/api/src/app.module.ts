@@ -17,6 +17,7 @@ import { AppConfigModule } from "./config/app-config.module";
 import { AuditLogModule } from "./modules/audit-log/audit-log.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { HealthModule } from "./modules/health/health.module";
+import { MediaModule } from "./modules/media/media.module";
 import { OpenDayModule } from "./modules/open-day/open-day.module";
 import { PublicModule } from "./modules/public/public.module";
 import { StorageModule } from "./modules/storage/storage.module";
@@ -35,6 +36,7 @@ import { UsersRbacModule } from "./modules/users-rbac/users-rbac.module";
       ],
     }),
     StorageModule,
+    MediaModule,
     AuditLogModule,
     UsersRbacModule,
     AuthModule,

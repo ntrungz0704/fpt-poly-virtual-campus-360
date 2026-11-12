@@ -31,6 +31,14 @@ export function configureApiApp(app: INestApplication): AppConfigValues {
     }),
     STORAGE_DRIVER: configService.get("STORAGE_DRIVER", { infer: true }),
     LOCAL_MEDIA_ROOT: configService.get("LOCAL_MEDIA_ROOT", { infer: true }),
+    S3_ENDPOINT: configService.get("S3_ENDPOINT", { infer: true }),
+    S3_REGION: configService.get("S3_REGION", { infer: true }) || "auto",
+    S3_BUCKET_NAME: configService.get("S3_BUCKET_NAME", { infer: true }),
+    S3_ACCESS_KEY_ID: configService.get("S3_ACCESS_KEY_ID", { infer: true }),
+    S3_SECRET_ACCESS_KEY: configService.get("S3_SECRET_ACCESS_KEY", {
+      infer: true,
+    }),
+    S3_PUBLIC_DOMAIN: configService.get("S3_PUBLIC_DOMAIN", { infer: true }),
     repoRoot: configService.get("repoRoot", { infer: true }),
     resolvedLocalMediaRoot: configService.get("resolvedLocalMediaRoot", {
       infer: true,

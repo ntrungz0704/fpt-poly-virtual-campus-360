@@ -109,9 +109,31 @@ export const envValidationSchema = z.object({
         return false;
       }
     }, "JWT_REFRESH_EXPIRATION must be a valid duration >= 60s."),
-  STORAGE_DRIVER: z.literal("local").default("local"),
+  STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
   LOCAL_MEDIA_ROOT: z.string().min(1).default("apps/web/public/images"),
-});
+  S3_ENDPOINT: z.string().url().optional(),
+  S3_REGION: z.string().default("auto"),
+  S3_BUCKET_NAME: z.string().optional(),
+  S3_ACCESS_KEY_ID: z.string().optional(),
+  S3_SECRET_ACCESS_KEY: z.string().optional(),
+  S3_PUBLIC_DOMAIN: z.string().url().optional(),
+}).refine(
+  (data) => {
+    if (data.STORAGE_DRIVER === "s3") {
+      return !!(
+        data.S3_ENDPOINT &&
+        data.S3_BUCKET_NAME &&
+        data.S3_ACCESS_KEY_ID &&
+        data.S3_SECRET_ACCESS_KEY
+      );
+    }
+    return true;
+  },
+  {
+    message:
+      "When STORAGE_DRIVER is 's3', S3_ENDPOINT, S3_BUCKET_NAME, S3_ACCESS_KEY_ID, and S3_SECRET_ACCESS_KEY are required.",
+  },
+);
 
 export type ValidatedEnv = z.infer<typeof envValidationSchema>;
 

@@ -75,6 +75,24 @@ Hệ thống được phát triển theo mô hình **Monorepo** chuẩn mực v�
   4. `CONTENT_STAFF`: Quản lý tin tức, truyền thông và bài viết giới thiệu.
   5. `STUDENT`: Truy cập Cổng thông tin cá nhân (Student Portal), lịch sử tham gia Open Day và điểm danh.
 
+### 3. 📦 Lưu Trữ Đám Mây & Quản Lý Media Độc Lập (Cloud Storage & Media API — Milestone M3A)
+- **Kiến trúc Adapter Đa nền tảng (Storage Adapter Pattern):**
+  - `LocalStorageAdapter`: Lưu trữ cục bộ trong môi trường phát triển (Local Disk `uploads/`) với endpoint upload trực tiếp qua binary stream.
+  - `S3StorageAdapter`: Sẵn sàng kết nối các dịch vụ lưu trữ đám mây tương thích S3 (Cloudflare R2, AWS S3, MinIO) thông qua AWS SDK v3.
+- **Quy trình Upload 2 bước an toàn (Presigned URL Architecture):**
+  1. `POST /api/v1/admin/media/presign`: Kiểm tra quyền hạn, tạo bản ghi `MediaAsset` trạng thái `PENDING` và cấp token upload dùng một lần (`UploadToken`) có thời hạn 15 phút.
+  2. Upload trực tiếp nhị phân (Binary PUT stream) tới S3 hoặc local endpoint `/api/v1/storage/upload?token=...`.
+  3. `POST /api/v1/admin/media/complete-upload`: Đối soát chữ ký băm SHA-256 giữa client và server, xác nhận kích thước tệp, cập nhật trạng thái `READY` và đánh dấu token đã dùng (`used_at`).
+- **Kiểm định An ninh nhị phân (Magic Bytes Verification):**
+  - Quét cấu trúc byte đầu tiên của file để xác định chính xác định dạng thực (JPEG: `FF D8 FF`, PNG: `89 50 4E 47`, WebP: `52 49 46 46 ... 57 45 42 50`), ngăn chặn tuyệt đối các file mã độc đổi đuôi giả mạo MIME type.
+  - Kiểm tra tỷ lệ khung hình 2:1 (`width = 2 * height`) bắt buộc đối với ảnh toàn cảnh Equirectangular Panorama 360°.
+- **Bảo vệ toàn vẹn dữ liệu (Referential Integrity Guard):**
+  - `DELETE /api/v1/admin/media/:id`: Kiểm tra quan hệ dữ liệu trong cơ sở dữ liệu thực tế. Trả về mã lỗi `409 Conflict (MEDIA_IN_USE)` nếu media đang được liên kết trong TourNode, Location hoặc Event, không cho phép xóa mồ côi tài nguyên.
+- **Giao diện Quản trị Media (`/admin/media`):**
+  - Tải danh sách tệp theo thời gian thực từ cơ sở dữ liệu PostgreSQL.
+  - Tính toán SHA-256 trực tiếp trên trình duyệt thông qua Web Crypto API (`crypto.subtle.digest`).
+  - Hỗ trợ xem trước ảnh, bộ lọc phân loại (`all`, `panorama_2_1`, `photo_2d`) và cảnh báo xóa an toàn.
+
 ---
 
 ## 📁 Cấu Trúc Mã Nguồn (Repository Layout)

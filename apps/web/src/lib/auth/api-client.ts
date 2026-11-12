@@ -338,6 +338,129 @@ export const authApi = {
   },
 };
 
+export interface AdminMediaAssetItem {
+  id: string;
+  assetKind: "PANORAMA_2_1" | "PHOTO_2D" | "THUMBNAIL";
+  originalFilename: string;
+  mimeType: string;
+  fileSizeBytes: number;
+  originalWidth: number;
+  originalHeight: number;
+  isValid2To1: boolean;
+  isPreviewApproved: boolean;
+  processingStatus: "PENDING" | "PROCESSING" | "READY" | "FAILED";
+  processingError: string | null;
+  publicUrl: string | null;
+  optimizedDesktopUrl: string | null;
+  optimizedMobileUrl: string | null;
+  thumbnailUrl: string | null;
+  sha256Checksum: string;
+  cameraMetadata: Record<string, unknown> | null;
+  isAiPlaceholder: boolean;
+  uploadedBy: string;
+  createdAt: string;
+  updatedAt: string;
+  usageCount: number;
+  usageDetails: {
+    buildings: number;
+    tourNodes: number;
+    locations: number;
+  };
+}
+
+export interface MediaPresignPayload {
+  assetKind: "PANORAMA_2_1" | "PHOTO_2D" | "THUMBNAIL";
+  filename: string;
+  mimeType: string;
+  fileSizeBytes: number;
+  declaredWidth: number;
+  declaredHeight: number;
+  sha256: string;
+}
+
+export interface MediaPresignResult {
+  assetId: string;
+  storageDriver: "local" | "s3";
+  uploadUrl: string;
+  targetType: string;
+  uploadToken: string;
+  maxSizeBytes: number;
+  expiresAt: string;
+}
+
+export const mediaApi = {
+  async listMedia(params?: {
+    assetKind?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ items: AdminMediaAssetItem[]; total: number; page: number; limit: number }> {
+    const searchParams = new URLSearchParams();
+    if (params?.assetKind && params.assetKind !== "all") {
+      searchParams.set("assetKind", params.assetKind.toUpperCase());
+    }
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const qs = searchParams.toString() ? `?${searchParams.toString()}` : "";
+    return apiRequest<{
+      items: AdminMediaAssetItem[];
+      total: number;
+      page: number;
+      limit: number;
+    }>(`/admin/media${qs}`, {
+      method: "GET",
+      auth: true,
+    });
+  },
+
+  async presign(payload: MediaPresignPayload): Promise<MediaPresignResult> {
+    return apiRequest<MediaPresignResult>("/admin/media/presign", {
+      method: "POST",
+      body: payload,
+      auth: true,
+    });
+  },
+
+  async uploadBinary(uploadUrl: string, file: File): Promise<void> {
+    const fullUrl = uploadUrl.startsWith("http")
+      ? uploadUrl
+      : `${getApiBaseUrl().replace(/\/+$/, "")}${uploadUrl.startsWith("/") ? "" : "/"}${uploadUrl}`;
+    const res = await fetch(fullUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": file.type || "application/octet-stream",
+      },
+      body: file,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Upload failed (${res.status}): ${text || res.statusText}`);
+    }
+  },
+
+  async completeUpload(
+    token: string,
+    sha256Checksum: string,
+  ): Promise<AdminMediaAssetItem> {
+    return apiRequest<AdminMediaAssetItem>("/admin/media/complete-upload", {
+      method: "POST",
+      body: { token, sha256Checksum },
+      auth: true,
+    });
+  },
+
+  async deleteMedia(
+    id: string,
+  ): Promise<{ success: boolean; message: string }> {
+    return apiRequest<{ success: boolean; message: string }>(
+      `/admin/media/${id}`,
+      {
+        method: "DELETE",
+        auth: true,
+      },
+    );
+  },
+};
+
 export function formatAuthErrorMessage(
   error: unknown,
   fallback = "Đã xảy ra lỗi. Vui lòng thử lại.",

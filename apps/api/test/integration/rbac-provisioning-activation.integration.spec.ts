@@ -267,7 +267,12 @@ describe("RBAC, Provisioning, Activation & Audit integration tests (D-2A2-01)", 
         })
         .expect(409);
 
-      // 2f. Object-level target RBAC check: EVENT_OPERATOR CANNOT lock or resend for STAFF/ADMIN
+      // 2f. Object-level target RBAC check: EVENT_OPERATOR CANNOT lock or resend for STAFF or ADMIN
+      const rootAdminDb = await prisma.user.findFirstOrThrow({
+        where: { username: "admin" },
+      });
+      expect(rootAdminDb.userType).toBe("ADMIN");
+
       await request(server)
         .patch(`/api/v1/admin/users/${tourEditorUserId}/status`)
         .set("Authorization", `Bearer ${eventToken}`)
@@ -279,6 +284,23 @@ describe("RBAC, Provisioning, Activation & Audit integration tests (D-2A2-01)", 
         .set("Authorization", `Bearer ${eventToken}`)
         .send({ channel: "DIRECT_LINK" })
         .expect(403);
+
+      await request(server)
+        .patch(`/api/v1/admin/users/${rootAdminDb.id}/status`)
+        .set("Authorization", `Bearer ${eventToken}`)
+        .send({ accountStatus: "LOCKED" })
+        .expect(403);
+
+      await request(server)
+        .post(`/api/v1/admin/users/${rootAdminDb.id}/invitations/resend`)
+        .set("Authorization", `Bearer ${eventToken}`)
+        .send({ channel: "DIRECT_LINK" })
+        .expect(403);
+
+      const adminAfterEventOperatorAttempt = await prisma.user.findUniqueOrThrow({
+        where: { id: rootAdminDb.id },
+      });
+      expect(adminAfterEventOperatorAttempt.accountStatus).toBe("ACTIVE");
 
       // 2g. EVENT_OPERATOR CAN resend invitation for STUDENT -> previous token marked EXPIRED
       const resendRes = await request(server)

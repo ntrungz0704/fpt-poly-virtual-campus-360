@@ -84,6 +84,25 @@ describe("CSRF & CORS enforcement integration tests (D-2A2-04)", () => {
         .set("Cookie", `refresh_token=${refreshCookie}`)
         .expect(403);
 
+      // 5b. Malformed Referer URL syntax without Origin -> 403 FORBIDDEN (never 500)
+      const malformedRefresh = await request(server)
+        .post("/api/v1/auth/refresh")
+        .set("Referer", "://not-a-valid-url[broken]")
+        .set("X-Requested-With", "XMLHttpRequest")
+        .set("Cookie", `refresh_token=${refreshCookie}`)
+        .expect(403);
+      expect(malformedRefresh.body.success).toBe(false);
+      expect(malformedRefresh.body.error.code).toBe("FORBIDDEN");
+
+      const malformedLogout = await request(server)
+        .post("/api/v1/auth/logout")
+        .set("Referer", "not a url with spaces")
+        .set("X-Requested-With", "XMLHttpRequest")
+        .set("Cookie", `refresh_token=${refreshCookie}`)
+        .expect(403);
+      expect(malformedLogout.body.success).toBe(false);
+      expect(malformedLogout.body.error.code).toBe("FORBIDDEN");
+
       // 6. Valid Referer fallback without Origin + valid X-Requested-With -> 200 (rotates)
       const refererOk = await request(server)
         .post("/api/v1/auth/refresh")

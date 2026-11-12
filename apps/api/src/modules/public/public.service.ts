@@ -1078,32 +1078,10 @@ export class PublicService {
       }));
     }
 
-    // D-2A2-03 §3.4: Query OpenDayQuizItem without inferring non-existent eventId column,
-    // NEVER leak correctIndex or explanation, and mask tourNodeSlug when node is not eligible.
-    const rawQuizzes = await this.prisma.openDayQuizItem.findMany({
-      where: {
-        status: PublishStatus.PUBLISHED,
-        deletedAt: null,
-      },
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-      select: {
-        id: true,
-        questionText: true,
-        optionsJson: true,
-        tourNode: {
-          include: TOUR_NODE_ELIGIBILITY_INCLUDE,
-        },
-      },
-    });
-
-    const quizItems: PublicQuizQuestionDto[] = rawQuizzes.map((quiz) => ({
-      id: quiz.id,
-      tourNodeSlug: this.isPublicTourNodeEligible(quiz.tourNode)
-        ? quiz.tourNode.slug
-        : null,
-      questionText: quiz.questionText,
-      options: this.parseStringArray(quiz.optionsJson),
-    }));
+    // D-2A2-03 §3.4 (Remediation): OpenDayQuizItem currently has no eventId/FK to OpenDayEvent
+    // in Prisma schema, so safe event-scoped public eligibility cannot be guaranteed.
+    // Intentionally withhold quizItems (return []) here without inferring relations or altering DB/schema.
+    const quizItems: PublicQuizQuestionDto[] = [];
 
     return {
       event: event

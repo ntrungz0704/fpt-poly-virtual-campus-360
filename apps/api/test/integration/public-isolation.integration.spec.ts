@@ -94,8 +94,21 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
         .expect(404);
     });
 
-    it("returns ONLY 4 isPublic=true sessions (omitting 2 private sessions), strips quiz answers, masks DRAFT tourNodeSlug, and verifies quiz statelessly", async () => {
+    it("returns ONLY 4 isPublic=true sessions (omitting 2 private sessions), withholds quizItems (no Event FK), leaks zero answers, and verifies quiz statelessly", async () => {
+      const prisma = ctx.app.get(PrismaService);
       const server = ctx.app.getHttpServer();
+
+      const seededPrivateSessions = await prisma.openDaySession.findMany({
+        where: { isPublic: false, deletedAt: null },
+        select: { id: true, title: true },
+      });
+      expect(seededPrivateSessions).toHaveLength(2);
+
+      const seededPublishedQuizzes = await prisma.openDayQuizItem.findMany({
+        where: { status: "PUBLISHED", deletedAt: null },
+        select: { id: true, questionText: true, explanation: true },
+      });
+      expect(seededPublishedQuizzes).toHaveLength(3);
 
       const eventsRes = await request(server)
         .get("/api/v1/public/events")
@@ -107,8 +120,10 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
       expect(payload.sessions).toHaveLength(4);
       expect(
         payload.sessions.every(
-          (s: { accessType: string; nodeSlug: string | null }) =>
-            s.accessType === "public" && s.nodeSlug === null,
+          (s: { eventId: string; accessType: string; nodeSlug: string | null }) =>
+            s.eventId === payload.event.id &&
+            s.accessType === "public" &&
+            s.nodeSlug === null,
         ),
       ).toBe(true);
       const sortOrders = payload.sessions.map(
@@ -117,20 +132,31 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
       expect(sortOrders).toEqual([1, 2, 4, 6]);
 
       expect(payload.faqs).toHaveLength(4);
-      expect(payload.quizItems).toHaveLength(3);
-      for (const q of payload.quizItems) {
-        expect(q).not.toHaveProperty("correctIndex");
-        expect(q).not.toHaveProperty("explanation");
-        expect(q.tourNodeSlug).toBeNull();
+
+      // D-2A2-03 §3.4 Remediation: OpenDayQuizItem lacks eventId/FK in Prisma schema,
+      // so GET /public/events intentionally withholds quizItems ([]) instead of inferring ownership.
+      expect(payload.quizItems).toEqual([]);
+
+      const serializedEvents = JSON.stringify(eventsRes.body);
+      expect(serializedEvents).not.toContain("correctIndex");
+      expect(serializedEvents).not.toContain("explanation");
+      for (const priv of seededPrivateSessions) {
+        expect(serializedEvents).not.toContain(priv.id);
+        expect(serializedEvents).not.toContain(priv.title);
+      }
+      for (const q of seededPublishedQuizzes) {
+        expect(serializedEvents).not.toContain(q.id);
+        expect(serializedEvents).not.toContain(q.questionText);
+        expect(serializedEvents).not.toContain(q.explanation);
       }
 
-      // Stateless quiz verify
+      // Stateless quiz verify remains intact on PUBLISHED items without writing submissions to DB
       const verifyRes = await request(server)
         .post("/api/v1/public/quiz/verify")
         .send({
           items: [
-            { questionId: payload.quizItems[0].id, selectedIndex: 0 },
-            { questionId: payload.quizItems[1].id, selectedIndex: 1 },
+            { questionId: seededPublishedQuizzes[0].id, selectedIndex: 0 },
+            { questionId: seededPublishedQuizzes[1].id, selectedIndex: 1 },
           ],
         })
         .expect(200);
@@ -393,6 +419,321 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
         .expect(200);
       expect(sportsLoc.body.data.primaryNodeSlug).toBe("fixture-eligible-node");
       expect(sportsLoc.body.data.tourNodes).toHaveLength(2);
+    });
+
+    it("isolates OpenDayEvent (DRAFT/deleted), OpenDaySession (isPublic=false/DRAFT/deleted/unsafe-parent), and withholds OpenDayQuizItem safely", async () => {
+      const prisma = ctx.app.get(PrismaService);
+      const server = ctx.app.getHttpServer();
+
+      const publishedEvent = await prisma.openDayEvent.findFirstOrThrow({
+        where: { eventKey: "open-day-2026-qtsc" },
+      });
+      const building = await prisma.building.findFirstOrThrow({
+        where: { campusId: publishedEvent.campusId, deletedAt: null },
+      });
+      const eligibleNode = await prisma.tourNode.findFirst({
+        where: { slug: "fixture-eligible-node", deletedAt: null },
+      });
+
+      const draftEvent = await prisma.openDayEvent.create({
+        data: {
+          campusId: publishedEvent.campusId,
+          eventKey: "fixture-draft-event",
+          title: "Secret Draft Open Day Event",
+          dateLabel: "TBD",
+          timeLabel: "08:00 - 17:00",
+          isDefault: false,
+          status: "DRAFT",
+        },
+      });
+      const sessionUnderDraftEvent = await prisma.openDaySession.create({
+        data: {
+          eventId: draftEvent.id,
+          campusId: publishedEvent.campusId,
+          buildingId: building.id,
+          title: "Trap Session Under Draft Event",
+          sessionPeriod: "MORNING",
+          startTimeLabel: "08:30",
+          endTimeLabel: "09:30",
+          timeRangeLabel: "08:30 - 09:30",
+          customLocationLabel: "Sảnh A",
+          hostUnit: "Phòng Đào tạo",
+          isPublic: true,
+          description: "Must never be exposed while parent event is DRAFT",
+          sortOrder: 1,
+          status: "PUBLISHED",
+        },
+      });
+
+      const deletedEvent = await prisma.openDayEvent.create({
+        data: {
+          campusId: publishedEvent.campusId,
+          eventKey: "fixture-deleted-event",
+          title: "Secret Soft Deleted Open Day Event",
+          dateLabel: "TBD",
+          timeLabel: "08:00 - 17:00",
+          isDefault: false,
+          status: "PUBLISHED",
+          deletedAt: new Date(),
+        },
+      });
+      const sessionUnderDeletedEvent = await prisma.openDaySession.create({
+        data: {
+          eventId: deletedEvent.id,
+          campusId: publishedEvent.campusId,
+          buildingId: building.id,
+          title: "Trap Session Under Deleted Event",
+          sessionPeriod: "AFTERNOON",
+          startTimeLabel: "14:00",
+          endTimeLabel: "15:00",
+          timeRangeLabel: "14:00 - 15:00",
+          customLocationLabel: "Hội trường",
+          hostUnit: "CTSV",
+          isPublic: true,
+          description: "Must never be exposed while parent event is soft-deleted",
+          sortOrder: 2,
+          status: "PUBLISHED",
+        },
+      });
+
+      const privateSession = await prisma.openDaySession.create({
+        data: {
+          eventId: publishedEvent.id,
+          campusId: publishedEvent.campusId,
+          buildingId: building.id,
+          title: "Fixture Invited Private Session",
+          sessionPeriod: "NOON",
+          startTimeLabel: "11:30",
+          endTimeLabel: "12:30",
+          timeRangeLabel: "11:30 - 12:30",
+          customLocationLabel: "Phòng VIP",
+          hostUnit: "Ban Giám hiệu",
+          isPublic: false,
+          description: "Invited only",
+          sortOrder: 90,
+          status: "PUBLISHED",
+        },
+      });
+      const draftSession = await prisma.openDaySession.create({
+        data: {
+          eventId: publishedEvent.id,
+          campusId: publishedEvent.campusId,
+          buildingId: building.id,
+          title: "Fixture Draft Session",
+          sessionPeriod: "NOON",
+          startTimeLabel: "12:30",
+          endTimeLabel: "13:00",
+          timeRangeLabel: "12:30 - 13:00",
+          customLocationLabel: "Sảnh chính",
+          hostUnit: "CTSV",
+          isPublic: true,
+          description: "Still draft",
+          sortOrder: 91,
+          status: "DRAFT",
+        },
+      });
+      const deletedSession = await prisma.openDaySession.create({
+        data: {
+          eventId: publishedEvent.id,
+          campusId: publishedEvent.campusId,
+          buildingId: building.id,
+          title: "Fixture Soft Deleted Session",
+          sessionPeriod: "AFTERNOON",
+          startTimeLabel: "15:30",
+          endTimeLabel: "16:30",
+          timeRangeLabel: "15:30 - 16:30",
+          customLocationLabel: "Sân bóng",
+          hostUnit: "CLB",
+          isPublic: true,
+          description: "Soft deleted",
+          sortOrder: 92,
+          status: "PUBLISHED",
+          deletedAt: new Date(),
+        },
+      });
+      const eligibleSession = await prisma.openDaySession.create({
+        data: {
+          eventId: publishedEvent.id,
+          campusId: publishedEvent.campusId,
+          buildingId: building.id,
+          title: "Fixture Eligible Public Session",
+          sessionPeriod: "AFTERNOON",
+          startTimeLabel: "16:30",
+          endTimeLabel: "17:00",
+          timeRangeLabel: "16:30 - 17:00",
+          customLocationLabel: "Khu thể thao",
+          hostUnit: "Ban Tổ chức",
+          isPublic: true,
+          description: "Valid public session on published event",
+          sortOrder: 93,
+          status: "PUBLISHED",
+        },
+      });
+
+      const publishedUnlinkedQuiz = await prisma.openDayQuizItem.create({
+        data: {
+          tourNodeId: eligibleNode?.id ?? null,
+          questionText: "Fixture Published Quiz Missing Event Relation?",
+          optionsJson: ["Option A", "Option B", "Option C"],
+          correctIndex: 1,
+          explanation: "SECRET_UNLINKED_QUIZ_EXPLANATION",
+          sortOrder: 90,
+          status: "PUBLISHED",
+        },
+      });
+      const draftQuiz = await prisma.openDayQuizItem.create({
+        data: {
+          tourNodeId: eligibleNode?.id ?? null,
+          questionText: "Fixture Draft Quiz Question?",
+          optionsJson: ["Draft A", "Draft B"],
+          correctIndex: 0,
+          explanation: "SECRET_DRAFT_QUIZ_EXPLANATION",
+          sortOrder: 91,
+          status: "DRAFT",
+        },
+      });
+      const deletedQuiz = await prisma.openDayQuizItem.create({
+        data: {
+          tourNodeId: eligibleNode?.id ?? null,
+          questionText: "Fixture Deleted Quiz Question?",
+          optionsJson: ["Deleted A", "Deleted B"],
+          correctIndex: 0,
+          explanation: "SECRET_DELETED_QUIZ_EXPLANATION",
+          sortOrder: 92,
+          status: "PUBLISHED",
+          deletedAt: new Date(),
+        },
+      });
+
+      // 1. Explicit query for DRAFT event -> event=null, sessions=[], faqs=[], quizItems=[]
+      const draftEventRes = await request(server)
+        .get("/api/v1/public/events?eventKey=fixture-draft-event")
+        .expect(200);
+      expect(draftEventRes.body.data).toEqual({
+        event: null,
+        sessions: [],
+        faqs: [],
+        quizItems: [],
+      });
+      const draftSerialized = JSON.stringify(draftEventRes.body);
+      expect(draftSerialized).not.toContain(draftEvent.id);
+      expect(draftSerialized).not.toContain("Secret Draft Open Day Event");
+      expect(draftSerialized).not.toContain(sessionUnderDraftEvent.id);
+      expect(draftSerialized).not.toContain("Trap Session Under Draft Event");
+
+      // 2. Explicit query for soft-deleted event -> event=null, sessions=[], faqs=[], quizItems=[]
+      const deletedEventRes = await request(server)
+        .get("/api/v1/public/events?eventKey=fixture-deleted-event")
+        .expect(200);
+      expect(deletedEventRes.body.data).toEqual({
+        event: null,
+        sessions: [],
+        faqs: [],
+        quizItems: [],
+      });
+      const deletedSerialized = JSON.stringify(deletedEventRes.body);
+      expect(deletedSerialized).not.toContain(deletedEvent.id);
+      expect(deletedSerialized).not.toContain(
+        "Secret Soft Deleted Open Day Event",
+      );
+      expect(deletedSerialized).not.toContain(sessionUnderDeletedEvent.id);
+      expect(deletedSerialized).not.toContain(
+        "Trap Session Under Deleted Event",
+      );
+
+      // 3. Active PUBLISHED event returns ONLY eligible public sessions & omits ALL quizItems
+      const activeEventsRes = await request(server)
+        .get("/api/v1/public/events")
+        .expect(200);
+      const activePayload = activeEventsRes.body.data;
+      expect(activePayload.event.id).toBe(publishedEvent.id);
+      expect(
+        activePayload.sessions.every(
+          (s: { eventId: string; accessType: string }) =>
+            s.eventId === publishedEvent.id && s.accessType === "public",
+        ),
+      ).toBe(true);
+      const returnedSessionIds = activePayload.sessions.map(
+        (s: { id: string }) => s.id,
+      );
+      expect(returnedSessionIds).toContain(eligibleSession.id);
+      expect(returnedSessionIds).not.toContain(privateSession.id);
+      expect(returnedSessionIds).not.toContain(draftSession.id);
+      expect(returnedSessionIds).not.toContain(deletedSession.id);
+      expect(returnedSessionIds).not.toContain(sessionUnderDraftEvent.id);
+      expect(returnedSessionIds).not.toContain(sessionUnderDeletedEvent.id);
+      expect(activePayload.quizItems).toEqual([]);
+
+      const activeSerialized = JSON.stringify(activeEventsRes.body);
+      expect(activeSerialized).not.toContain("correctIndex");
+      expect(activeSerialized).not.toContain("explanation");
+      expect(activeSerialized).not.toContain("Fixture Invited Private Session");
+      expect(activeSerialized).not.toContain("Fixture Draft Session");
+      expect(activeSerialized).not.toContain("Fixture Soft Deleted Session");
+      expect(activeSerialized).not.toContain("Trap Session Under Draft Event");
+      expect(activeSerialized).not.toContain("Trap Session Under Deleted Event");
+      expect(activeSerialized).not.toContain(publishedUnlinkedQuiz.id);
+      expect(activeSerialized).not.toContain(draftQuiz.id);
+      expect(activeSerialized).not.toContain(deletedQuiz.id);
+      expect(activeSerialized).not.toContain(
+        "Fixture Published Quiz Missing Event Relation?",
+      );
+      expect(activeSerialized).not.toContain("Fixture Draft Quiz Question?");
+      expect(activeSerialized).not.toContain("Fixture Deleted Quiz Question?");
+      expect(activeSerialized).not.toContain("SECRET_UNLINKED_QUIZ_EXPLANATION");
+      expect(activeSerialized).not.toContain("SECRET_DRAFT_QUIZ_EXPLANATION");
+      expect(activeSerialized).not.toContain("SECRET_DELETED_QUIZ_EXPLANATION");
+
+      // 4. POST /public/quiz/verify must reject DRAFT and soft-deleted quizzes without leaking answers
+      const verifyDraftRes = await request(server)
+        .post("/api/v1/public/quiz/verify")
+        .send({ items: [{ questionId: draftQuiz.id, selectedIndex: 0 }] })
+        .expect(404);
+      expect(verifyDraftRes.body.error.code).toBe("NOT_FOUND");
+      expect(JSON.stringify(verifyDraftRes.body)).not.toContain(
+        "SECRET_DRAFT_QUIZ_EXPLANATION",
+      );
+      expect(JSON.stringify(verifyDraftRes.body)).not.toContain("correctIndex");
+
+      const verifyDeletedRes = await request(server)
+        .post("/api/v1/public/quiz/verify")
+        .send({ items: [{ questionId: deletedQuiz.id, selectedIndex: 0 }] })
+        .expect(404);
+      expect(verifyDeletedRes.body.error.code).toBe("NOT_FOUND");
+      expect(JSON.stringify(verifyDeletedRes.body)).not.toContain(
+        "SECRET_DELETED_QUIZ_EXPLANATION",
+      );
+      expect(JSON.stringify(verifyDeletedRes.body)).not.toContain(
+        "correctIndex",
+      );
+
+      // 5. When NO PUBLISHED non-deleted event exists, default GET /public/events returns null/empty
+      await prisma.openDayEvent.update({
+        where: { id: publishedEvent.id },
+        data: { status: "DRAFT" },
+      });
+      try {
+        const noPublishedRes = await request(server)
+          .get("/api/v1/public/events")
+          .expect(200);
+        expect(noPublishedRes.body.data).toEqual({
+          event: null,
+          sessions: [],
+          faqs: [],
+          quizItems: [],
+        });
+        const noPubSerialized = JSON.stringify(noPublishedRes.body);
+        expect(noPubSerialized).not.toContain("Secret Draft Open Day Event");
+        expect(noPubSerialized).not.toContain(
+          "Secret Soft Deleted Open Day Event",
+        );
+        expect(noPubSerialized).not.toContain("Fixture Eligible Public Session");
+      } finally {
+        await prisma.openDayEvent.update({
+          where: { id: publishedEvent.id },
+          data: { status: "PUBLISHED" },
+        });
+      }
     });
   });
 });

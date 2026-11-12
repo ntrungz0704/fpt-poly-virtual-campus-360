@@ -1,9 +1,12 @@
 # PHASE 2A — SCOPE FINALIZATION REPORT (FINALIZE `2A-1` → `2A-3`)
 
-**Ngày lập báo cáo:** 2026-11-12  
-**Baseline trước Finalization:** Commit `dbbc6d6` trên nhánh `main` (`Phase 2A — Contract & Design Alignment v2A.2`, Accepted)  
-**Trạng thái hiện tại:** **`SCOPE FINALIZED — AWAITING EXPLICIT APPROVAL TO START PHASE 2A-1 (DATABASE BOOTSTRAP)`**  
-**Chủ trương thực thi:** Tài liệu only — **không triển khai code, không khởi tạo Database/Backend, không tự động mở `Phase 2A-1`**.
+- **Ngày lập báo cáo:** 2026-11-12
+- **Baseline trước Finalization:** Commit `dbbc6d6` trên nhánh `main` (`Phase 2A — Contract & Design Alignment v2A.2`, Accepted)
+- **Trạng thái tại thời điểm lập báo cáo (`5fac54e`):** **`SCOPE FINALIZED — AWAITING EXPLICIT APPROVAL TO START PHASE 2A-1 (DATABASE BOOTSTRAP)`**
+- **Chủ trương thực thi tại mốc `5fac54e`:** Tài liệu only — **không triển khai code, không khởi tạo Database/Backend, không tự động mở `Phase 2A-1`**.
+
+> [!NOTE]
+> **Cập nhật trạng thái hiện tại (Hậu nghiệm thu Phase 2A-1):** Mục 1 → Mục 6 bên dưới giữ nguyên giá trị lịch sử tại thời điểm chốt phạm vi (`5fac54e`). Xem cập nhật trạng thái hiện tại sau khi **`Phase 2A-1: ACCEPTED`** tại [Mục 7](#7-cập-nhật-trạng-thái-hậu-nghiệm-thu-phase-2a-1-post-acceptance-reconciliation) và báo cáo nghiệm thu [`PHASE_2A_1_FINAL_ACCEPTANCE_REPORT.md`](./PHASE_2A_1_FINAL_ACCEPTANCE_REPORT.md).
 
 ---
 
@@ -77,3 +80,16 @@ Toàn bộ các kiểm tra đối chiếu tài liệu và ranh giới phạm vi 
 2. **Không sửa code Frontend, Shared, Docker hay Env:** Toàn bộ thay đổi chỉ nằm trong `docs/phase-2a/*` và `docs/project-audit/*`. Không sửa `apps/web/**`, `packages/shared/**`, `docker-compose.yml`, hay `.env*`.
 3. **Không chạy Docker hay PostgreSQL:** Không có container PostgreSQL/Redis/MinIO nào được khởi chạy, không có migration hay seed nào được thực thi.
 4. **Không thay đổi quyết định sản phẩm & MVP:** Giữ nguyên 100% quyết định `OD-01` → `OD-10`, toàn bộ 19 route trên `apps/web`, và giữ trạng thái **DỪNG trước `Phase 2A-1`**, không tự động khởi chạy `Phase 2A-1`.
+
+---
+
+## 7. Cập nhật Trạng thái Hậu Nghiệm Thu Phase 2A-1 (Post-Acceptance Reconciliation)
+
+*Phần bổ sung này cập nhật tiến độ thực tế trên nhánh `main` sau thời điểm chốt phạm vi (`5fac54e`) mà **không sửa đổi** nội dung lịch sử kiểm toán ở Mục 1 → Mục 6:*
+
+| Giai đoạn | Trạng thái Hiện tại | Căn cứ & Dẫn chiếu |
+|---|---|---|
+| **`Phase 2A-1` — Database Bootstrap** | **`ACCEPTED`** | Triển khai PostgreSQL 16 + Prisma 6 (`26` models, `17` enums), migrations, seed idempotent & kiểm thử toàn vẹn (`pnpm db:test`: `13/13 PASS`; R-01 → R-04 đã xử lý; D-01/D-02 đã khóa). Mốc commit: Baseline `1117e7a` → Remediation `605db97` → Báo cáo nghiệm thu cuối [`PHASE_2A_1_FINAL_ACCEPTANCE_REPORT.md`](./PHASE_2A_1_FINAL_ACCEPTANCE_REPORT.md) (`7e1753d`). |
+| **`Phase 2A-2` — Core Backend & Authentication** | **Chưa triển khai** | `apps/api/` **chưa tồn tại**; sẵn sàng lập prompt triển khai khi có phê duyệt mới của Chủ dự án (mang theo 4 lưu ý chuyển tiếp: lọc `TourNode PUBLISHED` & không lộ placeholder chưa duyệt trên Public API, mapper hai chiều `BuildingCategory`/`MapBuildingIconKey`, giữ phân loại dev seed QTSC và thay ảnh 360° thật trước Go-Live). |
+| **`Phase 2A-3` — Business Modules** | **Chưa triển khai** | Chưa mở phạm vi Admin Write CRUD, Media/FloorPlan Pipeline và kết nối `apps/web` (`DATA_SOURCE=api`). |
+| **`Phase 2B` — Admin Studio UI** | **Chưa triển khai** | Chưa mở phạm vi nâng cấp Studio 3 vùng & FloorPlan Interactive Drawer. |

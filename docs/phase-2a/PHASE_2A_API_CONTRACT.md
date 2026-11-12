@@ -1,7 +1,8 @@
 # ĐẶC TẢ API CONTRACT `/api/v1` — PHASE 2A
 
-**Phiên bản:** 2A.2 (Aligned with `OD-01` → `OD-10`)  
-**Base URL (Local Dev, khớp `.env.example`):** `http://localhost:4000/api/v1`  
+- **Phiên bản:** 2A.2 (Aligned with `OD-01` → `OD-10`)
+- **Trạng thái triển khai (Post Phase 2A-1 Acceptance):** **Chưa triển khai (`apps/api/` chưa tồn tại).** Đây là **đặc tả API mục tiêu** dùng cho `Phase 2A-2` (`AuthModule`, `UsersRbacModule`, `AuditLogModule`, `LocalStorageAdapter`, Public Read APIs) và `Phase 2A-3` (Admin Business Modules & Async Pipelines).
+- **Base URL (Local Dev, khớp `.env.example`):** `http://localhost:4000/api/v1`
 **Định dạng chuẩn:** JSON (`application/json`), UTF-8, ISO-8601 timestamps (`UTC`).  
 **Chuẩn xác thực:** `Authorization: Bearer <accessToken>` kết hợp Cookie `HttpOnly` cho Refresh Token.  
 **Hợp đồng TypeScript chia sẻ:** `@fpt-campus/shared` (`packages/shared/src/*` → `dist/`).
@@ -62,7 +63,7 @@
 ## 2. Public APIs & Ranh giới Cấu hình Tĩnh (`OD-01`..`OD-08`)
 
 > [!NOTE]
-> Toàn bộ endpoints dưới `/api/v1/public/*` chỉ trả tài nguyên có `status = 'PUBLISHED'` và `deleted_at IS NULL`, tuyệt đối lọc bỏ URL tệp `original`, tài khoản/nội bộ và đáp án quiz (`correctIndex`).
+> Toàn bộ endpoints dưới `/api/v1/public/*` chỉ trả tài nguyên có `status = 'PUBLISHED'` và `deleted_at IS NULL`, tuyệt đối lọc bỏ URL tệp `original`, tài khoản/nội bộ và đáp án quiz (`correctIndex`). Riêng Public Tour APIs (`/api/v1/public/tour/nodes*`) bắt buộc kiểm tra thêm `panoramaAsset.isPreviewApproved = true` để các panorama AI placeholder ở trạng thái `DRAFT` (`Phase 2A-1`, `D-02`) không lộ lên tour công khai (`GET /public/tour/nodes` trả `[]` cho tới khi có node/ảnh 360° thật được duyệt & xuất bản). Khi ánh xạ DTO ở `Phase 2A-2`, Backend thực hiện mapper hai chiều giữa enum chữ thường trong `@fpt-campus/shared` (`BuildingCategory`, `MapBuildingIconKey`) và enum chữ hoa trong PostgreSQL (`R-05`).
 >
 > **Ranh giới Tĩnh vs Database (`OD-03` Phương án B):**
 > - **Phục vụ từ PostgreSQL qua API:** `campuses` (kèm `originPoint`, `landmarks`), `buildings` (`Leaflet WGS84`), `floors`/`floor_plans`, `locations`, `tour_nodes`/`hotspots`/`tour_edges`, `open_day_events`, `open_day_sessions`, `open_day_faqs`, và `open_day_quiz_items`.

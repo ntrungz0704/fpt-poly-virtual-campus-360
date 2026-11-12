@@ -1,8 +1,8 @@
 # KIẾN TRÚC HỆ THỐNG PHASE 2A — FPT POLYTECHNIC VIRTUAL CAMPUS 360°
 
-**Phiên bản:** 2A.2 (Aligned Architecture Blueprint — Chưa triển khai mã nguồn Backend)  
-**Đối tượng:** Chủ dự án, Technical Lead, Backend/Frontend/DevOps Engineers  
-**Phạm vi tài liệu:** Chuẩn hóa hiện trạng mã nguồn thực tế, thiết kế kiến trúc hệ thống mục tiêu theo lộ trình tuần tự (`Phase 2A-1`: Database Bootstrap với PostgreSQL 16 + Prisma + Migrations + Seed QTSC → `Phase 2A-2`: NestJS Modular Monolith + Auth/RBAC + `StorageAdapter` local + Public Read APIs → `Phase 2A-3`: Business Modules + Redis/BullMQ & tùy chọn S3/MinIO + kết nối Frontend từng module), tích hợp `Leaflet WGS84`, `FloorPlan`, `TourGraph`, `Auth/RBAC` (`username/email/phone`), bảo mật và phân tách ranh giới tĩnh/DB (`OD-01` → `OD-10`).
+- **Phiên bản:** 2A.2 (Aligned Architecture Blueprint)
+- **Trạng thái triển khai (Post Phase 2A-1 Acceptance):** `Phase 2A-1` (**Database Bootstrap**: PostgreSQL 16 Docker + Prisma 6 + Migrations + Seed QTSC) đã **được triển khai và nghiệm thu (`ACCEPTED`)** tại commit [`7e1753d`](../project-audit/PHASE_2A_1_FINAL_ACCEPTANCE_REPORT.md). **`apps/api/` hiện chưa tồn tại** — toàn bộ thành phần Backend NestJS, Auth/RBAC, `StorageAdapter`, Public/Admin APIs, Redis/BullMQ và MinIO/S3 bên dưới là **kiến trúc mục tiêu cho `Phase 2A-2` và `Phase 2A-3`**, chưa triển khai.
+- **Phạm vi tài liệu:** Đối chiếu hiện trạng thực tế trong workspace (`apps/web`, `packages/shared`, `prisma/`) với kiến trúc hệ thống mục tiêu theo lộ trình tuần tự (`Phase 2A-1`: Database Bootstrap [**ACCEPTED**] → `Phase 2A-2`: NestJS Modular Monolith + Auth/RBAC + `StorageAdapter` local + Public Read APIs [**Chưa triển khai**] → `Phase 2A-3`: Business Modules + Redis/BullMQ & tùy chọn S3/MinIO + kết nối Frontend từng module [**Chưa triển khai**]), tích hợp `Leaflet WGS84`, `FloorPlan`, `TourGraph`, `Auth/RBAC` (`username/email/phone`), bảo mật và phân tách ranh giới tĩnh/DB (`OD-01` → `OD-10`).
 
 ---
 
@@ -15,13 +15,13 @@
 
 | Hạng mục | Ghi nhận trong tài liệu cũ (`PROJECT_STATUS.md`) | Hiện trạng thực tế đã xác minh | Tác động lên Phase 2A |
 | :--- | :--- | :--- | :--- |
-| **App Router Routes** | Khẳng định `11/12` route lỗi 404 | **19 route thật** đang build và chạy clean (`next build` PASS): 9 route `(public)`, 2 route `(immersive)`, 1 `(auth)`, 1 `(portal)`, 6 `/admin/*`. | **Bắt buộc giữ nguyên toàn bộ 19 route** để tương thích liên kết (`/games` giữ tương thích, ẩn khỏi nav chính; `/portal` giữ tương thích). |
-| **Tài nguyên ảnh & Media** | Phụ thuộc URL Google tạm thời | **100% ảnh cục bộ** trong `apps/web/public/images/` (5 ảnh panorama `2048×1024` tỷ lệ 2:1 + ảnh địa điểm `1280×720` + logo). | `Phase 2A-1` chỉ lưu object/path metadata của 8 ảnh QTSC vào PostgreSQL seed (**không lưu ảnh nhị phân lớn trong DB**); `Phase 2A-2` khởi tạo **`StorageAdapter` (`LOCAL_FS`)** cho Public Read; `Phase 2A-3` mở upload mới & `Redis/BullMQ` / tùy chọn `MinIO/S3` (`OD-07`). |
+| **App Router Routes** | Khẳng định `11/12` route lỗi 404 | **19 route thật** đang build và chạy clean (`next build` PASS): 9 route `(public)`, 2 route `(immersive)`, 1 `(auth)`, 1 `(portal)`, 6 `/admin/*`. | **Bắt buộc giữ nguyên toàn bộ 19 route** để tương thích liên kết (`/games` giữ tương thích, ẩn khỏi nav chính; `/portal` giữ tương thích, không thuộc MVP Student/Parent Portal). |
+| **Tài nguyên ảnh & Media** | Phụ thuộc URL Google tạm thời | **100% ảnh cục bộ** trong `apps/web/public/images/`: **11 asset seed** (`5` panorama AI `2048×1024` tỷ lệ 2:1 + `6` ảnh địa điểm `1280×720`) và logo chính thức. | **`Phase 2A-1` (`ACCEPTED`):** Đã seed metadata & SHA-256 cho **11 asset cục bộ** (**không lưu ảnh nhị phân lớn trong PostgreSQL**), trong đó 5 panorama giữ `is_preview_approved = false` (AI synthetic placeholder) gắn với 5 `TourNode` trạng thái `DRAFT` (`D-02`). **`Phase 2A-2` (`Chưa triển khai`):** Khởi tạo `StorageAdapter` (`LOCAL_FS`) cho Public Read. **`Phase 2A-3` (`Chưa triển khai`):** Mở upload mới & `Redis/BullMQ` / tùy chọn `MinIO/S3` (`OD-07`). |
 | **Trình xem 360° & GIS** | Thiếu tương tác / còn thô | `PanoramaStage.tsx` (Three.js `0.187.0` equirectangular, kéo/xoay + tự xoay lại sau 3000ms nhàn rỗi, pick tọa độ `(yaw, pitch)`); `CampusGISMap.tsx` (nâng cấp sang **Leaflet + OpenStreetMap + WGS84 (FixNear)** kèm `routeWaypoints`, `mapIconKey`, `QTSC_ORIGIN_POINT`, drawer chi tiết & đo khoảng cách). Tab 3D WebGL đã ẩn đúng quyết định MVP. | Chuẩn hóa Hệ tọa độ 1 dùng **Leaflet WGS84 (`lat, lng NOT NULL`)** (`OD-01`), bổ sung **Floor Plan Interactive Layer** tùy chọn (`OD-10`) kết nối chặt với `TourNode`. |
 | **Desktop Animations** | Chưa chuẩn hóa | Animation React Bits + `motion@14.12.0` chỉ kích hoạt trên desktop (`>= 1024px`), đảm bảo hiệu năng mobile/tablet. | Giữ nguyên ngưỡng responsiveness và giảm chuyển động trên thiết bị yếu. |
-| **Backend & Database** | Mức `S0` (chưa có `apps/api`) | **Chính xác `S0`:** Chưa có thư mục `apps/api`, chưa có `prisma/`, `0` lệnh `fetch()`, `0` Next.js Route Handlers. Dữ liệu đang nằm cứng trong `apps/web/src/data/campus-data.ts` và state React trong bộ nhớ trình duyệt. | `Phase 2A-1` chỉ dựng **Database Bootstrap** (`PostgreSQL 16` + `.env` + Prisma `schema.prisma` + SQL migrations + Seed QTSC, chưa tạo `apps/api`); `Phase 2A-2` dựng NestJS + Auth/RBAC + `StorageAdapter` local + Public Read APIs; `Phase 2A-3` dựng Business Modules & nối frontend từng module. |
-| **Auth, Open Day & Scope** | Dùng nhiều tài khoản mẫu `OD-2026-*` | Trong **Phase 1**, đã xóa `prototype-auth.ts`, `Fpoly@2026` và giả lập `sessionStorage`; `/login` và `/admin/*` hiển thị trạng thái chờ Auth Backend. **Chốt thêm (`OD-03..08`):** đăng nhập bằng `username \| email \| phone`; không có Check-in QR (`OD-05`), không XP/Leaderboard (`OD-08`); `/news` & `OFFICIAL_CAMPUS_INFO` giữ cấu hình tĩnh (`OD-03`). | `Phase 2A-2` dựng JWT RAM + HttpOnly Refresh Token + Argon2id + Dual Auth (`username/email/phone`); `Phase 2A-3` dựng Admin CRUD, Open Day CMS (`events`, `sessions`, `faqs`, `quiz`), 5-step Excel Import (`email -> phone` dedup) & nối frontend, Student/Parent Portal vẫn ngoài MVP. |
-| **Workspace Monorepo & Infra** | Khung khởi tạo | `pnpm-workspace.yaml` (`apps/*`, `packages/*`); `packages/shared/src/index.ts` có draft TS types (chưa được `apps/web` import); `docker-compose.yml` mới có `postgres:16-alpine` (DB `virtual_campus_360`, user `fpt_admin`); `.env.example` đã khai báo `API_PORT=4000`, `NEXT_PUBLIC_API_URL`, `S3_*`. | Tận dụng `packages/shared` làm Single Source of Truth cho DTO & TypeScript Contracts giữa Web và API. |
+| **Backend & Database** | Mức `S0` (chưa có `apps/api` và DB) | **Database (`Phase 2A-1` — Đã triển khai & `ACCEPTED`):** Đã có `prisma/schema.prisma` (`26` models, `17` enums), `prisma/migrations/20261111175635_init/`, `prisma/seed.ts` (dev seed QTSC, idempotent) và `prisma/verify-db-integrity.ts` (`13/13 PASS`).<br>**Backend API (`Phase 2A-2/2A-3` — Chưa triển khai):** **`apps/api/` vẫn chưa tồn tại**; `apps/web` vẫn chạy `DATA_SOURCE=mock` trên `apps/web/src/data/campus-data.ts` (`0` Next.js Route Handlers, chưa gọi Backend API). | `Phase 2A-1` đã hoàn tất Database Bootstrap (`7e1753d`); **`Phase 2A-2`** (chưa triển khai) sẽ dựng NestJS + Auth/RBAC + `StorageAdapter` local + Public Read APIs; **`Phase 2A-3`** (chưa triển khai) sẽ dựng Business Modules & nối frontend từng module. |
+| **Auth, Open Day & Scope** | Dùng nhiều tài khoản mẫu `OD-2026-*` | Trong **Phase 1**, đã xóa `prototype-auth.ts`, `Fpoly@2026` và giả lập `sessionStorage`; `/login` và `/admin/*` hiển thị trạng thái chờ Auth Backend. **Trong Phase 2A-1 (`ACCEPTED`):** Đã seed `1` tài khoản bootstrap `admin` (`SUPER_ADMIN`, Argon2id từ `ADMIN_BOOTSTRAP_PASSWORD`, `must_change_password = true`) cùng bảng `open_day_*` trong PostgreSQL. | `Phase 2A-2` *(chưa triển khai)* dựng JWT RAM + HttpOnly Refresh Token + Argon2id + Dual Auth (`username \| email \| phone`); `Phase 2A-3` *(chưa triển khai)* dựng Admin CRUD, Open Day CMS, 5-step Excel Import (`email -> phone` dedup) & nối frontend; Student/Parent Portal (`/portal`) vẫn ngoài MVP. |
+| **Workspace Monorepo & Infra** | Khung khởi tạo | `pnpm-workspace.yaml` (`apps/*`, `packages/*`); `packages/shared` (`@fpt-campus/shared`) đã đồng bộ v2A.2, build `./dist/*` và được `apps/web` import (`campus-data.ts`, `shared-contracts.ts`); `docker-compose.yml` chạy thực tế `postgres:16-alpine` (`fpt_virtual_campus_db`, DB `virtual_campus_360`, user `fpt_admin`); `.env.example` đã hoàn thiện mẫu `DATA_SOURCE`, `POSTGRES_*`, `DATABASE_URL`, `ADMIN_BOOTSTRAP_PASSWORD`, `API_PORT=4000`, `NEXT_PUBLIC_API_URL`, `S3_*`. | Tiếp tục dùng `@fpt-campus/shared` làm Single Source of Truth giữa `apps/web` và `apps/api` khi bước vào `Phase 2A-2` *(lưu ý mapper `BuildingCategory` & `MapBuildingIconKey` theo `R-05`)*. |
 
 ### 1.2. Chuẩn hóa Tên thực thể & Giải quyết mâu thuẫn với Hồ sơ kiểm toán cũ
 
@@ -54,7 +54,10 @@ Trải nghiệm Virtual Campus hoàn chỉnh **không trộn lẫn** 3 loại t�
 
 ## 3. Kiến trúc hệ thống mục tiêu (Target System Architecture)
 
-Hệ thống áp dụng mô hình **Modular Monolith Backend (NestJS)** kết hợp **Next.js 16 App Router Frontend** và **PostgreSQL 16**, triển khai tuần tự 3 bước: **Phase 2A-1 (Database Bootstrap: PostgreSQL 16 + Prisma + Migrations + Seed QTSC)** → **Phase 2A-2 (Core Backend & Auth: NestJS Modular Monolith + `@fpt-campus/shared` + Auth/RBAC + `StorageAdapter` `LOCAL_FS` + Public Read APIs)** → **Phase 2A-3 (Business Modules: Campus/Location/FloorPlan/Panorama/TourGraph/OpenDay CRUD, Redis + BullMQ & tùy chọn `MinIO/S3`, và kết nối Frontend với API thật theo từng module)** (**`OD-07`**).
+> [!NOTE]
+> **Phân tách Hiện trạng vs Mục tiêu (Post Phase 2A-1 Acceptance):** Trong kiến trúc bên dưới, chỉ **`apps/web` (`DATA_SOURCE=mock`)** và **`PostgreSQL 16` + `prisma/` (`Phase 2A-1`, đã `ACCEPTED` tại `7e1753d`)** đang tồn tại thực tế. **`apps/api` (NestJS Modular Monolith)**, **`Background Media Worker (BullMQ)`**, **`Redis 7`** và **`S3/MinIO`** đều là **kiến trúc mục tiêu của `Phase 2A-2` / `Phase 2A-3`**, hiện **chưa triển khai**.
+
+Hệ thống áp dụng mô hình **Modular Monolith Backend (NestJS)** kết hợp **Next.js 16 App Router Frontend** và **PostgreSQL 16**, triển khai tuần tự 3 bước: **Phase 2A-1 (Database Bootstrap: PostgreSQL 16 + Prisma + Migrations + Seed QTSC — ĐÃ `ACCEPTED`)** → **Phase 2A-2 (Core Backend & Auth: NestJS Modular Monolith + `@fpt-campus/shared` + Auth/RBAC + `StorageAdapter` `LOCAL_FS` + Public Read APIs — Chưa triển khai)** → **Phase 2A-3 (Business Modules: Campus/Location/FloorPlan/Panorama/TourGraph/OpenDay CRUD, Redis + BullMQ & tùy chọn `MinIO/S3`, và kết nối Frontend với API thật theo từng module — Chưa triển khai)** (**`OD-07`**).
 
 Lý do chọn **NestJS Modular Monolith** thay vì Microservices hay chỉ dùng Next.js Route Handlers:
 - **Kiểm soát luồng upload & xử lý file nặng (`Sharp`, `Poppler/MuPDF`):** Next.js Serverless/Edge Route Handlers có giới hạn RAM, timeout và không phù hợp chạy worker xử lý ảnh panorama độ phân giải cao (4K–8K) hoặc convert PDF mặt bằng.
@@ -102,7 +105,10 @@ flowchart TB
 
 ---
 
-## 4. Phân rã Module Backend (`apps/api`)
+## 4. Phân rã Module Backend Mục tiêu (`apps/api` — Thuộc Phase 2A-2 / 2A-3, Chưa triển khai)
+
+> [!IMPORTANT]
+> Thư mục `apps/api/` **chưa tồn tại** tại thời điểm sau nghiệm thu Phase 2A-1 (`7e1753d`). Bảng dưới đây mô tả thiết kế module mục tiêu sẽ được dựng dần từ **Phase 2A-2** (`AuthModule`, `UsersRbacModule`, `AuditLogModule`, Public Read APIs, `LocalStorageAdapter`) và **Phase 2A-3** (các Business Write Modules & Worker Pipeline).
 
 | Module | Trách nhiệm cốt lõi | Phụ thuộc chính |
 | :--- | :--- | :--- |
@@ -121,13 +127,13 @@ flowchart TB
 ## 5. Chiến lược lưu trữ Media & `StorageAdapter` (`OD-07`)
 
 ### 5.1. Tại sao không lưu ảnh mới trong Git hay Public Folder của `apps/web` — và không lưu ảnh panorama vào PostgreSQL?
-Hiện tại `apps/web/public/images/` phục vụ bộ dữ liệu tĩnh ban đầu gồm 5 panorama `2048×1024` và ảnh địa điểm QTSC: trong **`Phase 2A-1`**, PostgreSQL seed chỉ lưu object key / đường dẫn tham chiếu trong bảng `media_assets` (**tuyệt đối không lưu ảnh panorama nhị phân lớn trực tiếp vào PostgreSQL**). Đến **`Phase 2A-2`**, Backend khởi tạo **`LocalStorageAdapter`** (`STORAGE_DRIVER=local`) phục vụ đọc media cục bộ cho Public Read APIs; khi mở nghiệp vụ upload & xử lý thực tế ở **`Phase 2A-3+`**:
+Hiện tại `apps/web/public/images/` phục vụ bộ dữ liệu khởi tạo ban đầu gồm **11 asset cục bộ QTSC** (`5` panorama AI placeholder `2048×1024` và `6` ảnh địa điểm `1280×720`): trong **`Phase 2A-1` (`ACCEPTED`)**, `prisma/seed.ts` chỉ lưu object key / đường dẫn tham chiếu cùng checksum SHA-256 trong bảng `media_assets` (**tuyệt đối không lưu ảnh panorama nhị phân lớn trực tiếp vào PostgreSQL**). Đến **`Phase 2A-2` (`Chưa triển khai`)**, Backend khởi tạo **`LocalStorageAdapter`** (`STORAGE_DRIVER=local`) phục vụ đọc media cục bộ cho Public Read APIs; khi mở nghiệp vụ upload & xử lý thực tế ở **`Phase 2A-3+` (`Chưa triển khai`)**:
 - Tổng dung lượng nhanh chóng vượt `2–10 GB`, cần tách biệt **`original`**, **`optimized`** (`4K/2K`) và **`thumbnail`** ngoài PostgreSQL và ngoài Git.
 
-### 5.2. Kiến trúc `StorageAdapter` (`STORAGE_DRIVER=local|s3` — `OD-07`)
+### 5.2. Kiến trúc `StorageAdapter` (`STORAGE_DRIVER=local|s3` — `OD-07`, Triển khai từ Phase 2A-2)
 Mọi module (`MediaPipelineModule`, `FloorPlanModule`) phụ thuộc interface trừu tượng **`StorageAdapter`**, không gọi cứng SDK MinIO ở tầng nghiệp vụ:
-- **`LocalStorageAdapter` (`STORAGE_DRIVER=local` — triển khai từ `Phase 2A-2` cho Public Read/local dev, hỗ trợ upload cục bộ ở `Phase 2A-3`):** Ánh xạ key media tới thư mục cục bộ / static path sẵn có (như `/images/...` cho 8 ảnh seed QTSC và `UPLOAD_LOCAL_ROOT` + endpoint `POST /api/v1/admin/storage/local-upload/:token` có kiểm tra token & magic bytes).
-- **`S3StorageAdapter` (`STORAGE_DRIVER=s3` — bật từ `Phase 2A-3+` / Production):** Kết nối MinIO Dev hoặc Cloudflare R2 / AWS S3 với Presigned PUT URLs.
+- **`LocalStorageAdapter` (`STORAGE_DRIVER=local` — dự kiến triển khai từ `Phase 2A-2` cho Public Read/local dev, hỗ trợ upload cục bộ ở `Phase 2A-3`):** Ánh xạ key media tới thư mục cục bộ / static path sẵn có (như `/images/...` cho 11 asset seed QTSC và `UPLOAD_LOCAL_ROOT` + endpoint `POST /api/v1/admin/storage/local-upload/:token` có kiểm tra token & magic bytes).
+- **`S3StorageAdapter` (`STORAGE_DRIVER=s3` — dự kiến bật từ `Phase 2A-3+` / Production):** Kết nối MinIO Dev hoặc Cloudflare R2 / AWS S3 với Presigned PUT URLs.
 
 ### 5.3. Cấu trúc Object Key chuẩn (dùng chung cho cả Local & S3/MinIO)
 
@@ -175,12 +181,12 @@ virtual-campus-media/
 ## 7. Triển khai Docker, Phân kỳ Hạ tầng (`OD-07`) & Chiến lược Migrate Dữ liệu
 
 ### 7.1. Hạ tầng Docker Compose theo 3 Giai đoạn (`OD-07`)
-- **Giai đoạn Phase 2A-1 (Database Bootstrap — Chỉ PostgreSQL 16 + Prisma + Seed):**
-  - Docker Compose chỉ chạy container **`postgres:16-alpine`** (DB `virtual_campus_360`, healthcheck dùng `${POSTGRES_USER}` & `${POSTGRES_DB}`).
-  - Hoàn thiện `.env.example` / `.env` cục bộ, `prisma/schema.prisma`, SQL migrations (17 enums, partial unique indexes `WHERE deleted_at IS NULL`, `hotspots CHECK` constraint), `prisma/seed.ts` (bootstrap Admin dùng `ADMIN_BOOTSTRAP_PASSWORD` + Argon2id), kiểm tra reset/re-initialize. **Chưa khởi tạo NestJS (`apps/api/`), Auth, `StorageAdapter` hay API handlers.**
-- **Giai đoạn Phase 2A-2 (Core Backend, Auth & Local StorageAdapter):**
-  - Tiếp tục chạy **`postgres:16-alpine`** kết hợp dịch vụ **`apps/api`** (NestJS Modular Monolith + Prisma + `@fpt-campus/shared`), triển khai Auth/RBAC (login `username | email | normalized phone`, token lifecycle), `StorageAdapter` (`STORAGE_DRIVER=local` ánh xạ ảnh seed QTSC), `RATE_LIMIT_STORE=memory`, và Public Read APIs.
-- **Giai đoạn Phase 2A-3+ (Business Modules, Media/FloorPlan Pipeline & Frontend API Integration):**
+- **Giai đoạn Phase 2A-1 (Database Bootstrap — Chỉ PostgreSQL 16 + Prisma + Seed · `[ĐÃ TRIỂN KHAI & ACCEPTED · 7e1753d]`):**
+  - Docker Compose chỉ chạy container **`postgres:16-alpine`** (`fpt_virtual_campus_db`, DB `virtual_campus_360`, healthcheck dùng `${POSTGRES_USER}` & `${POSTGRES_DB}`).
+  - Đã hoàn thiện `.env.example` / `.env` cục bộ, `prisma/schema.prisma` (`26` models, `17` enums), SQL migrations (`20261111175635_init` kèm 17 enums, partial unique indexes `WHERE deleted_at IS NULL`, `hotspots CHECK` constraint), `prisma/seed.ts` (bootstrap Admin dùng `ADMIN_BOOTSTRAP_PASSWORD` + Argon2id, dữ liệu phát triển QTSC), và `prisma/verify-db-integrity.ts` (`pnpm db:test`: `13/13 PASS`). **Vẫn chưa khởi tạo NestJS (`apps/api/`), Auth, `StorageAdapter` hay API handlers.**
+- **Giai đoạn Phase 2A-2 (Core Backend, Auth & Local StorageAdapter · `[CHƯA TRIỂN KHAI — TIẾP THEO]`):**
+  - Tiếp tục chạy **`postgres:16-alpine`** kết hợp dịch vụ **`apps/api`** (NestJS Modular Monolith + Prisma + `@fpt-campus/shared` kèm mapper enum `BuildingCategory` & `MapBuildingIconKey`), triển khai Auth/RBAC (login `username | email | normalized phone`, token lifecycle), `StorageAdapter` (`STORAGE_DRIVER=local` ánh xạ asset seed QTSC), `RATE_LIMIT_STORE=memory`, và Public Read APIs (bảo đảm chỉ trả `TourNode` `PUBLISHED` & `isPreviewApproved = true`).
+- **Giai đoạn Phase 2A-3+ (Business Modules, Media/FloorPlan Pipeline & Frontend API Integration · `[CHƯA TRIỂN KHAI]`):**
   - Bổ sung **`redis:7-alpine`** (BullMQ queue + distributed rate limit) và tùy chọn **`minio/minio`** (khi bật `STORAGE_DRIVER=s3`; hoặc tiếp tục dùng `LOCAL_FS`), cùng Worker xử lý Media/FloorPlan, Admin CRUD (Campus/Buildings/Floors/Locations/TourGraph/Open Day CMS), và kết nối **`apps/web`** (`DATA_SOURCE=api`) theo từng module.
 
 ### 7.2. Chiến lược Backup & Khôi phục
@@ -188,8 +194,8 @@ virtual-campus-media/
 - **Media Storage:** Đồng bộ tệp `original` và `v*_source` sang vùng lưu trữ dự phòng; biến thể tối ưu tái sinh được qua job `MEDIA_REPROCESS`.
 
 ### 7.3. Chuyển đổi dữ liệu từ Frontend Mock sang Database thật (Zero-Downtime Cutover)
-1. **Ở Phase 2A-1:** Viết script khởi tạo idempotent (`prisma/seed.ts`) đọc dữ liệu tham chiếu QTSC (`5` tòa nhà Leaflet WGS84 kèm `routeWaypoints` + `QTSC_ORIGIN_POINT`, `6` địa điểm với **`loc-the-thao.primary_node_id = NULL`** theo `OD-02`, `5` `TourNode` với **`floor_plan_id = NULL`** theo `OD-10`, `8` metadata path QTSC `READY` trong `media_assets` — **không lưu binary panorama vào PostgreSQL**, `open_day_events`, `open_day_sessions`, `open_day_faqs`, `open_day_quiz_items`) + **01 tài khoản `admin` duy nhất (`ADMIN` / `SUPER_ADMIN`)** dùng `ADMIN_BOOTSTRAP_PASSWORD` băm **Argon2id** (`must_change_password = true`).
-2. **Ở Phase 2A-2 → Phase 2A-3:** `apps/web` và `apps/api` dùng chung kiểu dữ liệu từ **`@fpt-campus/shared`** (`OD-09`); `Phase 2A-2` khóa Core Backend + Auth + Public Read APIs, và `Phase 2A-3` chuyển đổi Frontend sang `DATA_SOURCE=api` theo từng module mà không thay đổi UI/UX hay 19 routes.
+1. **Ở Phase 2A-1 (`Đã hoàn tất & ACCEPTED`):** `prisma/seed.ts` idempotent đã nạp bộ **dữ liệu phát triển ban đầu QTSC** (chưa xác minh thực địa `R-06`: `5` tòa nhà Leaflet WGS84 kèm `routeWaypoints` + `QTSC_ORIGIN_POINT`, `6` địa điểm với **`loc-the-thao.primary_node_id = NULL`** theo `OD-02`, `5` `TourNode` giữ trạng thái **`DRAFT`** và **`floor_plan_id = NULL`** theo `D-02` & `OD-10`, **`11` `media_assets`** gồm `5` AI placeholder panorama `2048×1024` `is_preview_approved = false` + `6` ảnh địa điểm `1280×720` `is_preview_approved = true` — **không lưu binary vào PostgreSQL**, `1` sự kiện `open_day_events`, `6` sessions, `4` faqs, `3` quizItems) + **01 tài khoản `admin` duy nhất (`ADMIN` / `SUPER_ADMIN`)** dùng `ADMIN_BOOTSTRAP_PASSWORD` băm **Argon2id** (`must_change_password = true`).
+2. **Ở Phase 2A-2 → Phase 2A-3 (`Chưa triển khai`):** `apps/web` và `apps/api` dùng chung kiểu dữ liệu từ **`@fpt-campus/shared`** (`OD-09`); `Phase 2A-2` khóa Core Backend + Auth + Public Read APIs, và `Phase 2A-3` chuyển đổi Frontend sang `DATA_SOURCE=api` theo từng module mà không thay đổi UI/UX hay 19 routes. Trước Go-Live (`Phase 2C`/`2D`), bắt buộc thay thế 5 panorama placeholder bằng ảnh 360°×180° thật đã duyệt (`is_preview_approved = true`).
 
 ---
 

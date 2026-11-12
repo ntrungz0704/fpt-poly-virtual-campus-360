@@ -1,7 +1,8 @@
 # THIẾT KẾ CƠ SỞ DỮ LIỆU PHASE 2A — FPT POLYTECHNIC VIRTUAL CAMPUS 360°
 
-**Phiên bản:** 2A.2 (Aligned with `OD-01` → `OD-10`)  
-**Hệ quản trị CSDL:** PostgreSQL 16 (Prisma ORM 6+)  
+- **Phiên bản:** 2A.2 (Aligned with `OD-01` → `OD-10`)
+- **Trạng thái triển khai (Post Phase 2A-1 Acceptance):** Lược đồ PostgreSQL 16 + Prisma 6 (`26` models, `17` enums) đã được triển khai thực tế tại [`prisma/schema.prisma`](../../prisma/schema.prisma), migration [`20261111175635_init`](../../prisma/migrations/20261111175635_init/migration.sql), [`prisma/seed.ts`](../../prisma/seed.ts) và [`prisma/verify-db-integrity.ts`](../../prisma/verify-db-integrity.ts), nghiệm thu **`ACCEPTED`** tại [`7e1753d`](../project-audit/PHASE_2A_1_FINAL_ACCEPTANCE_REPORT.md).
+- **Hệ quản trị CSDL:** PostgreSQL 16 (Prisma ORM 6+)
 **Database mặc định (tương thích `docker-compose.yml`):** `virtual_campus_360`  
 **Nguyên tắc thiết kế:** Chuẩn hóa 3NF, tách bạch tuyệt đối 3 hệ tọa độ (`Leaflet WGS84 Campus GIS [lat, lng]`, `Floor Plan 2D [0..1]`, `Panorama Spherical (yaw, pitch, fov)`), tách `Location` (thực thể không gian) khỏi `TourNode` (điểm đứng chụp 360°), cho phép `TourNode` xuất bản độc lập khi tầng chưa có `FloorPlan` (`OD-10`), hỗ trợ soft-delete (`deleted_at`), phiên bản hóa mặt bằng tầng (`floor_plans.version`) và lưu trữ vết kiểm toán (`audit_logs`).
 
@@ -506,8 +507,8 @@ enum ParticipationStatus {
 Do tồn tại các vòng tham chiếu hợp lệ (`campuses.default_entry_node_id -> tour_nodes`, `buildings.default_node_id -> tour_nodes`, `locations.primary_node_id -> tour_nodes`, `floors.active_floor_plan_id -> floor_plans`), script `prisma/seed.ts` bắt buộc chèn theo thứ tự xác định trong transaction:
 1. `users` (`admin` bootstrap với `password_hash = Argon2id(ADMIN_BOOTSTRAP_PASSWORD)`), `roles`, `permissions`, `role_permissions`, `user_roles`, `location_types`.
 2. `campuses` (để `default_entry_node_id = NULL`), `buildings` (`default_node_id = NULL`), `floors` (`active_floor_plan_id = NULL`, `requires_floor_plan = false`).
-3. `media_assets` (5 panorama `2:1` + 3–6 ảnh 2D QTSC đặt sẵn `processing_status = 'READY'`, `is_valid_2_to_1 = true`, `is_preview_approved = true`), `locations` (`primary_node_id = NULL`).
-4. `tour_nodes` (`floor_plan_id = NULL` theo `OD-10`), `tour_edges`, `hotspots`.
+3. `media_assets` (dữ liệu dev `Phase 2A-1` gồm **`11` asset cục bộ**: `5` `PANORAMA_2_1` `2048×1024` AI synthetic placeholder với `processing_status = 'READY'`, `is_valid_2_to_1 = true` theo tỷ lệ pixel **nhưng `is_preview_approved = false`** theo quyết định `D-02`/`R-03`, cộng `6` `PHOTO_2D` `1280×720` với `is_preview_approved = true`), `locations` (`primary_node_id = NULL`).
+4. `tour_nodes` (`floor_plan_id = NULL` theo `OD-10`, cả 5 node placeholder khởi tạo ở trạng thái **`DRAFT`** theo `D-02` cho tới khi thay bằng ảnh 360° thật được duyệt), `tour_edges`, `hotspots`.
 5. `UPDATE` ngược `locations.primary_node_id` (giữ `loc-the-thao.primary_node_id = NULL` theo `OD-02`), `buildings.default_node_id`, và `campuses.default_entry_node_id = 'cong-chao-qtsc'`.
 6. `open_day_events`, `open_day_sessions`, `open_day_faqs`, `open_day_quiz_items`.
 

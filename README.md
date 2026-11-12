@@ -31,9 +31,10 @@ Nền tảng tham quan khuôn viên số 360°, bản đồ GIS khuôn viên và
 - **Sự kiện Open Day & Định hướng Ngành (`/events`, `/games`)**: Lịch trình Open Day, câu hỏi thường gặp và mini-game Quiz định hướng chuyên ngành (stateless).
 - **Tin tức, Giới thiệu & Liên hệ (`/news`, `/news/[slug]`, `/about`, `/contact`)**: Thông tin tuyển sinh, bài viết khuôn viên và kênh hỗ trợ.
 
-### Cổng Thông tin & Khu vực Quản trị (UI Preview)
-- **Đăng nhập & Portal (`/login`, `/portal`)**: Giao diện đăng nhập và cổng thông tin nội bộ / khách mời Open Day.
-- **Khu vực Quản trị (`/admin`, `/admin/locations`, `/admin/events`, `/admin/media`, `/admin/virtual-tour`, `/admin/users`)**: Giao diện quản trị địa điểm, sự kiện, thư viện media, tour 360° và tài khoản (sẽ kết nối API & RBAC thực tế ở Phase 2A-2/2A-3).
+### Xác thực, Route Tương thích & Khu vực Quản trị (UI Preview)
+- **Trạng thái Xác thực (`/login`)**: Màn hình thông báo cổng xác thực đang chờ triển khai Backend Auth ở `Phase 2A-2` (chưa có đăng nhập giả phía client và không có tính năng tự đăng ký cho khách).
+- **Route `/portal` *(Ngoài phạm vi MVP Student/Parent Portal — Giữ tương thích)*:** **Student/Parent Portal KHÔNG thuộc phạm vi MVP.** Route `/portal` chỉ được giữ lại nguyên trạng trong mã nguồn để bảo toàn tập `19` routes tương thích (không xóa hoặc gắn redirect), hiện hiển thị thông báo chưa kích hoạt và điều hướng người dùng về trải nghiệm công khai `/campus` hoặc `/events`.
+- **Khu vực Quản trị (`/admin`, `/admin/locations`, `/admin/events`, `/admin/media`, `/admin/virtual-tour`, `/admin/users`)**: Giao diện Admin UI Preview nội bộ (sẽ kết nối API & RBAC thực tế ở `Phase 2A-2` / `Phase 2A-3`; chưa mở công khai Internet khi chưa có Server Auth).
 
 ---
 
@@ -50,7 +51,7 @@ Nền tảng tham quan khuôn viên số 360°, bản đồ GIS khuôn viên và
 fpt-poly-virtual-campus-360/
 ├── apps/
 │   └── web/                      # Ứng dụng Next.js 16 (App Router)
-│       ├── public/               # Tài nguyên ảnh 2D, mặt bằng, panorama placeholder
+│       ├── public/               # Ảnh 2D địa điểm, 5 panorama placeholder, icons, manifest.json, robots.txt
 │       ├── scripts/              # Script hỗ trợ chụp/kiểm tra UI (capture-pages.mjs)
 │       └── src/
 │           ├── app/              # 19 routes App Router (public, immersive, auth, portal, admin)
@@ -206,4 +207,6 @@ Thực hiện theo đúng thứ tự sau để khởi chạy CSDL thật, nạp 
 - [Quy trình xử lý Panorama 360°](docs/phase-2a/PHASE_2A_PANORAMA_WORKFLOW.md)
 - [Lộ trình Triển khai Phase 2A](docs/phase-2a/PHASE_2A_IMPLEMENTATION_ROADMAP.md)
 - [Hệ thống Thiết kế Giao diện (UI Design System)](docs/ui/UI_DESIGN_SYSTEM.md)
+- [Báo cáo Chốt phạm vi Phase 2A & Cập nhật Trạng thái](docs/project-audit/PHASE_2A_SCOPE_FINALIZATION_REPORT.md)
 - [Báo cáo Nghiệm thu Phase 2A-1](docs/project-audit/PHASE_2A_1_FINAL_ACCEPTANCE_REPORT.md)
+- [Báo cáo Đối soát Tài liệu Hậu Phase 2A-1](docs/project-audit/POST_PHASE_2A_1_DOCUMENTATION_RECONCILIATION_REPORT.md)

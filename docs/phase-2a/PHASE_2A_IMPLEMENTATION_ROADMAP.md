@@ -1,8 +1,9 @@
 # LỘ TRÌNH TRIỂN KHAI PHASE 2A → 2E — FPT POLYTECHNIC VIRTUAL CAMPUS 360°
 
-**Phiên bản:** 2A.2 (Aligned with `OD-01` → `OD-10`)  
-**Điều kiện tiên quyết:** Bộ 5 tài liệu `docs/phase-2a/*` và hợp đồng `@fpt-campus/shared` (`packages/shared`) đã khóa đồng bộ theo `OD-01` → `OD-10` trước khi khởi tạo mã nguồn `apps/api` và `prisma/`.  
-**Ràng buộc bảo toàn:** Giữ nguyên toàn bộ **19 route hiện tại** ở `apps/web`, bảo toàn trải nghiệm miễn phí không cần đăng nhập trên `/`, `/campus`, `/map`, `/locations`, `/events`, giữ `/games` & `/portal` tương thích (chưa xây Student/Parent Portal, chưa có Check-in QR hay XP/Leaderboard trong MVP), giữ `/news` & `OFFICIAL_CAMPUS_INFO` ở cấu hình web tĩnh (`OD-03` Phương án B), và giữ ẩn tab 3D WebGL khỏi MVP.
+- **Phiên bản:** 2A.2 (Aligned with `OD-01` → `OD-10`)
+- **Trạng thái hiện tại (Post Phase 2A-1 Acceptance):** `Phase 2A-1 — Database Bootstrap` đã **`ACCEPTED`** (`1117e7a` → `605db97` → [`7e1753d`](../project-audit/PHASE_2A_1_FINAL_ACCEPTANCE_REPORT.md)). Trạng thái tiếp theo: **Chuẩn bị triển khai `Phase 2A-2 — Core Backend & Authentication`** (`apps/api/` hiện chưa tồn tại; `Phase 2A-2`, `Phase 2A-3` và `Phase 2B` chưa triển khai).
+- **Điều kiện tiên quyết:** Bộ 5 tài liệu `docs/phase-2a/*` và hợp đồng `@fpt-campus/shared` (`packages/shared`) đã khóa đồng bộ theo `OD-01` → `OD-10` trước khi khởi tạo mã nguồn `apps/api` và `prisma/`.
+- **Ràng buộc bảo toàn:** Giữ nguyên toàn bộ **19 route hiện tại** ở `apps/web`, bảo toàn trải nghiệm miễn phí không cần đăng nhập trên `/`, `/campus`, `/map`, `/locations`, `/events`, giữ `/games` & `/portal` tương thích (chưa xây Student/Parent Portal, chưa có Check-in QR hay XP/Leaderboard trong MVP), giữ `/news` & `OFFICIAL_CAMPUS_INFO` ở cấu hình web tĩnh (`OD-03` Phương án B), và giữ ẩn tab 3D WebGL khỏi MVP.
 
 ---
 
@@ -10,10 +11,10 @@
 
 ```mermaid
 flowchart LR
-    G0["Cổng Hợp đồng 2A.2\ndocs/phase-2a + @fpt-campus/shared\n(Đã đồng bộ OD-01..OD-10)"] --> P2A1["Phase 2A-1 — Database Bootstrap\nPostgreSQL 16 (Docker), Env Config,\nPrisma schema, Migrations & Seed QTSC"]
-    P2A1 --> P2A2["Phase 2A-2 — Core Backend & Auth\nNestJS Modular Monolith, Prisma + Shared,\nAuth/RBAC, StorageAdapter (local) & Public Read"]
-    P2A2 --> P2A3["Phase 2A-3 — Business Modules\nAdmin CRUD (Campus/Locations/Events),\nFloorPlan, Panorama/TourGraph & Nối Frontend"]
-    P2A3 --> P2B["Phase 2B — Nâng cấp Studio UI\nFloorPlan Interactive Drawer\n& Admin Studio 3 Vùng"]
+    G0["Cổng Hợp đồng 2A.2\ndocs/phase-2a + @fpt-campus/shared\n(OD-01..OD-10 · DONE)"] --> P2A1["Phase 2A-1 — Database Bootstrap\n(ACCEPTED · 7e1753d)\nPostgreSQL 16, Prisma 6, Migrations & Seed"]
+    P2A1 --> P2A2["Phase 2A-2 — Core Backend & Auth\n(TIẾP THEO — CHUẨN BỊ MỞ)\nNestJS Modular Monolith, Prisma + Shared,\nAuth/RBAC, StorageAdapter local & Public Read"]
+    P2A2 --> P2A3["Phase 2A-3 — Business Modules\n(CHƯA TRIỂN KHAI)\nAdmin CRUD, FloorPlan, Panorama &\nNối Frontend"]
+    P2A3 --> P2B["Phase 2B — Nâng cấp Studio UI\n(CHƯA TRIỂN KHAI)\nFloorPlan Interactive Drawer\n& Admin Studio 3 Vùng"]
     P2B --> P2C["Phase 2C\nNạp dữ liệu thật QTSC\n(Tòa nhà, Tầng, Mặt bằng, Ảnh chụp 360°)"]
     P2C --> P2D["Phase 2D\nKiểm thử tải, Bảo mật\n& Xuất bản Production"]
     P2D -. "Tùy chọn sau MVP" .-> P2E["Phase 3+ (Mở rộng)\nStudent Portal / Check-in QR / XP / 3D"]
@@ -32,41 +33,36 @@ flowchart LR
 > - **`TourNode` độc lập có ảnh panorama 2:1 hợp lệ được `PUBLISH` ở Phase 2A-2/2A-3 ngay cả khi chưa có `FloorPlan`** (`floor_plan_id = NULL`, không tạo mặt bằng giả — `OD-10`).  
 > - **Không lưu ảnh panorama lớn trực tiếp vào PostgreSQL:** DB chỉ lưu object key / đường dẫn tham chiếu trong `media_assets` ở mọi phase.
 
-1. **Phase 2A-1 — Database Bootstrap (`2–3 ngày`)**
+1. **Phase 2A-1 — Database Bootstrap (`2–3 ngày` · Trạng thái: `ACCEPTED` tại [`7e1753d`](../project-audit/PHASE_2A_1_FINAL_ACCEPTANCE_REPORT.md))**
    - **Phạm vi:**
-     - Chạy local **PostgreSQL 16** bằng Docker Compose (`postgres:16-alpine`, database `virtual_campus_360`, healthcheck dùng `${POSTGRES_USER}` & `${POSTGRES_DB}`).
+     - Chạy local **PostgreSQL 16** bằng Docker Compose (`postgres:16-alpine`, container `fpt_virtual_campus_db`, database `virtual_campus_360`, healthcheck dùng `${POSTGRES_USER}` & `${POSTGRES_DB}`).
      - Hoàn thiện environment configuration (`.env.example` và `.env` cục bộ không commit: `DATABASE_URL`, `POSTGRES_*`, `ADMIN_BOOTSTRAP_PASSWORD`, `STORAGE_DRIVER=local`, `WEB_ORIGIN`, `DATA_SOURCE`).
-     - Khởi tạo Prisma và `prisma/schema.prisma` khớp 100% `PHASE_2A_DATABASE_DESIGN.md` v2A.2.
-     - Tạo SQL migrations với đầy đủ **17 Prisma enums**, indexes, **partial unique indexes (`WHERE deleted_at IS NULL`) hiện diện thực sự trong file SQL migration** (trên `campuses`, `buildings`, `floors`, `locations`, `tour_nodes`, `users(username/email/phone)`, `open_day_events`), và **`hotspots` `CHECK` constraint (`SCENE_LINK <-> edge_id`) trong file SQL migration**.
-     - Viết `prisma/seed.ts` idempotent theo đúng thứ tự khóa ngoại (tạo **01 tài khoản gốc duy nhất `admin`** đọc `ADMIN_BOOTSTRAP_PASSWORD` từ environment và băm bằng **Argon2id**, tuyệt đối không hardcode mật khẩu; seed QTSC gồm `5` tòa nhà Leaflet WGS84 + `routeWaypoints`, `6` địa điểm với `loc-the-thao.primary_node_id = NULL` theo `OD-02`, `5` `TourNode` với `floor_plan_id = NULL` theo `OD-10`, `8` metadata ảnh cục bộ trong `media_assets`, và dữ liệu `open_day_*`).
-     - Kiểm tra migration, seed, reset/re-initialize (`prisma migrate reset`) và database integrity (bao gồm test vi phạm `hotspots CHECK` constraint).
+     - Khởi tạo Prisma và `prisma/schema.prisma` (`26` models, `17` enums) khớp `PHASE_2A_DATABASE_DESIGN.md` v2A.2.
+     - Tạo SQL migrations (`20261111175635_init`) với đầy đủ **17 Prisma enums**, indexes, **partial unique indexes (`WHERE deleted_at IS NULL`) hiện diện thực sự trong file SQL migration** (trên `campuses`, `buildings`, `floors`, `locations`, `tour_nodes`, `users(username/email/phone)`, `open_day_events`), và **`hotspots` `CHECK` constraint (`SCENE_LINK <-> edge_id`) trong file SQL migration**.
+     - Viết `prisma/seed.ts` idempotent theo đúng thứ tự khóa ngoại (tạo **01 tài khoản gốc duy nhất `admin`** đọc `ADMIN_BOOTSTRAP_PASSWORD` từ environment và băm bằng **Argon2id**, tuyệt đối không hardcode mật khẩu; seed dữ liệu phát triển QTSC gồm `5` tòa nhà Leaflet WGS84 + `routeWaypoints`, `6` địa điểm với `loc-the-thao.primary_node_id = NULL` theo `OD-02`, `5` `TourNode` với `floor_plan_id = NULL` theo `OD-10` và trạng thái **`DRAFT`** theo quyết định `D-02`, `11` metadata asset cục bộ trong `media_assets` [`5` AI placeholder panorama `is_preview_approved = false` + `6` ảnh `PHOTO_2D`], và dữ liệu `open_day_*`).
+     - Kiểm tra migration, seed, reset/re-initialize (`prisma migrate reset` / `AC-08`) và database integrity qua `prisma/verify-db-integrity.ts` (`pnpm db:test`: `13/13 PASS`, gồm đối chiếu SHA-256 `11/11` asset trên đĩa và `14` ca test âm tính `AC-07-NEG`).
      - **Chưa khởi tạo `apps/api/`, chưa triển khai NestJS, Auth, `StorageAdapter` hoặc API handlers.**
-   - **Đầu ra:** `docker-compose.yml` chuẩn `postgres:16`, `.env.example`, `prisma/schema.prisma`, `prisma/migrations/*` (có custom SQL cho partial unique & CHECK), `prisma/seed.ts`, nhật ký kiểm chứng DB reset/seed/constraint.
-   - **Tiêu chí nghiệm thu (Phase 2A-1):**
-     1. Container `postgres:16` đạt `healthy` khi dùng biến môi trường trong `.env`.
-     2. `prisma migrate deploy` và chu kỳ `prisma migrate reset --force` (reset & tái khởi tạo DB sạch) chạy thành công.
-     3. Truy vấn `pg_indexes` / `pg_constraint` và đối chiếu file `.sql` trong `prisma/migrations/` xác nhận **partial unique indexes (`WHERE deleted_at IS NULL`)** và **`hotspots` `CHECK` constraint** thực sự tồn tại trong SQL migration, kèm test cố tình chèn bản ghi vi phạm `hotspots` `CHECK` bị PostgreSQL từ chối.
-     4. `prisma/seed.ts` chạy lặp lại (idempotent) không lỗi/nhân bản; thiếu `ADMIN_BOOTSTRAP_PASSWORD` bị từ chối; tài khoản `admin` duy nhất có `password_hash` chuẩn `$argon2id$` và `must_change_password = true`; `media_assets` chỉ chứa key/path (không lưu ảnh nhị phân lớn trong PostgreSQL).
-     5. Xác nhận **chưa có `apps/api/`**, chưa có NestJS/Auth/API handler, và `apps/web` vẫn build/typecheck/lint `exit 0`.
+   - **Đầu ra đã bàn giao:** `docker-compose.yml` (`postgres:16-alpine`), `.env.example`, `prisma/schema.prisma`, `prisma/migrations/20261111175635_init/*`, `prisma/seed.ts`, `prisma/verify-db-integrity.ts`, [`PHASE_2A_1_FINAL_ACCEPTANCE_REPORT.md`](../project-audit/PHASE_2A_1_FINAL_ACCEPTANCE_REPORT.md).
+   - **Kết quả nghiệm thu (`Phase 2A-1`):** **`ACCEPTED`** (`1117e7a` → `605db97` → `7e1753d`; `R-01 → R-04` đã xử lý; `R-05` & `R-06` ghi nhận chuyển tiếp sang `2A-2`/`2C`; `apps/api/` chưa tồn tại).
 
-2. **Phase 2A-2 — Core Backend & Authentication (`3–4 ngày`)**
+2. **Phase 2A-2 — Core Backend & Authentication (`3–4 ngày` · Trạng thái: `CHUẨN BỊ TRIỂN KHAI — CHƯA BẮT ĐẦU`)**
    - **Phạm vi:**
      - Khởi tạo **NestJS Modular Monolith (`apps/api/`, prefix `/api/v1`)**.
-     - Tích hợp Prisma Client và dùng chung types/DTO từ `@fpt-campus/shared`.
+     - Tích hợp Prisma Client và dùng chung types/DTO từ `@fpt-campus/shared` (**xử lý mapper hai chiều giữa `BuildingCategory` / `MapBuildingIconKey` trong `@fpt-campus/shared` và PostgreSQL enums theo `R-05`**).
      - Triển khai **`AuthModule`**, **`UsersRbacModule`**, **`AuditLogModule`**:
        - `POST /api/v1/auth/login` hỗ trợ `username | email | normalized phone` (**chuẩn hóa `users.phone` theo `E.164/VN` trước khi kiểm tra uniqueness và đăng nhập**), verify **Argon2id**.
        - Session/token lifecycle: Access JWT ngắn hạn (chỉ giữ RAM ở client), Refresh Token 64-byte quay vòng trong cookie `HttpOnly` (thu hồi toàn bộ `family_id` khi reuse attack), ép `403 PASSWORD_CHANGE_REQUIRED` khi `mustChangePassword === true`, hỗ trợ `/refresh`, `/logout`, `/me`, `/me/password`, `/activate/validate`, `/activate/complete` (**cấm `/register`**).
        - RBAC Guards & ghi `audit_logs` cho mọi thao tác xác thực/quản trị.
      - Triển khai **`StorageAdapter` local (`STORAGE_DRIVER=local`)** ánh xạ bộ ảnh QTSC cục bộ đã seed và `RATE_LIMIT_STORE=memory`.
-     - Triển khai toàn bộ **Public Read APIs** theo contract đã khóa: `/api/v1/public/campus`, `/buildings/:slug`, `/buildings/:slug/floors`, `/locations`, `/locations/:slug`, `/tour/nodes`, `/tour/nodes/:slug`, `/events` (ẩn đáp án quiz), và `POST /api/v1/public/quiz/verify` (stateless).
+     - Triển khai toàn bộ **Public Read APIs** theo contract đã khóa: `/api/v1/public/campus`, `/buildings/:slug`, `/buildings/:slug/floors`, `/locations`, `/locations/:slug`, `/tour/nodes`, `/tour/nodes/:slug`, `/events` (ẩn đáp án quiz), và `POST /api/v1/public/quiz/verify` (stateless). **Bảo đảm Public Tour API chỉ trả `TourNode` `PUBLISHED` (`deleted_at IS NULL`) kèm `panoramaAsset.isPreviewApproved = true` để ảnh AI placeholder chưa duyệt không lộ lên tour công khai (`D-02`).**
    - **Đầu ra:** Ứng dụng `apps/api/` chạy ổn định với `PostgreSQL 16`, Auth/RBAC, `StorageAdapter` local và toàn bộ Public Read endpoints.
    - **Tiêu chí nghiệm thu (Phase 2A-2):**
-     1. `apps/api` build/typecheck sạch, nhập trực tiếp `@fpt-campus/shared`, kết nối PostgreSQL qua Prisma.
+     1. `apps/api` build/typecheck sạch, nhập trực tiếp `@fpt-campus/shared`, xử lý mapper `BuildingCategory`/`MapBuildingIconKey`, kết nối PostgreSQL qua Prisma.
      2. Auth hoạt động chuẩn bảo mật: login qua `username`/`email`/`phone` (đã chuẩn hóa `phone`), bắt buộc đổi bootstrap password lần đầu, refresh rotation + reuse detection, không có `/auth/register`.
-     3. Toàn bộ Public Read APIs trả đúng dữ liệu QTSC `PUBLISHED & deleted_at IS NULL` từ PostgreSQL (`loc-the-thao.primaryNodeSlug = null`, `quizItems` không lộ `correctIndex`/`explanation`, `0` rò rỉ `password_hash`/`token_hash`/`DRAFT`).
+     3. Toàn bộ Public Read APIs trả đúng dữ liệu `PUBLISHED & deleted_at IS NULL` từ PostgreSQL (`loc-the-thao.primaryNodeSlug = null`, `quizItems` không lộ `correctIndex`/`explanation`, `0` rò rỉ `password_hash`/`token_hash`/`DRAFT` hay panorama placeholder `is_preview_approved = false`, không trình bày dev seed QTSC như dữ liệu đã đo đạc thực địa).
      4. `StorageAdapter` local phục vụ đúng đường dẫn media hạt giống mà chưa cần MinIO/Redis.
 
-3. **Phase 2A-3 — Business Modules (`5–6 ngày`)**
+3. **Phase 2A-3 — Business Modules (`5–6 ngày` · Trạng thái: `CHUẨN BỊ SAU 2A-2 — CHƯA TRIỂN KHAI`)**
    - **Phạm vi:**
      - **CRUD Campus, Building, Floor, Location:** `/api/v1/admin/campus`, `/buildings`, `/floors`, `/locations` (hỗ trợ đầy đủ Leaflet WGS84 + metadata `OD-01`, `primaryNodeId NULLABLE` theo `OD-02`).
      - **Floor Plan, Panorama, TourNode, TourEdge, Hotspot & Media Pipeline:**
@@ -85,7 +81,7 @@ flowchart LR
 
 ---
 
-### Phase 2B — Nâng cấp UI Chuyên sâu (`Admin Studio 3 Vùng` & `Floor Plan Interactive Drawer`, `3–4 ngày`)
+### Phase 2B — Nâng cấp UI Chuyên sâu (`Admin Studio 3 Vùng` & `Floor Plan Interactive Drawer`, `3–4 ngày` · Trạng thái: `CHƯA TRIỂN KHAI`)
 *(Sau khi `Phase 2A-3` đã nối xong API thật theo từng module cho các màn hiện hữu, `Phase 2B` tập trung hoàn thiện phần giao diện nâng cấp mới:)*
 1. **Nâng cấp Public `/campus` & `/locations/[slug]` (Floor Plan Drawer):**
    - Giữ nguyên trải nghiệm Three.js `PanoramaStage.tsx` (kéo xoay + tự xoay sau 3s).
@@ -141,12 +137,11 @@ flowchart LR
 
 ---
 
-## 5. Checklist Nghiệm thu Kiến trúc & Phân kỳ Phase 2A (Sẵn sàng bước Phase 2A-1 Database Bootstrap)
+## 5. Checklist Trạng thái Kiến trúc & Thực thi Phase 2A (Cập nhật Post Phase 2A-1 Acceptance)
 
-- [x] Đồng bộ đầy đủ `OD-01` → `OD-10` trên cả 5 tài liệu `docs/phase-2a/*` (phiên bản `2A.2`).
-- [x] Chuẩn hóa Hệ tọa độ 1 sang **Leaflet + OpenStreetMap + WGS84 (`lat, lng NOT NULL`)**, `origin_point_json`, `route_waypoints_json` (`OD-01`).
-- [x] Khóa chặt `Location (1) — (N) TourNode`, đặt `loc-the-thao.primary_node_id = NULL` (`OD-02`), cho phép `TourNode` xuất bản không cần `FloorPlan` giả (`OD-10`).
-- [x] Hoàn thiện lược đồ `open_day_events`, `open_day_sessions`, `open_day_faqs`, `open_day_quiz_items` (bỏ Check-in QR `OD-05` & XP/Leaderboard `OD-08`; phân ranh tĩnh `/news` & `OFFICIAL_CAMPUS_INFO` theo `OD-03`).
-- [x] Bổ sung toàn bộ bản vá toàn vẹn SQL (`partial unique WHERE deleted_at IS NULL` kể cả `phone`, `CHECK hotspots`, soft-delete cleanup, đầy đủ enums — `OD-04`, `OD-06`).
-- [x] Viết lại `@fpt-campus/shared` sạch, build `dist/` và tích hợp `apps/web` (`OD-09`), giữ nguyên toàn bộ 19 route.
-- [x] Chốt ranh giới phân kỳ **2A-1 (Database Bootstrap)** → **2A-2 (Core Backend, Auth, StorageAdapter local & Public Read)** → **2A-3 (Business Modules, Media/FloorPlan Pipeline & Frontend API Cutover)** (`OD-07`).
+- [x] **Cổng Hợp đồng & Scope (`v2A.2`):** Đồng bộ `OD-01` → `OD-10` trên 5 tài liệu `docs/phase-2a/*`, chuẩn hóa Leaflet WGS84 (`OD-01`), `Location (1) — (N) TourNode` & `loc-the-thao.primary_node_id = NULL` (`OD-02`), optional `FloorPlan` (`OD-10`), `open_day_*` CMS (`OD-03`, `OD-05`, `OD-08`), SQL partial unique/CHECK (`OD-04`, `OD-06`), `@fpt-campus/shared` (`OD-09`), và ranh giới `2A-1` → `2A-2` → `2A-3` (`OD-07`).
+- [x] **Phase 2A-1 — Database Bootstrap (`ACCEPTED` · `1117e7a` → `605db97` → [`7e1753d`](../project-audit/PHASE_2A_1_FINAL_ACCEPTANCE_REPORT.md)):** PostgreSQL 16 + Prisma 6 (`26` models, `17` enums), migration SQL (`partial unique WHERE deleted_at IS NULL`, `hotspots CHECK`), idempotent seed (R-01..R-04 xử lý; D-01 chốt `17` enums; D-02 đặt 5 AI placeholder panorama `is_preview_approved = false` & 5 `TourNode` `DRAFT`), `pnpm db:test` `13/13 PASS`, `apps/api/` chưa tồn tại.
+- [ ] **Phase 2A-2 — Core Backend & Authentication (`TIẾP THEO — CHUẨN BỊ TRIỂN KHAI`):** Khởi tạo `apps/api/` (NestJS Modular Monolith + Prisma + `@fpt-campus/shared`), mapper hai chiều `BuildingCategory` / `MapBuildingIconKey` (`R-05`), Auth/RBAC (`username | email | normalized phone`, Argon2id, JWT + HttpOnly Refresh Rotation), `LocalStorageAdapter`, và Public Read APIs (chỉ trả `TourNode PUBLISHED` & không lộ placeholder chưa duyệt).
+- [ ] **Phase 2A-3 — Business Modules & Kết nối Frontend (`CHƯA TRIỂN KHAI`):** Admin CRUD, Media/FloorPlan workers (`Redis/BullMQ`, tùy chọn `S3/MinIO`), Graph Validator 7 luật & chuyển đổi `apps/web` (`DATA_SOURCE=api`) giữ nguyên `19` routes.
+- [ ] **Phase 2B — Admin Studio UI (`CHƯA TRIỂN KHAI`):** Studio 3 vùng & `FloorPlan Interactive Drawer`.
+- [ ] **Phase 2C & 2D — Dữ liệu thực địa QTSC & Go-Live (`CHƯA TRIỂN KHAI`):** Xác minh tọa độ thực địa (`R-06`), chụp & duyệt ảnh 360°×180° thật thay toàn bộ 5 AI placeholders (`D-02`).

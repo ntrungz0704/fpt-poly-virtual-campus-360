@@ -63,11 +63,16 @@
 ## 2. Public APIs & Ranh giới Cấu hình Tĩnh (`OD-01`..`OD-08`)
 
 > [!NOTE]
-> Toàn bộ endpoints dưới `/api/v1/public/*` chỉ trả tài nguyên có `status = 'PUBLISHED'` và `deleted_at IS NULL`, tuyệt đối lọc bỏ URL tệp `original`, tài khoản/nội bộ và đáp án quiz (`correctIndex`). Riêng Public Tour APIs (`/api/v1/public/tour/nodes*`) bắt buộc kiểm tra thêm `panoramaAsset.isPreviewApproved = true` để các panorama AI placeholder ở trạng thái `DRAFT` (`Phase 2A-1`, `D-02`) không lộ lên tour công khai (`GET /public/tour/nodes` trả `[]` cho tới khi có node/ảnh 360° thật được duyệt & xuất bản). Khi ánh xạ DTO ở `Phase 2A-2`, Backend thực hiện mapper hai chiều giữa enum chữ thường trong `@fpt-campus/shared` (`BuildingCategory`, `MapBuildingIconKey`) và enum chữ hoa trong PostgreSQL (`R-05`).
+> Toàn bộ endpoints dưới `/api/v1/public/*` chỉ trả tài nguyên có `status = 'PUBLISHED'` và `deleted_at IS NULL`, tuyệt đối lọc bỏ URL tệp `original`, tài khoản/nội bộ và đáp án quiz (`correctIndex`, `explanation`). Riêng mọi tham chiếu tới `TourNode` trên toàn bộ `/api/v1/public/*` (không chỉ riêng `/tour/nodes*`) bắt buộc kiểm tra đồng thời `status = 'PUBLISHED'`, `deleted_at IS NULL`, và `panoramaAsset.isPreviewApproved = true`; với node chưa đạt chuẩn (`D-02`), các trường slug/node (`defaultEntryNodeSlug`, `defaultNodeSlug`, `primaryNodeSlug`, `nodeSlug`, `tourNodeSlug`) phải trả `null`, danh sách `nodes[]`/`tourNodes[]` loại bỏ hoàn toàn và `publishedNodeCount = 0` (`GET /public/tour/nodes` trả `[]` cho tới khi có node/ảnh 360° thật được duyệt & xuất bản). Khi ánh xạ DTO ở `Phase 2A-2`, Backend thực hiện mapper hai chiều giữa enum chữ thường trong `@fpt-campus/shared` (`BuildingCategory`, `MapBuildingIconKey`) và enum chữ hoa trong PostgreSQL (`R-05`).
 >
 > **Ranh giới Tĩnh vs Database (`OD-03` Phương án B):**
 > - **Phục vụ từ PostgreSQL qua API:** `campuses` (kèm `originPoint`, `landmarks`), `buildings` (`Leaflet WGS84`), `floors`/`floor_plans`, `locations`, `tour_nodes`/`hotspots`/`tour_edges`, `open_day_events`, `open_day_sessions`, `open_day_faqs`, và `open_day_quiz_items`.
 > - **Giữ cấu hình web tĩnh trong MVP (`apps/web`):** bài viết `/news` (`CAMPUS_GUIDE_ARTICLES`), thông tin định danh trường tĩnh (`OFFICIAL_CAMPUS_INFO`: `shortName`, `campusLabel`, `ward/district/city`, `coordinatesLabel`, các URL `caodang.fpt.edu.vn`, `supportHours`), và văn bản UI khung vỏ. Không quy gán API cho các thành phần tĩnh này.
+
+### 2.0. `GET /api/v1/health` *(Phê duyệt tại `D-2A2-02`)*
+Endpoint công khai kiểm tra tình trạng sẵn sàng của API và kết nối PostgreSQL (`SELECT 1`).
+- Trả HTTP `200` khi DB kết nối thành công (`{ "status": "ok", "database": "up", "timestamp": "..." }`), hoặc `503` khi DB không khả dụng (`{ "status": "error", "database": "down", "timestamp": "..." }`).
+- **Ràng buộc bảo mật:** Tuyệt đối không tiết lộ connection string, hostname nội bộ, credentials, stack trace hoặc thông tin hạ tầng nhạy cảm.
 
 ### 2.1. `GET /api/v1/public/campus` (`OD-01`)
 Trả về thông tin khuôn viên mặc định (`originPoint`, `landmarks`, `defaultEntryNodeSlug`) và danh sách tòa nhà chuẩn **Leaflet + OpenStreetMap + WGS84** cho `/map` (`CampusGISMap.tsx`).
@@ -183,20 +188,21 @@ Trả về thông tin khuôn viên mặc định (`originPoint`, `landmarks`, `d
   }
   ```
 
-### 2.4. `GET /api/v1/public/locations` & `GET /api/v1/public/locations/:slug` (`OD-02`)
+### 2.4. `GET /api/v1/public/locations` & `GET /api/v1/public/locations/:slug` (`OD-02`, `D-2A2-03`)
 Phục vụ `/locations` (lọc theo `?buildingCode=`, `?category=common|lab|studio`, `?typeCode=`, `?q=`) và `/locations/[slug]`.
-- Mỗi item trả đầy đủ: `{ id, slug, code, name, buildingCode, buildingName, floorLabel, category, categoryLabel, shortDesc, description, highlights[], imageUrl, gallery[], primaryNodeSlug, tourNodes[], isPublicAccessible, restrictionNote, status }`.
-- Theo `OD-02`, nếu địa điểm chưa có ảnh 360° riêng (VD: `khu-the-thao-qtsc`), `primaryNodeSlug = null` và `tourNodes = []` (`LocationCard` tự fallback về nút "Định vị GIS").
+- **`GET /api/v1/public/locations`**: Trả `PublicLocationSummaryDto[]` (`{ id, slug, code, name, buildingCode, buildingName, floorLabel, typeCode, category, categoryLabel, shortDesc, description, highlights[], imageUrl, primaryNodeSlug, isPublicAccessible, restrictionNote, status }`, **không** gộp `gallery`/`tourNodes`).
+- **`GET /api/v1/public/locations/:slug`**: Trả `PublicLocationDetailDto` gồm toàn bộ trường tóm tắt kèm `gallery[]` và `tourNodes[]` (chỉ node thỏa `PUBLISHED && deleted_at IS NULL && isPreviewApproved = true`).
+- Theo `OD-02` & `D-2A2-03`, nếu địa điểm chưa có node 360° hợp lệ/được duyệt (VD: `khu-the-thao-qtsc` hoặc node còn `DRAFT`), `primaryNodeSlug = null` và `tourNodes = []` (`LocationCard` tự fallback về nút "Định vị GIS").
 
-### 2.5. `GET /api/v1/public/events` & `POST /api/v1/public/quiz/verify` (`OD-03`, `OD-08`)
+### 2.5. `GET /api/v1/public/events` & `POST /api/v1/public/quiz/verify` (`OD-03`, `OD-08`, `D-2A2-03`)
 - **`GET /api/v1/public/events`** (query tùy chọn `?eventKey=`): Phục vụ `/events` & `/games`. Trả từ DB:
   - `event`: `{ id, eventKey, title, subtitle, dateLabel, timeLabel, eventDate }`
-  - `sessions`: danh sách `open_day_sessions` (`PUBLISHED`, `isPublic = true` hoặc hiển thị nhãn `accessType: 'public' | 'invited'`, `period: 'morning' | 'noon' | 'afternoon'`, `timeRange`, `locationLabel`, `buildingCode`, `nodeSlug`, `hostUnit`)
-  - `faqs`: danh sách `open_day_faqs` (`id, question, answer, sortOrder`)
-  - `quizItems`: danh sách `open_day_quiz_items` chỉ gồm `{ id, tourNodeSlug, questionText, options }` — **TUYỆT ĐỐI không trả `correctIndex` hay `explanation` trong payload `GET` (`OD-08`)**.
+  - `sessions`: **chỉ** trả `open_day_sessions` có **`status = 'PUBLISHED'`, `deleted_at IS NULL` và `is_public = true`** (`accessType: 'public'`). **Tuyệt đối không trả session `is_public = false` cho request công khai** (giữ kiểu union `accessType: 'public' | 'invited'` trong `@fpt-campus/shared` nhưng không công khai dữ liệu invited trên endpoint public; `nodeSlug = null` nếu `tourNode` chưa publish+approved).
+  - `faqs`: danh sách `open_day_faqs` (`status = 'PUBLISHED'`, `deleted_at IS NULL`, `id, question, answer, sortOrder`)
+  - `quizItems`: danh sách `open_day_quiz_items` (`status = 'PUBLISHED'`, `deleted_at IS NULL`; bảng này trong schema MVP không có `event_id` FK nên lọc theo trạng thái publish, gán `tourNodeSlug = null` nếu node chưa publish+approved) chỉ gồm `{ id, tourNodeSlug, questionText, options }` — **TUYỆT ĐỐI không trả `correctIndex` hay `explanation` trong payload `GET` (`OD-08`, `D-2A2-03`)**.
 - **`POST /api/v1/public/quiz/verify`** *(Stateless — Không cần đăng nhập, Không lưu DB cá nhân, Không XP/Leaderboard — `OD-08`)*:
   - Request: `{ "items": [{ "questionId": "uuid", "selectedIndex": 1 }] }`
-  - Response (`200`): `{ "results": [{ "questionId": "uuid", "selectedIndex": 1, "isCorrect": true, "correctIndex": 1, "explanation": "..." }], "correctCount": 1, "total": 1 }`
+  - Response (`200`): `{ "results": [{ "questionId": "uuid", "selectedIndex": 1, "isCorrect": true, "correctIndex": 1, "explanation": "..." }], "correctCount": 1, "total": 1 }` (chỉ chấm trên `open_day_quiz_items` có `status = 'PUBLISHED' && deleted_at IS NULL`).
 
 ---
 
@@ -209,8 +215,8 @@ Phục vụ `/locations` (lọc theo `?buildingCode=`, `?category=common|lab|stu
 | Method & Path | Mô tả | Ghi chú bảo mật |
 | :--- | :--- | :--- |
 | `POST /api/v1/auth/login` | Đăng nhập `{ "identifier", "password" }` — **`identifier` chấp nhận `username` (Admin/Staff), `email`, hoặc `phone` đã kích hoạt (`E.164`/VN, `OD-04`)** | Rate limit 5 req/phút/IP; Argon2id verify; set `refresh_token` vào `HttpOnly` cookie; trả `accessToken` + `{ id, username, fullName, email, phone, userType, accountStatus, activationStatus, mustChangePassword, roles, permissions }`. |
-| `POST /api/v1/auth/refresh` | Đọc `refresh_token` từ Cookie `HttpOnly` | Rotate token mới, revoke token cũ; nếu phát hiện token reuse → thu hồi toàn bộ `family_id`. |
-| `POST /api/v1/auth/logout` | Đăng xuất & thu hồi Refresh Token hiện tại | Clear Cookie `refresh_token` và ghi `audit_logs`. |
+| `POST /api/v1/auth/refresh` | Đọc `refresh_token` từ Cookie `HttpOnly` (`SameSite=Lax; Path=/api/v1/auth`; `Secure=true` trên prod) | **CSRF Guard (`D-2A2-04`):** Kiểm tra `Origin` (hoặc fallback `Referer`) khớp chính xác `WEB_ORIGIN` **và** header `X-Requested-With: XMLHttpRequest` (`403` nếu thiếu/sai); rotate token mới, revoke token cũ; nếu phát hiện reuse → thu hồi toàn bộ `family_id`. |
+| `POST /api/v1/auth/logout` | Đăng xuất & thu hồi Refresh Token hiện tại | **CSRF Guard (`D-2A2-04`):** Kiểm tra `Origin`/`Referer` + `X-Requested-With: XMLHttpRequest`; thu hồi session và clear Cookie `refresh_token`, ghi `audit_logs`. |
 | `GET /api/v1/auth/me` | Lấy thông tin tài khoản hiện đăng nhập (`userType`, `roles`, `permissions`, `eventParticipations[]`) | Guard: Authenticated. |
 | `PATCH /api/v1/auth/me/password` | Tự đổi mật khẩu (`{ currentPassword, newPassword }`) | Hạ cờ `mustChangePassword = false`; thu hồi toàn bộ refresh token phiên khác của chính user đó. |
 | `POST /api/v1/auth/activate/validate` | Kiểm tra hợp lệ token/mã kích hoạt dùng 1 lần (`ADMIN_DIRECT` hoặc `EMAIL_SMS_INVITATION`) | Rate limit chặt; băm SHA-256 tra `account_invitations`; **không để lộ thông tin nhạy cảm hay raw token trong log**. |
@@ -311,10 +317,13 @@ Phục vụ `/locations` (lọc theo `?buildingCode=`, `?category=common|lab|stu
   - `POST /api/v1/admin/events/quiz-items` / `PATCH /api/v1/admin/events/quiz-items/:quizId` / `DELETE /api/v1/admin/events/quiz-items/:quizId`
 - **Giới hạn phạm vi (`OD-05`, `OD-08`):** Không có endpoint Check-in QR / điểm danh (`checked_in_at`, `ticketCode`) và không có endpoint XP / Leaderboard trong MVP.
 
-### 4.7. Quản lý Tài khoản Thống nhất, Cấp phát Kép, Import Excel 5 Bước & Audit (`users:manage`, `users:provision_openday`, `audit:read`)
-- **`GET /api/v1/admin/users`** (lọc theo `userType`, `accountStatus`, `activationStatus`, `provisioningMethod`, `openDayEventKey`), **`POST /api/v1/admin/users`** (cấp thủ công cho `STAFF` hoặc Open Day `STUDENT`/`PARENT` kèm danh sách `eventIds[]` / `eventKeys[]` theo 1 trong 2 phương thức `ADMIN_DIRECT` [trả mã/link kích hoạt 1 lần có thời hạn] hoặc `EMAIL_SMS_INVITATION` — **tuyệt đối không sinh mật khẩu mặc định dùng chung hay mật khẩu plaintext**), **`PATCH /api/v1/admin/users/:id/status`** (khóa/mở khóa, reset luồng kích hoạt, cấm tự khóa tài khoản `admin` gốc đang đăng nhập). Không có endpoint tự đăng ký công khai `/register`.
-- **`POST /api/v1/admin/users/:id/invitations/resend`**: Vô hiệu hóa token lời mời cũ và phát hành/gửi lại token mới (`INVITATION_PENDING → SENT`), theo dõi `SENT / EXPIRED / ACTIVATED / FAILED`.
-- **Import Excel/CSV 5 bước (`.xlsx`/`.csv` — Cấm lưu file gốc / tên file / đường dẫn file gốc; `OD-04` dedup `email -> phone`):**
+### 4.7. Quản lý Tài khoản Thống nhất, Cấp phát Kép, Import Excel 5 Bước & Audit (`D-2A2-01`)
+*(Nhóm 5 endpoint non-bulk dưới đây triển khai từ `Phase 2A-2`; 2 endpoint Import Excel/CSV `/import/preview` & `/import/confirm` triển khai ở `Phase 2A-3`.)*
+- **`GET /api/v1/admin/users`** *(Permission bắt buộc: **`users:manage` ONLY**)*: Lọc theo `userType`, `accountStatus`, `activationStatus`, `provisioningMethod`, `openDayEventKey`, phân trang. Quyền `users:provision_openday` khi không có `users:manage` không được đọc danh sách toàn bộ user (`403 FORBIDDEN`).
+- **`POST /api/v1/admin/users`** *(Permission: `users:manage` hoặc `users:provision_openday` kèm object/payload check)*: Cấp thủ công đơn lẻ cho `STAFF` (`users:manage` bắt buộc) hoặc Open Day `STUDENT`/`PARENT` kèm `eventKeys[]` theo `ADMIN_DIRECT` hoặc `EMAIL_SMS_INVITATION`. Nếu caller chỉ có `users:provision_openday`: **chỉ** phép tạo `STUDENT`/`PARENT`, cấm truyền `roleCodes` (`403 FORBIDDEN`). Với `ADMIN_DIRECT`, lưu `SHA-256(rawToken)` vào `account_invitations.token_hash` và trả `activationToken` **1 lần duy nhất** trong HTTP response cho Admin; với `EMAIL_SMS_INVITATION`, dùng delivery adapter (local stub ở `2A-2`) và **không** trả/log plaintext token. Tuyệt đối không tạo mật khẩu mặc định dùng chung; không có `/register`.
+- **`PATCH /api/v1/admin/users/:id/status`** *(Permission: `users:manage` hoặc `users:provision_openday` + **object-level target check**)*: Khóa/mở khóa, reset luồng kích hoạt; thu hồi các refresh session đang hoạt động của user bị khóa/suspend/archive/reset; cấm tự khóa chính mình hoặc tài khoản `admin` gốc; `users:provision_openday` khi thiếu `users:manage` chỉ được thao tác nếu target có `userType ∈ { STUDENT, PARENT }` (`403 FORBIDDEN` đối với `ADMIN`/`STAFF`).
+- **`POST /api/v1/admin/users/:id/invitations/resend`** *(Permission: `users:manage` hoặc `users:provision_openday` + **object-level target check**)*: Kiểm tra `target.userType` trước khi thao tác; vô hiệu hóa token lời mời cũ, tăng `resendCount`, tạo token hash `SHA-256` mới (`INVITATION_PENDING → SENT`), theo dõi `SENT / EXPIRED / ACTIVATED / FAILED` (chỉ trả `activationToken` 1 lần nếu `ADMIN_DIRECT`).
+- **Import Excel/CSV 5 bước (`Phase 2A-3` — `.xlsx`/`.csv` — Cấm lưu file gốc / tên file / đường dẫn file gốc; `OD-04` dedup `email -> phone`):**
   - `POST /api/v1/admin/users/import/preview`: Đọc luồng tệp tạm trong bộ nhớ (Upload → đọc ô & tự nhận diện cột), áp dụng ánh xạ cột (`columnMapping`), chuẩn hóa `email` (lowercase) và `phone` (`E.164/VN`), chống trùng ưu tiên **`email` trước rồi mới tới `phone`** (cấm dedup theo `fullName` hay `(fullName, phone)`, báo `IDENTITY_CONFLICT` nếu `email` và `phone` thuộc 2 người khác nhau), và trả preview từng dòng; **bộ đệm file hủy ngay sau khi parse, không lưu DB hay MinIO/S3, không lưu filename/path**.
   - `POST /api/v1/admin/users/import/confirm`: Tạo/cập nhật hàng loạt bản ghi chuẩn hóa trong `users` + `event_participations` (`INVITED`) + phát hành batch kích hoạt (`ADMIN_DIRECT` hoặc `EMAIL_SMS_INVITATION`), ghi bảng tổng hợp `user_import_batches` (không chứa filename/path gốc) và trả **báo cáo kết quả từng dòng** (thành công/bỏ qua/lỗi).
-- **`GET /api/v1/admin/audit-logs`** (phân trang theo `actor`, `action`, `resourceType`, khoảng thời gian — cấm chứa raw token, mật khẩu hoặc tên file Excel gốc).
+- **`GET /api/v1/admin/audit-logs`** *(Permission bắt buộc: **`audit:read` ONLY**)*: Phân trang theo `actor`, `action`, `resourceType`, khoảng thời gian — cấm chứa raw token, mật khẩu hoặc tên file Excel gốc.

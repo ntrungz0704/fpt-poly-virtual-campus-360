@@ -1,9 +1,9 @@
 # PHASE 2A-2 — CORE BACKEND & AUTHENTICATION IMPLEMENTATION PLAN (MILESTONE 0)
 
 - **Ngày lập kế hoạch:** 2026-11-12
-- **Trạng thái hiện tại:** `MILESTONE 0 COMPLETED — AWAITING OWNER CONFIRMATION ON D-2A2-01..04 BEFORE CODING`
+- **Trạng thái hiện tại:** `DECISIONS LOCKED (D-2A2-01..04) — READY FOR MILESTONE 1..6 ON BRANCH feat/phase-2a-2-core-backend`
 - **Baseline `main`:** `8b6c206` (`docs: reconcile project documentation after phase 2a-1 acceptance`)
-- **Nhánh triển khai (`Phase 2A-2`):** `feat/phase-2a-2-core-backend` *(tách từ `8b6c206`; chưa chạm mã nguồn ứng dụng)*
+- **Nhánh triển khai (`Phase 2A-2`):** `feat/phase-2a-2-core-backend` *(tách từ `8b6c206`)*
 - **Nguồn đối chiếu bắt buộc đã đọc trực tiếp:**
   - [PHASE_2A_API_CONTRACT.md](./PHASE_2A_API_CONTRACT.md)
   - [PHASE_2A_DATABASE_DESIGN.md](./PHASE_2A_DATABASE_DESIGN.md)
@@ -16,8 +16,8 @@
   - [prisma/schema.prisma](../../prisma/schema.prisma), [prisma/seed.ts](../../prisma/seed.ts), [.env.example](../../.env.example)
   - `@fpt-campus/shared`: [api.ts](../../packages/shared/src/api.ts), [auth.ts](../../packages/shared/src/auth.ts), [campus.ts](../../packages/shared/src/campus.ts), [location.ts](../../packages/shared/src/location.ts), [tour.ts](../../packages/shared/src/tour.ts), [events.ts](../../packages/shared/src/events.ts)
 
-> [!CAUTION]
-> **Ràng buộc Milestone 0:** Chưa khởi tạo `apps/api/`, chưa cài package NestJS mới, chưa chỉnh sửa `prisma/*`, `packages/shared/*` hoặc `apps/web/*`. Chỉ bắt đầu Milestone 1 sau khi Chủ dự án xác nhận 4 điểm quyết định/làm rõ contract (**`D-2A2-01`** → **`D-2A2-04`**) tại Mục 3.
+> [!IMPORTANT]
+> **Trạng thái Gate Milestone 0:** Toàn bộ 4 quyết định **`D-2A2-01` → `D-2A2-04`** đã được Chủ dự án phê duyệt/điều chỉnh chính thức. Tuyệt đối tuân thủ ranh giới `Phase 2A-2`, không mở rộng phạm vi sang `Phase 2A-3`/`2B`, không sửa lịch sử `Phase 2A-1`, không đổi `OD-01..OD-10` và không thay đổi `prisma/schema.prisma` khi chưa có blocker kỹ thuật được phê duyệt.
 
 ---
 
@@ -61,44 +61,43 @@
 
 ---
 
-## 3. Các Điểm Mâu Thuẫn / Thiếu Quyết Định Ảnh Hưởng Security, Schema hoặc API Contract (Cần Chủ Dự Án Chốt Trước Milestone 1)
+## 3. Bảng Chốt Quyết Định Chính Thức Từ Chủ Dự Án (`D-2A2-01` → `D-2A2-04`)
 
-Trong quá trình đối chiếu chéo `PHASE_2A_SCOPE_FINALIZATION_REPORT.md`, `PHASE_2A_API_CONTRACT.md`, `ADMIN_AUTH_AND_SECURITY_ARCHITECTURE.md`, `prisma/schema.prisma`, `prisma/seed.ts` và đặc tả `Phase 2A-2`, phát hiện **4 điểm cần xác nhận chính thức** dưới đây:
+| Mã Quyết Định | Chủ đề | Trạng thái Phê duyệt | Quy tắc Bắt buộc Áp dụng |
+|---|---|---|---|
+| **`D-2A2-01`** | Admin Users & Audit Logs (`§4.7` non-bulk) | **`APPROVED WITH CONDITIONS`** | Mở 5 endpoint non-bulk trong `2A-2`: `GET /admin/users`, `POST /admin/users`, `PATCH /admin/users/:id/status`, `POST /admin/users/:id/invitations/resend`, `GET /admin/audit-logs`; giữ `/import/preview` & `/import/confirm` ở `2A-3`. Xem 6 quy tắc RBAC & quy tắc activation bên dưới. |
+| **`D-2A2-02`** | Health Check & Session Revocation | **`APPROVED`** | Bổ sung `GET /api/v1/health` (public, `SELECT 1`, trả `200`/`503`, không lộ connection string/hostname nội bộ/credentials/stack trace). Không tạo thêm `/auth/sessions/*`; thực hiện revoke session qua `/auth/logout`, `/auth/me/password`, reuse-detection `family_id`, và `PATCH /admin/users/:id/status`. |
+| **`D-2A2-03`** | Public Tour & Open Day Data Isolation | **`REVISED AND APPROVED UNDER THE RULES ABOVE`** | Điều chỉnh quan trọng: `GET /api/v1/public/events` **chỉ** trả session có `isPublic = true && status = PUBLISHED && deletedAt IS NULL` (không lộ session `isPublic = false` cho anonymous caller); áp dụng bộ lọc `TourNode` (`PUBLISHED && deletedAt === null && panoramaAsset.isPreviewApproved === true`) + masking `null`/`0`/`[]` trên mọi Public API; tách `PublicLocationSummaryDto[]` vs `PublicLocationDetailDto`; giữ nguyên schema `OpenDayQuizItem` (không tự suy diễn `eventId` hay sửa migration). |
+| **`D-2A2-04`** | CSRF, Cookie & CORS | **`APPROVED WITH CONDITIONS`** | Cookie `refresh_token`: `HttpOnly; SameSite=Lax; Path=/api/v1/auth` (`Secure=true` ở production HTTPS, chỉ tắt `Secure` trên local HTTP dev). `POST /auth/refresh` và `POST /auth/logout` kiểm tra đồng thời `Origin` (hoặc `Referer` khi thiếu `Origin`) khớp chính xác `WEB_ORIGIN` **và** header `X-Requested-With: XMLHttpRequest` (`403 FORBIDDEN` nếu thiếu/sai). CORS whitelist `WEB_ORIGIN` + `credentials: true` (cấm `*`). |
 
-### `D-2A2-01` — Phạm vi, Phân quyền & Response DTO của `/api/v1/admin/users*` và `/api/v1/admin/audit-logs`
-- **Mâu thuẫn / Thiếu đặc tả phát hiện:**
-  1. `PHASE_2A_SCOPE_FINALIZATION_REPORT.md` (Mục 2) xếp Mục `4.7` vào `Phase 2A-3`, trong khi yêu cầu `Phase 2A-2` giao rõ *"Admin/Staff provisioning"* + *"Hỗ trợ Admin tạo hoặc provision tài khoản theo contract được duyệt"* và chỉ giữ *"Excel/CSV bulk import"* ở `Phase 2A-3`. Nếu không mở API quản lý/cấp phát đơn lẻ, `Admin`/`Operator` chưa có HTTP endpoint để tạo user và phát hành token kích hoạt phục vụ luồng `/activate/*` trong `2A-2`.
-  2. `PHASE_2A_API_CONTRACT.md` Mục `4.7` liệt kê 3 permission (`users:manage`, `users:provision_openday`, `audit:read`) nhưng **chưa quy định ranh giới phân quyền giữa `SUPER_ADMIN` (`users:manage`) và `EVENT_OPERATOR` (`users:provision_openday`)** trên `GET/POST /admin/users`, `PATCH /admin/users/:id/status`, `POST /admin/users/:id/invitations/resend`.
-  3. `packages/shared/src/auth.ts` có `AdminCreateUserRequest`, nhưng **chưa có DTO response cho `POST /api/v1/admin/users` và `POST /api/v1/admin/users/:id/invitations/resend`** khi `provisioningMethod === 'ADMIN_DIRECT'`.
-- **Đề xuất chốt cho `Phase 2A-2`:**
-  1. Triển khai 5 endpoint non-bulk thuộc Mục `4.7` trong `2A-2`: `GET /api/v1/admin/users`, `POST /api/v1/admin/users`, `PATCH /api/v1/admin/users/:id/status`, `POST /api/v1/admin/users/:id/invitations/resend`, `GET /api/v1/admin/audit-logs` (giữ nguyên `/import/preview` & `/import/confirm` cho `2A-3`).
-  2. Ràng buộc RBAC chặt cho `users:provision_openday` (khi thiếu `users:manage`): chỉ được xem/tạo/resend/khóa-mở khóa tài khoản `userType ∈ { STUDENT, PARENT }`, **cấm** truyền `roleCodes` hoặc đụng tài khoản `ADMIN` / `STAFF` (`403 FORBIDDEN`). Tài khoản `ADMIN`/`STAFF` & gán `roleCodes` bắt buộc `users:manage`.
-  3. Với `POST /admin/users` & `invitations/resend`: khi `ADMIN_DIRECT`, backend băm SHA-256 trước khi lưu `account_invitations.token_hash` và trả **duy nhất 1 lần** `{ user, invitation: { id, channel, status, expiresAt, activationToken } }` cho Admin đang gọi; với `EMAIL_SMS_INVITATION` (chưa tích hợp SMTP/SMS ngoài ở `2A-2`), đánh dấu `SENT` qua delivery adapter cục bộ và **tuyệt đối không** trả hay log raw token ra stdout/`audit_logs`.
+### 3.1. Chi tiết Quy tắc `D-2A2-01` (`APPROVED WITH CONDITIONS`)
+1. `users:manage` được quản lý tài khoản theo quyền đã cấp.
+2. `users:provision_openday` khi thiếu `users:manage` **chỉ** được provision tài khoản `STUDENT` và `PARENT`.
+3. Cấm truyền `roleCodes`, tự gán quyền hoặc tạo/sửa tài khoản `ADMIN`, `STAFF` bằng quyền `users:provision_openday`.
+4. Các thao tác `PATCH /admin/users/:id/status` và `POST /admin/users/:id/invitations/resend` **bắt buộc kiểm tra quyền trên đúng đối tượng tài khoản mục tiêu** (`targetUser.userType`), không chỉ kiểm tra quyền truy cập route.
+5. `GET /api/v1/admin/users` (`users:manage` ONLY) và `GET /api/v1/admin/audit-logs` (`audit:read` ONLY) có authorization riêng; quyền `users:provision_openday` **không** được phép đọc danh sách toàn bộ người dùng hoặc nhật ký kiểm toán.
+6. Không tự tạo role mới ngoài mô hình RBAC hiện có trong DB/seed (`SUPER_ADMIN`, `TOUR_EDITOR`, `EVENT_OPERATOR`); ánh xạ đúng theo permission và role hiện hữu.
+7. Quy tắc activation:
+   - `ADMIN_DIRECT`: tạo token ngẫu nhiên đủ entropy (`>= 32 bytes`), có hạn sử dụng, single-use; lưu `SHA-256(rawToken)` vào `account_invitations.token_hash`; trả `activationToken` plaintext **đúng 1 lần** trong HTTP response cho Admin có quyền phù hợp; tuyệt đối không lưu/ghi plaintext token vào DB, audit log, application log hoặc error log.
+   - `EMAIL_SMS_INVITATION`: dùng local delivery stub trong `Phase 2A-2`; không tích hợp SMTP/SMS thật và **không** trả plaintext token trong HTTP response.
 
-### `D-2A2-02` — Endpoint Health Check & Phạm vi "Revoke Session"
-- **Thiếu đặc tả phát hiện:**
-  - Yêu cầu triển khai `Phase 2A-2` nêu *"Health endpoint — Database connectivity check"* và *"Revoke session"*, đồng thời cấm *"tự ý tạo endpoint hoặc thay đổi semantics của endpoint đã định nghĩa trong API Contract"*.
-  - Hiện `PHASE_2A_API_CONTRACT.md` **chưa có route `/health`** và không có route riêng `DELETE /auth/sessions/:id`.
-- **Đề xuất chốt:**
-  1. Bổ sung endpoint **`GET /api/v1/health`** (public, không auth, ping PostgreSQL `SELECT 1`, trả HTTP `200` khi DB up / `503` khi DB down với format ApiEnvelope `{ status: "ok" | "error", database: "up" | "down", timestamp }`) và cập nhật 1 dòng tham chiếu tương ứng vào `PHASE_2A_API_CONTRACT.md` khi duyệt.
-  2. Khẳng định cơ chế **"Revoke session"** thực thi qua các endpoint đã khóa trong contract (`POST /auth/logout` thu hồi session hiện tại, `PATCH /auth/me/password` thu hồi các phiên khác của user, reuse detection thu hồi toàn bộ `family_id`, và `PATCH /admin/users/:id/status` thu hồi toàn bộ refresh token khi `LOCKED`/`SUSPENDED`/`ARCHIVED`/reset), **không tự ý thêm endpoint `/auth/sessions/*` ngoài contract**.
+### 3.2. Chi tiết Quy tắc `D-2A2-02` (`APPROVED`)
+- `GET /api/v1/health`: public, kiểm tra PostgreSQL bằng `SELECT 1`, trả `200` khi DB sẵn sàng hoặc `503` khi DB lỗi; payload tối giản, tuyệt đối không tiết lộ connection string, hostname nội bộ, credentials, stack trace hay thông tin hạ tầng nhạy cảm.
+- Không thêm endpoint `/auth/sessions/*`. Revoke session kiểm chứng qua integration tests cho `/auth/logout`, `/auth/me/password`, token reuse revocation trên toàn bộ `family_id`, và `PATCH /admin/users/:id/status`.
 
-### `D-2A2-03` — Lọc Dữ liệu `DRAFT` (`D-02`) trên Public APIs & Khớp DTO `@fpt-campus/shared`
-- **Sai khác giữa Seed / Schema / Mô tả API phát hiện:**
-  1. Trong `prisma/seed.ts` (đã chốt `D-02`), toàn bộ `5` `TourNode` đều đang `DRAFT` (`panoramaAsset.isPreviewApproved = false`), nhưng `Campus.defaultEntryNodeId`, `Building.defaultNodeId`, `Location.primaryNodeId`, `OpenDaySession.tourNodeId` và `OpenDayQuizItem.tourNodeId` đều đang trỏ tới các node `DRAFT` đó. Nếu Public API serialize nguyên `slug` từ DB khi `TourNode` còn `DRAFT`, client sẽ nhận slug dẫn tới `404` trên `/public/tour/nodes/:slug` và rò rỉ node chưa duyệt.
-  2. `PHASE_2A_API_CONTRACT.md` Mục `2.4` mô tả chung có `gallery[]`, `tourNodes[]`, trong khi `@fpt-campus/shared` phân tách `PublicLocationSummaryDto` (danh sách `GET /public/locations` không có `gallery`/`tourNodes`) và `PublicLocationDetailDto` (chi tiết `GET /public/locations/:slug` mới có `gallery[]` & `tourNodes[]`).
-  3. `OpenDayQuizItem` trong `prisma/schema.prisma` không có cột `eventId` (chỉ có `tourNodeId` nullable), và trong `prisma/seed.ts` có `2/6` `OpenDaySession` đặt `isPublic = false` (`status = PUBLISHED`).
-- **Đề xuất chốt:**
-  1. Áp dụng nguyên tắc **"Zero DRAFT-Node Leak"** thống nhất trên mọi `/api/v1/public/*`: chỉ serialize `nodeSlug` / `defaultEntryNodeSlug` / `defaultNodeSlug` / `primaryNodeSlug` / `tourNodeSlug` / `nodes[]` / `publishedNodeCount` khi `TourNode` thỏa `status = 'PUBLISHED' AND deletedAt IS NULL AND panoramaAsset.isPreviewApproved = true`; ngược lại trả `null` / `0` / `[]`.
-  2. Tuân thủ đúng `@fpt-campus/shared`: `GET /public/locations` trả `PublicLocationSummaryDto[]`, `GET /public/locations/:slug` trả `PublicLocationDetailDto`.
-  3. `GET /public/events` trả cả session `isPublic = true` (`accessType: "public"`) lẫn `isPublic = false` (`accessType: "invited"`) có `status = PUBLISHED` (khớp `shared-contracts.ts` & Mục `2.5`), và trả `open_day_quiz_items` `status = PUBLISHED` (masking `tourNodeSlug = null` nếu node chưa duyệt/publish) không phụ thuộc `eventKey` vì schema `open_day_quiz_items` không có `event_id`.
+### 3.3. Chi tiết Quy tắc `D-2A2-03` (`REVISED AND APPROVED UNDER THE RULES ABOVE`)
+1. **TourNode Publication Filter (toàn bộ Public API):** Mọi endpoint `/api/v1/public/*` chỉ được sử dụng/xuất `TourNode` thỏa đồng thời `status === 'PUBLISHED' && deletedAt === null && panoramaAsset.isPreviewApproved === true`. Mọi node không đạt chuẩn đều phải mask `defaultEntryNodeSlug`, `defaultNodeSlug`, `primaryNodeSlug`, `nodeSlug`, `tourNodeSlug` thành `null`, `publishedNodeCount` thành `0`, `nodes[]`/`tourNodes[]` loại bỏ hoàn toàn (không rò rỉ slug, ID hay thông tin nội bộ).
+2. **Location DTO:** `GET /api/v1/public/locations` trả `PublicLocationSummaryDto[]`; `GET /api/v1/public/locations/:slug` trả `PublicLocationDetailDto`.
+3. **Open Day Session Privacy (Điều chỉnh bắt buộc):** `GET /api/v1/public/events` **chỉ** trả session có `isPublic === true && status === 'PUBLISHED' && deletedAt === null`. Tuyệt đối không trả session `isPublic = false` cho request công khai kể cả khi event cha đã `PUBLISHED`. Không tự tạo endpoint private/invited session mới ngoài contract.
+4. **OpenDayQuizItem:** Chỉ trả quiz item có `status === 'PUBLISHED' && deletedAt === null`, tuyệt đối ẩn `correctIndex` và `explanation`; đặt `tourNodeSlug = null` nếu node liên quan chưa đạt điều kiện mục (1). Vì bảng `open_day_quiz_items` trong `prisma/schema.prisma` không có `event_id` FK (chỉ có `tour_node_id` nullable), truy vấn chỉ lọc theo trạng thái publish thực tế trên bảng `open_day_quiz_items` (không tự suy diễn quan hệ với event/session hay sửa Prisma schema/migration).
 
-### `D-2A2-04` — Cơ chế CSRF Guard & Cookie trên Local Dev (`localhost:3000` ↔ `localhost:4000`)
-- **Điểm cần làm rõ bảo mật:**
-  - `ADMIN_AUTH_AND_SECURITY_ARCHITECTURE.md` Mục `2.2–2.3` quy định cookie `refresh_token` đặt `HttpOnly; SameSite=Lax; Path=/api/v1/auth` (`Secure=true` ở HTTPS/Prod; chỉ tắt `Secure` trên `http://localhost`), và 2 endpoint cookie (`POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`) **bắt buộc** kiểm tra `Origin`/`Referer` khớp `WEB_ORIGIN` **và** custom header `X-Requested-With: XMLHttpRequest`.
-- **Đề xuất chốt:**
-  - CORS cho phép `WEB_ORIGIN` (hỗ trợ danh sách phân tách dấu phẩy, `credentials: true`), allowed headers gồm `Authorization`, `Content-Type`, `X-Requested-With`.
-  - CSRF Guard áp dụng bắt buộc cho `POST /api/v1/auth/refresh` và `POST /api/v1/auth/logout`: từ chối `403 FORBIDDEN` nếu thiếu/sai `Origin` (hoặc `Referer` khi thiếu `Origin`) so với whitelist `WEB_ORIGIN`, **hoặc** thiếu `X-Requested-With: XMLHttpRequest`. (`POST /auth/login` không đọc cookie cũ nên chỉ kiểm `Origin` qua CORS + rate limit, không làm gãy standard JSON clients).
+### 3.4. Chi tiết Quy tắc `D-2A2-04` (`APPROVED WITH CONDITIONS`)
+- Cookie `refresh_token`: `HttpOnly = true`, `SameSite = Lax`, `Path = /api/v1/auth`; `Secure = true` trên production HTTPS, chỉ tắt `Secure` trên local HTTP dev (`NODE_ENV !== 'production'`).
+- `POST /api/v1/auth/refresh` và `POST /api/v1/auth/logout` bắt buộc kiểm tra đồng thời:
+  1. Nếu có header `Origin`, phải khớp chính xác origin trong `WEB_ORIGIN`.
+  2. Nếu không có `Origin`, lấy origin từ header `Referer` để đối chiếu `WEB_ORIGIN`; nếu cả hai đều thiếu hoặc không khớp -> từ chối `403 FORBIDDEN`.
+  3. Header `X-Requested-With` bắt buộc có giá trị chính xác `XMLHttpRequest` (`403 FORBIDDEN` nếu thiếu/sai).
+- CORS: chỉ whitelist các origin từ `WEB_ORIGIN`, bật `credentials: true`, cấm wildcard `*` cùng credentials, chỉ mở HTTP methods & headers thực sự cần thiết (`GET,POST,PATCH,DELETE,OPTIONS`; `Authorization,Content-Type,X-Requested-With`).
 
 ---
 
@@ -144,7 +143,7 @@ apps/api/
 
 | Nhóm | Method & Route | Auth / Guard | Quyền / Rate Limit | Ghi chú Contract |
 |---|---|---|---|---|
-| **Health** | `GET /api/v1/health` *(pending `D-2A2-02`)* | `@Public()` | Check DB `SELECT 1` | `200` / `503` |
+| **Health** | `GET /api/v1/health` *(Locked `D-2A2-02`)* | `@Public()` | Check DB `SELECT 1` | `200` / `503`, không lộ DSN/hostname/credentials/stack |
 | **Auth** | `POST /api/v1/auth/login` | `@Public()` | Brute-force: 5 fail/15m lock + 5 req/min IP | `username\|email\|phone`, trả `LoginResponse` + `HttpOnly` cookie |
 | **Auth** | `POST /api/v1/auth/refresh` | Cookie + `CsrfCookieGuard` | Rate limit vừa phải | Rotate token trong `family_id`; reuse -> thu hồi cả `family_id` (`401`) |
 | **Auth** | `POST /api/v1/auth/logout` | Cookie + `CsrfCookieGuard` | Authenticated optional / cookie | Thu hồi refresh token hiện tại, clear cookie, ghi `AUDIT` |
@@ -152,17 +151,17 @@ apps/api/
 | **Auth** | `PATCH /api/v1/auth/me/password` | `JwtAuth` + `AccountActive` | `@AllowMustChangePassword()` | Verify Argon2id cũ, min 12 chars, hạ `mustChangePassword=false`, revoke phiên khác |
 | **Activate** | `POST /api/v1/auth/activate/validate` | `@Public()` | Strict rate limit | SHA-256 lookup `account_invitations`, không lộ raw token/chi tiết thừa |
 | **Activate** | `POST /api/v1/auth/activate/complete` | `@Public()` | Strict rate limit | Atomic single-use update + Argon2id hash, kích hoạt `email`/`phone` login |
-| **Admin Users** | `GET /api/v1/admin/users` *(pending `D-2A2-01`)* | Full Chain + `ForcePwdChanged` | `users:manage` hoặc `users:provision_openday` (scoped) | Lọc theo `userType`, `accountStatus`, `activationStatus`, `provisioningMethod`, `openDayEventKey` |
-| **Admin Users** | `POST /api/v1/admin/users` *(pending `D-2A2-01`)* | Full Chain + `ForcePwdChanged` | `users:manage` / `users:provision_openday` (scoped) | `ADMIN_DIRECT` / `EMAIL_SMS_INVITATION`, chuẩn hóa `email`/`phone` trước check `409`, không bulk Excel |
-| **Admin Users** | `PATCH /api/v1/admin/users/:id/status` *(pending `D-2A2-01`)* | Full Chain + `ForcePwdChanged` | `users:manage` (hoặc scoped Open Day) | Cấm tự khóa tài khoản `admin` đang đăng nhập; revoke active refresh tokens khi khóa/reset |
-| **Admin Users** | `POST /api/v1/admin/users/:id/invitations/resend` *(pending `D-2A2-01`)* | Full Chain + `ForcePwdChanged` | `users:manage` / `users:provision_openday` | Thu hồi token mời cũ, tăng `resendCount`, tạo token hash mới |
-| **Audit** | `GET /api/v1/admin/audit-logs` *(pending `D-2A2-01`)* | Full Chain + `ForcePwdChanged` | `audit:read` | Phân trang + lọc `actor`, `action`, `resourceType`, `from`, `to` |
-| **Public** | `GET /api/v1/public/campus` | `@Public()` | Read-only | Mask `defaultEntryNodeSlug` & `building.defaultNodeSlug` nếu node chưa publish+approved |
-| **Public** | `GET /api/v1/public/buildings/:slug` & `/:slug/floors` | `@Public()` | Read-only | `PUBLISHED`, `activeFloorPlan` nullable (`OD-10`), `floor.nodes` chỉ node đã publish+approved |
-| **Public** | `GET /api/v1/public/locations` & `/:slug` | `@Public()` | Read-only | Lọc `buildingCode`, `category`, `typeCode`, `q`; `primaryNodeSlug=null` khi chưa có node duyệt |
-| **Public** | `GET /api/v1/public/tour/nodes` & `/:slug` | `@Public()` | Read-only | Chỉ `PUBLISHED` & `isPreviewApproved=true` (`[]` / `404` trên seed AI hiện tại) |
-| **Public** | `GET /api/v1/public/events` | `@Public()` | Read-only | Không lộ `correctIndex`/`explanation` (`OD-08`); mask `nodeSlug=null` nếu node chưa duyệt |
-| **Public** | `POST /api/v1/public/quiz/verify` | `@Public()` | Moderate rate limit | Stateless verification, trả `QuizVerifyResponse` không ghi DB |
+| **Admin Users** | `GET /api/v1/admin/users` *(Locked `D-2A2-01`)* | Full Chain + `ForcePwdChanged` | **`users:manage` ONLY** | Quyền provision KHÔNG đọc toàn bộ users; lọc `userType`, `accountStatus`, `activationStatus`, `provisioningMethod`, `openDayEventKey` |
+| **Admin Users** | `POST /api/v1/admin/users` *(Locked `D-2A2-01`)* | Full Chain + `ForcePwdChanged` | `users:manage` hoặc `users:provision_openday` (object-scoped) | Provisioning đơn lẻ; `provision_openday` chỉ tạo `STUDENT/PARENT` không `roleCodes`; `ADMIN_DIRECT` trả token 1 lần, `EMAIL_SMS_INVITATION` dùng stub không trả raw token |
+| **Admin Users** | `PATCH /api/v1/admin/users/:id/status` *(Locked `D-2A2-01`)* | Full Chain + `ForcePwdChanged` | `users:manage` hoặc `users:provision_openday` + **object-level target check** | Kiểm tra `target.userType` trước khi xử lý; cấm tự khóa hoặc khóa root `admin`; revoke active refresh tokens khi khóa/reset |
+| **Admin Users** | `POST /api/v1/admin/users/:id/invitations/resend` *(Locked `D-2A2-01`)* | Full Chain + `ForcePwdChanged` | `users:manage` hoặc `users:provision_openday` + **object-level target check** | Kiểm tra `target.userType`; vô hiệu hóa token mời cũ, tăng `resendCount`, tạo SHA-256 hash mới |
+| **Audit** | `GET /api/v1/admin/audit-logs` *(Locked `D-2A2-01`)* | Full Chain + `ForcePwdChanged` | **`audit:read` ONLY** | Phân trang + lọc `actor`, `action`, `resourceType`, `from`, `to` |
+| **Public** | `GET /api/v1/public/campus` | `@Public()` | Read-only | Mask `defaultEntryNodeSlug` & `building.defaultNodeSlug` thành `null` nếu node chưa publish+approved |
+| **Public** | `GET /api/v1/public/buildings/:slug` & `/:slug/floors` | `@Public()` | Read-only | `PUBLISHED`, `activeFloorPlan` nullable (`OD-10`), `floor.nodes` chỉ node publish+approved |
+| **Public** | `GET /api/v1/public/locations` & `/:slug` | `@Public()` | Read-only | Liệt kê trả `PublicLocationSummaryDto[]`; `:slug` trả `PublicLocationDetailDto`; `primaryNodeSlug=null` khi node chưa duyệt |
+| **Public** | `GET /api/v1/public/tour/nodes` & `/:slug` | `@Public()` | Read-only | Chỉ `PUBLISHED && deletedAt===null && isPreviewApproved===true` (`[]` / `404` trên seed AI hiện tại) |
+| **Public** | `GET /api/v1/public/events` | `@Public()` | Read-only | **CHỈ** trả session `isPublic=true && status=PUBLISHED`; `quizItems` `status=PUBLISHED` ẩn `correctIndex`/`explanation`; mask `nodeSlug`/`tourNodeSlug=null` |
+| **Public** | `POST /api/v1/public/quiz/verify` | `@Public()` | Moderate rate limit | Stateless verification trên item `status=PUBLISHED`, trả `QuizVerifyResponse` không ghi DB |
 
 ---
 
@@ -179,11 +178,15 @@ apps/api/
 
 ---
 
-## 7. Lộ trình Milestones 1–6 (Sau Khi Chốt `D-2A2-01..04`)
+## 7. Lộ trình Milestones 1–6 (Đã Khóa Theo `D-2A2-01..04`)
 
-1. **Milestone 1 — NestJS Skeleton (`apps/api`):** Khởi tạo `apps/api/package.json`, `tsconfig`, `main.ts`, `ConfigModule`, `PrismaService`, `ResponseEnvelopeInterceptor`, `ApiExceptionFilter`, `RequestIdMiddleware`, `HealthModule`.
-2. **Milestone 2 — `StorageModule` (`STORAGE_DRIVER=local`):** Interface `StorageAdapter` + `LocalStorageAdapter`, kiểm chứng 11 seeded assets trên đĩa qua unit tests (negative traversal/symlink tests).
-3. **Milestone 3 — `AuthModule`, `UsersRbacModule`, `AuditLogModule`:** Phone normalizer, Argon2id, Login/Lockout, Refresh rotation & reuse family revocation, Logout, `/me`, `/me/password` + `403 PASSWORD_CHANGE_REQUIRED`, Activation validate/complete, và Section 4.7 non-bulk Admin User & Audit endpoints theo quyết định `D-2A2-01`.
-4. **Milestone 4 — `PublicModule`:** Triển khai đủ 9 endpoint Public Read + Stateless Quiz Verify dùng `@fpt-campus/shared` & enum mappers (`R-05`), đảm bảo 0 rò rỉ `DRAFT`/`isPreviewApproved=false`/`correctIndex`.
-5. **Milestone 5 — Comprehensive Tests (PostgreSQL 16 thật):** Unit tests (`phone-normalizer`, `token-crypto`, `enum-mappers`, `LocalStorageAdapter`) + Integration tests HTTP Supertest trên Postgres DB test cô lập cho toàn bộ Auth/RBAC/CSRF/Activation/Provisioning/Public/Quiz.
-6. **Milestone 6 — Verification & Phase 2A-2 Report:** Chạy `pnpm -r typecheck`, `pnpm -r lint`, `pnpm -r build`, `pnpm --filter api test`, `pnpm db:test`, `apps/web` `DATA_SOURCE=mock` 19 routes HTTP 200; kiểm tra secret/log hygiene; xuất `PHASE_2A_2_IMPLEMENTATION_REPORT.md` và cập nhật `PHASE_2A_API_CONTRACT.md` (mục `Health` & chi tiết `4.7`) theo quyết định đã duyệt.
+1. **Milestone 1 — NestJS Skeleton (`apps/api`):** Khởi tạo `apps/api/package.json`, `tsconfig`, `main.ts` (`helmet`, `cookie-parser`, CORS `WEB_ORIGIN` + `credentials: true`), `ConfigModule`, `PrismaService`, `ResponseEnvelopeInterceptor`, `ApiExceptionFilter`, `RequestIdMiddleware`, `HealthModule` (`GET /api/v1/health` theo `D-2A2-02`).
+2. **Milestone 2 — `StorageModule` (`STORAGE_DRIVER=local`):** Interface `StorageAdapter` + `LocalStorageAdapter`, kiểm chứng 11 seeded assets trên đĩa qua unit tests (bao gồm negative traversal/symlink/encoding tests).
+3. **Milestone 3 — `AuthModule`, `UsersRbacModule`, `AuditLogModule`:** Phone normalizer, Argon2id, Login/Lockout, Refresh rotation & reuse `family_id` revocation, Logout, `/me`, `/me/password` + `403 PASSWORD_CHANGE_REQUIRED`, `CsrfCookieGuard` (`D-2A2-04`), Activation validate/complete, và 5 endpoint non-bulk §4.7 với RBAC phân tách + object-level check theo `D-2A2-01`.
+4. **Milestone 4 — `PublicModule`:** Triển khai đủ 9 endpoint Public Read + Stateless Quiz Verify dùng `@fpt-campus/shared` & enum mappers (`R-05`), đảm bảo mọi rule cách ly `D-2A2-03` (0 rò rỉ node `DRAFT` / soft-deleted / panorama chưa duyệt, **chặn `isPublic=false` khỏi `/public/events`**, ẩn `correctIndex`/`explanation`, tách `PublicLocationSummaryDto` vs `PublicLocationDetailDto`).
+5. **Milestone 5 — Comprehensive Tests (PostgreSQL 16 thật):** Unit tests + HTTP Integration & Security Negative Tests trên PostgreSQL cô lập:
+   - Auth/Session/Revoke: expired token, malformed/tampered token, revoked session (`/logout`, `/me/password` revoking sibling sessions, `/admin/users/:id/status` revoking locked user sessions), refresh reuse revoking entire `family_id`, brute-force lockout, `mustChangePassword` 403 gate.
+   - RBAC & Provisioning: `users:provision_openday` bị `403` trên `GET /admin/users`, `GET /admin/audit-logs`, tạo `STAFF`, truyền `roleCodes`, và `PATCH /status` hoặc `POST /resend` lên tài khoản `ADMIN`/`STAFF`; `ADMIN_DIRECT` single-use + expiry + replay failure; `EMAIL_SMS_INVITATION` không trả raw token.
+   - CSRF & CORS: `POST /auth/refresh` & `/auth/logout` bị `403` khi sai `Origin`, thiếu `Origin`/`Referer`, hoặc thiếu/sai `X-Requested-With`; CORS reject origin ngoài `WEB_ORIGIN` & không trả `*` với credentials.
+   - Public Data Isolation (`D-2A2-03`): chứng minh node `DRAFT`, node soft-deleted, panorama `isPreviewApproved=false` không xuất hiện hoặc lộ slug/ID trên bất kỳ `/public/*` endpoint nào; session `isPublic=false` không xuất hiện trong `GET /public/events`; quiz payload không có `correctIndex`/`explanation`.
+6. **Milestone 6 — Verification & Phase 2A-2 Final Report:** Chạy `pnpm -r typecheck`, `pnpm -r lint`, `pnpm -r build`, `pnpm --filter api test`, `pnpm db:test`, `apps/web` `DATA_SOURCE=mock` 19 routes HTTP 200; kiểm tra không lộ secret/token vào log/audit; lập báo cáo đầy đủ 10 mục nghiệm thu theo yêu cầu Chủ dự án và dừng lại chờ nghiệm thu trên `feat/phase-2a-2-core-backend`.

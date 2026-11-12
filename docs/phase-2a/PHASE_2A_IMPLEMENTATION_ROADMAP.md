@@ -145,3 +145,19 @@ flowchart LR
 - [ ] **Phase 2A-3 — Business Modules & Kết nối Frontend (`CHƯA TRIỂN KHAI`):** Admin CRUD, Media/FloorPlan workers (`Redis/BullMQ`, tùy chọn `S3/MinIO`), Graph Validator 7 luật & chuyển đổi `apps/web` (`DATA_SOURCE=api`) giữ nguyên `19` routes.
 - [ ] **Phase 2B — Admin Studio UI (`CHƯA TRIỂN KHAI`):** Studio 3 vùng & `FloorPlan Interactive Drawer`.
 - [ ] **Phase 2C & 2D — Dữ liệu thực địa QTSC & Go-Live (`CHƯA TRIỂN KHAI`):** Xác minh tọa độ thực địa (`R-06`), chụp & duyệt ảnh 360°×180° thật thay toàn bộ 5 AI placeholders (`D-02`).
+
+
+---
+
+## 6. Cập nhật Đối soát Hậu Nghiệm Thu Phase 2A-2 & Phạm vi Phase 2A-3 (`v2A.3` Reconciliation — `2026-11-12` @ `ff13f14`)
+
+> [!NOTE]
+> **Bảo toàn lịch sử (`v2A.2`):** Toàn bộ các mục `1 → 5` phía trên phản ánh lộ trình tại thời điểm hậu nghiệm thu Phase 2A-1 (`7e1753d`) và được giữ nguyên lịch sử. Bảng cập nhật dưới đây ghi nhận tiến độ thực tế tại baseline **`main / ff13f14`** và các điều chỉnh phạm vi đã được Project Owner phê duyệt (`D-2A3-01` → `D-2A3-08`).
+
+| Giai đoạn | Trạng thái Hiện tại (`ff13f14`) | Căn cứ & Điều chỉnh Phạm vi Chính thức |
+|---|---|---|
+| **Phase 2A-1 — Database Bootstrap** | **`ACCEPTED`** | Nghiệm thu tại commit `7e1753d` (`26` models, `17` enums, `13/13` DB integrity tests PASS). |
+| **Phase 2A-2 — Core Backend & Auth** | **`ACCEPTED & MERGED`** | Đã triển khai `apps/api/` (6 modules: `health`, `storage`, `audit-log`, `users-rbac`, `auth`, `public`), nghiệm thu và merge vào `main` tại `ff13f14` (báo cáo [`PHASE_2A_2_FINAL_QUIZ_SECURITY_REMEDIATION_REPORT.md`](../project-audit/PHASE_2A_2_FINAL_QUIZ_SECURITY_REMEDIATION_REPORT.md), `35/35` API tests PASS). Giới hạn tạm thời: `GET /public/events` trả `quizItems: []` và `POST /public/quiz/verify` trả `404` cho tới khi hoàn tất `M1 + M2`. |
+| **Phase 2A-3 — Business Backend APIs** | **Discovery Complete — Đang ở `M0`** | **Điều chỉnh theo `D-2A3-01` (`OWNER APPROVED`):** Áp dụng chiến lược **Backend First** — **chuyển toàn bộ việc nối `apps/web` (`DATA_SOURCE=api`, `/login`, `/activate`, Admin UI cơ bản) sang Phase 2B**, giữ nguyên `apps/web` trong suốt Phase 2A-3. Triển khai Backend qua 8 Milestones `M0–M7` theo tài liệu chính thức: [`PHASE_2A_3_SCOPE_LOCK.md`](./PHASE_2A_3_SCOPE_LOCK.md), [`PHASE_2A_3_DECISION_REGISTER.md`](./PHASE_2A_3_DECISION_REGISTER.md) và [`PHASE_2A_3_IMPLEMENTATION_PLAN.md`](./PHASE_2A_3_IMPLEMENTATION_PLAN.md). |
+| **Phase 2B — Web API Integration & Admin Studio UI** | **Chưa triển khai** | Tiếp nhận việc kết nối `apps/web` (`DATA_SOURCE=api`, `/login`, `/activate`) từ Phase 2A-3 theo `D-2A3-01`, cùng Admin Studio 3 vùng, Ghost Overlay UI và Public FloorPlan Interactive Drawer. |
+| **Phase 2C & Production Hardening** | **Chưa triển khai** | Thay 5 ảnh panorama AI placeholder bằng ảnh chụp 360°×180° thực tế tại QTSC, đo tọa độ thực địa, R2/S3 & Email/SMS Gateway thật. |

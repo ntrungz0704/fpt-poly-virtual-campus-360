@@ -13,11 +13,12 @@ Nền tảng tham quan khuôn viên số 360°, bản đồ GIS khuôn viên và
 |---|---|---|
 | **Phase 0 & Phase 1** | Chuẩn hóa monorepo, rà soát bảo mật, làm sạch nguyên mẫu MVP | **Đã hoàn tất & nghiệm thu** |
 | **Phase 2A (`OD-01 → OD-10`)** | Khóa hợp đồng dữ liệu (`@fpt-campus/shared`) và tách phạm vi triển khai | **Đã khóa phạm vi** |
-| **Phase 2A-1 — Database Bootstrap** | PostgreSQL 16 (Docker), Prisma 6 (`26` models, `17` enums), migrations, idempotent seed, kiểm thử toàn vẹn DB & file ảnh trên đĩa | **Đã nghiệm thu (`ACCEPTED` · 12/11/2026)** |
-| **Phase 2A-2 & 2A-3** | Core Backend (`apps/api/` — NestJS), Auth/RBAC, Upload/StorageAdapter và kết nối dữ liệu thật lên `apps/web` | **Kế hoạch tiếp theo** *(hiện `apps/web` chạy với `DATA_SOURCE=mock`)* |
-| **Phase 2B & 2C** | Admin Studio 3 vùng hoàn chỉnh, đo đạc tọa độ QTSC thực địa & chụp ảnh Panorama 360°×180° thực tế | **Chưa triển khai** |
+| **Phase 2A-1 — Database Bootstrap** | PostgreSQL 16 (Docker), Prisma 6 (`26` models, `17` enums), migrations, idempotent seed, kiểm thử toàn vẹn DB & file ảnh trên đĩa | **Đã nghiệm thu (`ACCEPTED` · `7e1753d` · 12/11/2026)** |
+| **Phase 2A-2 — Core Backend (`apps/api/`)** | NestJS Modular Monolith (`health`, `storage` local read, `audit-log`, `users-rbac` non-bulk, `auth` JWT/Refresh/Argon2id/CSRF, `public` read isolation; Public Quiz tạm trả `quizItems: []` / `404`) | **Đã nghiệm thu & merge (`ACCEPTED` · `ff13f14` · 12/11/2026)** |
+| **Phase 2A-3 — Business Backend APIs (`Backend First`)** | Migration `OpenDayQuizItem.eventId`, Admin CMS CRUD (Campus/FloorPlan/Locations/Media/Tour Graph + Validator/OpenDay Events & Quiz), Storage 3 vùng, Redis/BullMQ worker, Bulk Import 5 bước (`D-2A3-01 → D-2A3-08` đã duyệt) | **Đang ở Milestone `M0` (Baseline Reconciliation & Documentation)** *(Chưa mở code `M1–M7`; giữ nguyên `apps/web` theo `D-2A3-01`)* |
+| **Phase 2B & 2C** | Nối `apps/web` (`DATA_SOURCE=api`, `/login`, `/activate`), Admin Studio 3 vùng & FloorPlan Drawer (`2B`); đo đạc QTSC thực địa & chụp Panorama 360°×180° thực tế (`2C`) | **Chưa triển khai** |
 
-> **Lưu ý hiện tại:** Ứng dụng web trong `apps/web` đang chạy độc lập ở chế độ `DATA_SOURCE=mock` để trình diễn giao diện và luồng người dùng, trong khi nền tảng PostgreSQL 16 + Prisma tại `prisma/` đã sẵn sàng phục vụ Backend `apps/api/` ở Phase 2A-2.
+> **Lưu ý hiện tại (`main / ff13f14`):** Core Backend `apps/api/` (6 modules Phase 2A-2) và PostgreSQL 16 + Prisma (`prisma/`) đã được nghiệm thu và merge vào `main`. Theo quyết định **`D-2A3-01` (`OWNER APPROVED`)**, `apps/web` tiếp tục chạy ở chế độ `DATA_SOURCE=mock` và **không thay đổi** trong Phase 2A-3 (toàn bộ nối Frontend thuộc Phase 2B). Phase 2A-3 hiện đang thực hiện Milestone **`M0`** (tài liệu & chuẩn bị ranh giới thực thi `M1–M7`).
 
 ---
 
@@ -208,5 +209,10 @@ Thực hiện theo đúng thứ tự sau để khởi chạy CSDL thật, nạp 
 - [Lộ trình Triển khai Phase 2A](docs/phase-2a/PHASE_2A_IMPLEMENTATION_ROADMAP.md)
 - [Hệ thống Thiết kế Giao diện (UI Design System)](docs/ui/UI_DESIGN_SYSTEM.md)
 - [Báo cáo Chốt phạm vi Phase 2A & Cập nhật Trạng thái](docs/project-audit/PHASE_2A_SCOPE_FINALIZATION_REPORT.md)
+- [Trạng thái Dự án Reconciled (`PROJECT_STATUS.md`)](PROJECT_STATUS.md)
 - [Báo cáo Nghiệm thu Phase 2A-1](docs/project-audit/PHASE_2A_1_FINAL_ACCEPTANCE_REPORT.md)
 - [Báo cáo Đối soát Tài liệu Hậu Phase 2A-1](docs/project-audit/POST_PHASE_2A_1_DOCUMENTATION_RECONCILIATION_REPORT.md)
+- [Báo cáo Khắc phục & Tái kiểm chứng Cuối Phase 2A-2](docs/project-audit/PHASE_2A_2_FINAL_QUIZ_SECURITY_REMEDIATION_REPORT.md)
+- [Phase 2A-3 Scope Lock (`D-2A3-01 → D-2A3-08`)](docs/phase-2a/PHASE_2A_3_SCOPE_LOCK.md)
+- [Phase 2A-3 Decision Register](docs/phase-2a/PHASE_2A_3_DECISION_REGISTER.md)
+- [Phase 2A-3 Implementation Plan (`M0–M7`)](docs/phase-2a/PHASE_2A_3_IMPLEMENTATION_PLAN.md)

@@ -8,6 +8,7 @@ import {
   Post,
   Query,
 } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import type {
   PublicBuildingDetailDto,
   PublicCampusResponseDto,
@@ -88,6 +89,7 @@ export class PublicController {
 
   @Post("quiz/verify")
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 15, ttl: 60_000 } })
   verifyQuiz(@Body() dto: QuizVerifyDto): Promise<QuizVerifyResponse> {
     return this.publicService.verifyQuiz(dto);
   }

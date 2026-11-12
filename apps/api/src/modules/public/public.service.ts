@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import {
   DEFAULT_QTSC_CAMPUS_CODE,
   type BuildingCode,
@@ -23,6 +28,7 @@ import {
   type PublicOpenDaySessionDto,
   type PublicQuizQuestionDto,
   type PublicTourNodeDetailDto,
+  type QuizVerifyItemResultDto,
   type QuizVerifyResponse,
   type TourHotspotDto,
   type TourNodeSummaryDto,
@@ -1004,6 +1010,7 @@ export class PublicService {
 
     let sessions: PublicOpenDaySessionDto[] = [];
     let faqs: PublicOpenDayFaqDto[] = [];
+    let quizItems: PublicQuizQuestionDto[] = [];
 
     if (event) {
       // D-2A2-03 §3.3 (CRITICAL): Public endpoint MUST ONLY return sessions where isPublic === true
@@ -1070,12 +1077,34 @@ export class PublicService {
         answer: faq.answer,
         sortOrder: faq.sortOrder,
       }));
-    }
 
-    // D-2A2-03 §3.4 (Remediation): OpenDayQuizItem currently has no eventId/FK to OpenDayEvent
-    // in Prisma schema, so safe event-scoped public eligibility cannot be guaranteed.
-    // Intentionally withhold quizItems (return []) here without inferring relations or altering DB/schema.
-    const quizItems: PublicQuizQuestionDto[] = [];
+      // M2-A: Return event-scoped PUBLISHED quiz questions without correctIndex or explanation.
+      const rawQuizItems = await this.prisma.openDayQuizItem.findMany({
+        where: {
+          eventId: event.id,
+          status: PublishStatus.PUBLISHED,
+          deletedAt: null,
+        },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          questionText: true,
+          optionsJson: true,
+          tourNode: {
+            include: TOUR_NODE_ELIGIBILITY_INCLUDE,
+          },
+        },
+      });
+
+      quizItems = rawQuizItems.map((item) => ({
+        id: item.id,
+        tourNodeSlug: this.isPublicTourNodeEligible(item.tourNode)
+          ? item.tourNode.slug
+          : null,
+        questionText: item.questionText,
+        options: this.extractQuizOptions(item.optionsJson),
+      }));
+    }
 
     return {
       event: event
@@ -1095,15 +1124,92 @@ export class PublicService {
     };
   }
 
+  private extractQuizOptions(optionsJson: Prisma.JsonValue): string[] {
+    if (!Array.isArray(optionsJson)) {
+      return [];
+    }
+    return optionsJson.filter(
+      (opt): opt is string => typeof opt === "string",
+    );
+  }
+
   /**
-   * Temporarily disabled under D-2A2-03 public data isolation: OpenDayQuizItem
-   * lacks an Event relation (eventId FK), so public quiz verification is rejected
-   * immediately before any DB query or answer inspection until schema/design approval.
+   * M2-B: Stateless server-side quiz verification against PUBLISHED OpenDayQuizItem
+   * belonging to a PUBLISHED non-deleted OpenDayEvent (zero DB writes, fail-closed 404).
    */
-  async verifyQuiz(_dto: QuizVerifyDto): Promise<QuizVerifyResponse> {
-    throw new NotFoundException({
-      code: "NOT_FOUND",
-      message: "Chức năng kiểm tra quiz công khai tạm thời không khả dụng.",
+  async verifyQuiz(dto: QuizVerifyDto): Promise<QuizVerifyResponse> {
+    const uniqueQuestionIds = Array.from(
+      new Set(dto.items.map((item) => item.questionId)),
+    );
+
+    const quizRows = await this.prisma.openDayQuizItem.findMany({
+      where: {
+        id: { in: uniqueQuestionIds },
+        status: PublishStatus.PUBLISHED,
+        deletedAt: null,
+        event: {
+          status: PublishStatus.PUBLISHED,
+          deletedAt: null,
+          campus: {
+            deletedAt: null,
+          },
+        },
+      },
+      select: {
+        id: true,
+        optionsJson: true,
+        correctIndex: true,
+        explanation: true,
+      },
     });
+
+    const quizById = new Map(quizRows.map((row) => [row.id, row]));
+    if (quizById.size !== uniqueQuestionIds.length) {
+      throw new NotFoundException({
+        code: "NOT_FOUND",
+        message:
+          "Không tìm thấy câu hỏi quiz hợp lệ hoặc sự kiện chưa được công khai.",
+      });
+    }
+
+    const results: QuizVerifyItemResultDto[] = [];
+    let correctCount = 0;
+
+    for (const item of dto.items) {
+      const quiz = quizById.get(item.questionId);
+      if (!quiz) {
+        throw new NotFoundException({
+          code: "NOT_FOUND",
+          message: "Không tìm thấy câu hỏi quiz hợp lệ.",
+        });
+      }
+
+      const options = this.extractQuizOptions(quiz.optionsJson);
+      if (item.selectedIndex < 0 || item.selectedIndex >= options.length) {
+        throw new BadRequestException({
+          code: "VALIDATION_ERROR",
+          message: "Chỉ số đáp án được chọn vượt quá số lựa chọn của câu hỏi.",
+        });
+      }
+
+      const isCorrect = item.selectedIndex === quiz.correctIndex;
+      if (isCorrect) {
+        correctCount += 1;
+      }
+
+      results.push({
+        questionId: quiz.id,
+        selectedIndex: item.selectedIndex,
+        isCorrect,
+        correctIndex: quiz.correctIndex,
+        explanation: quiz.explanation,
+      });
+    }
+
+    return {
+      results,
+      correctCount,
+      total: results.length,
+    };
   }
 }

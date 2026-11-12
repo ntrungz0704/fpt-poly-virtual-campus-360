@@ -194,16 +194,18 @@ Phục vụ `/locations` (lọc theo `?buildingCode=`, `?category=common|lab|stu
 - **`GET /api/v1/public/locations/:slug`**: Trả `PublicLocationDetailDto` gồm toàn bộ trường tóm tắt kèm `gallery[]` và `tourNodes[]` (chỉ node thỏa `PUBLISHED && deleted_at IS NULL && isPreviewApproved = true`).
 - Theo `OD-02` & `D-2A2-03`, nếu địa điểm chưa có node 360° hợp lệ/được duyệt (VD: `khu-the-thao-qtsc` hoặc node còn `DRAFT`), `primaryNodeSlug = null` và `tourNodes = []` (`LocationCard` tự fallback về nút "Định vị GIS").
 
-### 2.5. `GET /api/v1/public/events` & `POST /api/v1/public/quiz/verify` (`OD-03`, `OD-08`, `D-2A2-03`)
+### 2.5. `GET /api/v1/public/events` & `POST /api/v1/public/quiz/verify` (`OD-03`, `OD-08`, `D-2A2-03`, `M2`)
 - **`GET /api/v1/public/events`** (query tùy chọn `?eventKey=`): Phục vụ `/events` & `/games`. Trả từ DB:
-  - `event`: `{ id, eventKey, title, subtitle, dateLabel, timeLabel, eventDate }`
-  - `sessions`: **chỉ** trả `open_day_sessions` có **`status = 'PUBLISHED'`, `deleted_at IS NULL` và `is_public = true`** (`accessType: 'public'`). **Tuyệt đối không trả session `is_public = false` cho request công khai** (giữ kiểu union `accessType: 'public' | 'invited'` trong `@fpt-campus/shared` nhưng không công khai dữ liệu invited trên endpoint public; `nodeSlug = null` nếu `tourNode` chưa publish+approved).
-  - `faqs`: danh sách `open_day_faqs` (`status = 'PUBLISHED'`, `deleted_at IS NULL`, `id, question, answer, sortOrder`)
-  - `quizItems`: **Hiện không công khai quiz items (`quizItems: []`)** trong response `GET /api/v1/public/events`. Đây là giới hạn có chủ đích khi thực thi đúng `D-2A2-03 §3.4`, do `OpenDayQuizItem` trong Prisma schema hiện tại chưa có quan hệ Event (`event_id` FK) đủ để xác định quyền công khai theo sự kiện mà không suy diễn quan hệ hoặc sửa schema. Muốn công khai quiz theo Event trong tương lai phải có quyết định thiết kế dữ liệu và phê duyệt riêng. (Giữ nguyên DTO `{ id, tourNodeSlug, questionText, options }` và quy tắc **TUYỆT ĐỐI không trả `correctIndex` hay `explanation`** trong payload `GET`, `OD-08`, `D-2A2-03`).
-- **`POST /api/v1/public/quiz/verify`** *(Giữ route/DTO stateless theo `OD-08`; **tạm thời vô hiệu hóa trong Phase 2A-2**)*:
-  - Request DTO: `{ "items": [{ "questionId": "uuid", "selectedIndex": 1 }] }`
-  - **Trạng thái hiện tại (Giới hạn có chủ đích — `D-2A2-03`):** Endpoint **tạm thời trả `404 NOT_FOUND` cho mọi request** ngay trước khi truy vấn database `open_day_quiz_items` hoặc xử lý đáp án (không trả `isCorrect`, `correctIndex`, `explanation` hay dữ liệu câu hỏi cho cả quiz `PUBLISHED` không có Event FK, `DRAFT`, soft-deleted hoặc UUID bất kỳ).
-  - **Kế hoạch khôi phục:** Chỉ khôi phục response `200 QuizVerifyResponse` (`{ "results": [{ "questionId": "uuid", "selectedIndex": 1, "isCorrect": true, "correctIndex": 1, "explanation": "..." }], "correctCount": 1, "total": 1 }`) sau khi có quyết định thiết kế dữ liệu và phê duyệt riêng về quan hệ an toàn giữa `OpenDayQuizItem` và `OpenDayEvent`.
+  - `event`: `{ id, eventKey, title, subtitle, dateLabel, timeLabel, eventDate }` (chỉ sự kiện có `status = 'PUBLISHED'` và `deleted_at IS NULL`).
+  - `sessions`: **chỉ** trả `open_day_sessions` thuộc sự kiện đó có **`status = 'PUBLISHED'`, `deleted_at IS NULL` và `is_public = true`** (`accessType: 'public'`). **Tuyệt đối không trả session `is_public = false` cho request công khai** (`nodeSlug = null` nếu `tourNode` chưa publish+approved).
+  - `faqs`: danh sách `open_day_faqs` thuộc sự kiện (`status = 'PUBLISHED'`, `deleted_at IS NULL`, `id, question, answer, sortOrder`).
+  - `quizItems`: danh sách `open_day_quiz_items` thuộc `event.id` (`status = 'PUBLISHED'`, `deleted_at IS NULL`, `{ id, tourNodeSlug, questionText, options }`, `tourNodeSlug = null` nếu `tourNode` chưa publish+approved). **TUYỆT ĐỐI không trả `correctIndex` hay `explanation`** trong payload `GET`.
+- **`POST /api/v1/public/quiz/verify`** *(Stateless server-side quiz verification — `DEC-M2-A`)*:
+  - Rate limit riêng trên route: **`15 req / 60s / IP`** (`RATE_LIMITED`, HTTP `429` kèm header `Retry-After` theo giây; tắt `trust proxy` nên bỏ qua `X-Forwarded-For` giả mạo).
+  - Request DTO: `{ "items": [{ "questionId": "uuid", "selectedIndex": 1 }] }` (`1..50` items).
+  - Chỉ chấm các câu hỏi `status = 'PUBLISHED'`, `deleted_at IS NULL` thuộc `OpenDayEvent` có `status = 'PUBLISHED'` và `deleted_at IS NULL`.
+  - Fail-closed: trả **`404 NOT_FOUND`** ngay lập tức nếu bất kỳ `questionId` nào không tồn tại, đang `DRAFT`/`ARCHIVED`, đã soft-delete hoặc thuộc sự kiện chưa publish (không rò rỉ kết quả từng phần); trả **`400 VALIDATION_ERROR`** nếu `selectedIndex < 0 || selectedIndex >= options.length`.
+  - Response (`200 QuizVerifyResponse`): `{ "results": [{ "questionId": "uuid", "selectedIndex": 1, "isCorrect": true, "correctIndex": 1, "explanation": "..." }], "correctCount": 1, "total": 1 }` (0 thao tác ghi DB).
 
 ---
 
@@ -303,19 +305,25 @@ Phục vụ `/locations` (lọc theo `?buildingCode=`, `?category=common|lab|stu
 - **`POST /api/v1/admin/tour/nodes/:nodeId/publish`**, **`POST /api/v1/admin/floors/:floorId/publish`** & **`POST /api/v1/admin/buildings/:buildingId/publish`**
   - Chạy lại Validator trong transaction trước khi set `status = 'PUBLISHED'`; trả `422` kèm danh sách lỗi nếu `errors > 0`. Ghi vết vào `audit_logs`.
 
-### 4.6. Quản lý Sự kiện Open Day (`events:write` — `OD-03` Phương án B, `OD-05` Phương án A, `OD-08`)
+### 4.6. Quản lý Sự kiện Open Day (`events:write` — `OD-03`, `OD-05`, `OD-08`, `DEC-M2-B`)
+> [!IMPORTANT]
+> `SUPER_ADMIN` và `EVENT_OPERATOR` đều có quyền `events:write` (`TOUR_EDITOR` bị chặn `403 FORBIDDEN`). Server tự xác định khuôn viên hiện hành (`DEFAULT_QTSC_CAMPUS_CODE = "QTSC-Q12"`), cấm client gửi/ghi đè `campusId` và từ chối mọi tham chiếu `buildingId` / `locationId` / `tourNodeId` khác campus (`422 UNPROCESSABLE_ENTITY`).
+- **Lookups tối giản chỉ đọc (`DEC-M2-B`):**
+  - `GET /api/v1/admin/events/lookups/buildings` (`{ id, code, name, shortName, status }[]`)
+  - `GET /api/v1/admin/events/lookups/tour-nodes` (`{ id, slug, title, buildingCode, floorName, status }[]` — không trả `originalObjectKey` hay storage keys)
 - **Sự kiện (`open_day_events`):**
-  - `GET /api/v1/admin/events`
-  - `POST /api/v1/admin/events` / `PATCH /api/v1/admin/events/:id` / `DELETE /api/v1/admin/events/:id`
+  - `GET /api/v1/admin/events` (phân trang `page`, `limit`, lọc `status`, `q`)
+  - `GET /api/v1/admin/events/:id` & `GET /api/v1/admin/events/:id/metadata`
+  - `POST /api/v1/admin/events` / `PATCH /api/v1/admin/events/:id` / `DELETE /api/v1/admin/events/:id` (bật `isDefault=true` hạ cờ mặc định cũ trong cùng transaction; xóa mềm giữ lịch sử)
 - **Lịch trình phiên (`open_day_sessions`):**
   - `GET /api/v1/admin/events/:eventId/sessions`
-  - `POST /api/v1/admin/events/:eventId/sessions` / `PATCH /api/v1/admin/events/sessions/:sessionId` / `DELETE /api/v1/admin/events/sessions/:sessionId`
+  - `POST /api/v1/admin/events/:eventId/sessions` / `PATCH /api/v1/admin/events/:eventId/sessions/:sessionId` / `DELETE /api/v1/admin/events/:eventId/sessions/:sessionId` (bảo toàn cờ `isPublic`)
 - **FAQ (`open_day_faqs`):**
-  - `GET /api/v1/admin/events/faqs` (lọc tùy chọn `?eventId=`)
-  - `POST /api/v1/admin/events/faqs` / `PATCH /api/v1/admin/events/faqs/:faqId` / `DELETE /api/v1/admin/events/faqs/:faqId`
+  - `GET /api/v1/admin/events/:eventId/faqs`
+  - `POST /api/v1/admin/events/:eventId/faqs` / `PATCH /api/v1/admin/events/:eventId/faqs/:faqId` / `DELETE /api/v1/admin/events/:eventId/faqs/:faqId`
 - **Câu hỏi Orientation Quiz (`open_day_quiz_items`):**
-  - `GET /api/v1/admin/events/quiz-items`
-  - `POST /api/v1/admin/events/quiz-items` / `PATCH /api/v1/admin/events/quiz-items/:quizId` / `DELETE /api/v1/admin/events/quiz-items/:quizId`
+  - `GET /api/v1/admin/events/:eventId/quiz-items`
+  - `POST /api/v1/admin/events/:eventId/quiz-items` / `PATCH /api/v1/admin/events/:eventId/quiz-items/:quizItemId` / `DELETE /api/v1/admin/events/:eventId/quiz-items/:quizItemId` (kiểm tra `0 <= correctIndex < options.length` và `options.length >= 2`)
 - **Giới hạn phạm vi (`OD-05`, `OD-08`):** Không có endpoint Check-in QR / điểm danh (`checked_in_at`, `ticketCode`) và không có endpoint XP / Leaderboard trong MVP.
 
 ### 4.7. Quản lý Tài khoản Thống nhất, Cấp phát Kép, Import Excel 5 Bước & Audit (`D-2A2-01`)

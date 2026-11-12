@@ -8,6 +8,7 @@ import {
 } from "./test-db.helper";
 
 describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (D-2A2-03)", () => {
+  jest.setTimeout(60_000);
   let dbHandle: ScratchDbHandle;
   let ctx: ApiTestContext;
 
@@ -133,9 +134,16 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
 
       expect(payload.faqs).toHaveLength(4);
 
-      // D-2A2-03 §3.4 Remediation: OpenDayQuizItem lacks eventId/FK in Prisma schema,
-      // so GET /public/events intentionally withholds quizItems ([]) instead of inferring ownership.
-      expect(payload.quizItems).toEqual([]);
+      // M2-A: Baseline seed has 3 PUBLISHED quiz items linked to open-day-2026-qtsc,
+      // exposed without correctIndex/explanation, with tourNodeSlug=null while TourNodes are DRAFT.
+      expect(payload.quizItems).toHaveLength(3);
+      for (const item of payload.quizItems) {
+        expect(item.tourNodeSlug).toBeNull();
+        expect(Array.isArray(item.options)).toBe(true);
+        expect(item.options.length).toBeGreaterThanOrEqual(2);
+        expect(item).not.toHaveProperty("correctIndex");
+        expect(item).not.toHaveProperty("explanation");
+      }
 
       const serializedEvents = JSON.stringify(eventsRes.body);
       expect(serializedEvents).not.toContain("correctIndex");
@@ -145,45 +153,51 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
         expect(serializedEvents).not.toContain(priv.title);
       }
       for (const q of seededPublishedQuizzes) {
-        expect(serializedEvents).not.toContain(q.id);
-        expect(serializedEvents).not.toContain(q.questionText);
+        expect(serializedEvents).toContain(q.id);
         expect(serializedEvents).not.toContain(q.explanation);
       }
 
-      // Public quiz verification is temporarily disabled (404 NOT_FOUND before DB query/answer processing)
-      const quizFindManySpy = jest.spyOn(prisma.openDayQuizItem, "findMany");
-      const quizFindFirstSpy = jest.spyOn(prisma.openDayQuizItem, "findFirst");
-      const quizFindUniqueSpy = jest.spyOn(
-        prisma.openDayQuizItem,
-        "findUnique",
-      );
+      // M2-B: POST /public/quiz/verify computes stateless scores with 0 DB writes
+      const quizWriteSpies = [
+        jest.spyOn(prisma.openDayQuizItem, "create"),
+        jest.spyOn(prisma.openDayQuizItem, "update"),
+        jest.spyOn(prisma.openDayQuizItem, "updateMany"),
+        jest.spyOn(prisma.openDayQuizItem, "delete"),
+        jest.spyOn(prisma.openDayQuizItem, "deleteMany"),
+      ];
       try {
+        const seededAnswers = await prisma.openDayQuizItem.findMany({
+          where: { id: { in: seededPublishedQuizzes.map((q) => q.id) } },
+          select: { id: true, correctIndex: true, optionsJson: true },
+        });
+        const answerMap = new Map(seededAnswers.map((a) => [a.id, a]));
+        const itemsPayload = seededPublishedQuizzes.map((q, idx) => {
+          const row = answerMap.get(q.id)!;
+          const opts = Array.isArray(row.optionsJson) ? row.optionsJson : [];
+          const pick =
+            idx === 0
+              ? row.correctIndex
+              : (row.correctIndex + 1) % Math.max(opts.length, 2);
+          return { questionId: q.id, selectedIndex: pick };
+        });
+
         const verifyRes = await request(server)
           .post("/api/v1/public/quiz/verify")
-          .send({
-            items: [
-              { questionId: seededPublishedQuizzes[0].id, selectedIndex: 0 },
-              { questionId: seededPublishedQuizzes[1].id, selectedIndex: 1 },
-            ],
-          })
-          .expect(404);
-        expect(verifyRes.body.error.code).toBe("NOT_FOUND");
-        expect(verifyRes.body).not.toHaveProperty("data");
-        const verifySerialized = JSON.stringify(verifyRes.body);
-        expect(verifySerialized).not.toContain("isCorrect");
-        expect(verifySerialized).not.toContain("correctIndex");
-        expect(verifySerialized).not.toContain("explanation");
-        for (const q of seededPublishedQuizzes) {
-          expect(verifySerialized).not.toContain(q.questionText);
-          expect(verifySerialized).not.toContain(q.explanation);
+          .send({ items: itemsPayload })
+          .expect(200);
+        expect(verifyRes.body.data.total).toBe(3);
+        expect(verifyRes.body.data.correctCount).toBe(1);
+        expect(verifyRes.body.data.results).toHaveLength(3);
+        expect(verifyRes.body.data.results[0].isCorrect).toBe(true);
+        expect(verifyRes.body.data.results[1].isCorrect).toBe(false);
+        expect(verifyRes.body.data.results[2].isCorrect).toBe(false);
+        for (const spy of quizWriteSpies) {
+          expect(spy).not.toHaveBeenCalled();
         }
-        expect(quizFindManySpy).not.toHaveBeenCalled();
-        expect(quizFindFirstSpy).not.toHaveBeenCalled();
-        expect(quizFindUniqueSpy).not.toHaveBeenCalled();
       } finally {
-        quizFindManySpy.mockRestore();
-        quizFindFirstSpy.mockRestore();
-        quizFindUniqueSpy.mockRestore();
+        for (const spy of quizWriteSpies) {
+          spy.mockRestore();
+        }
       }
     });
   });
@@ -591,15 +605,27 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
         },
       });
 
-      const publishedUnlinkedQuiz = await prisma.openDayQuizItem.create({
+      const publishedEventQuiz = await prisma.openDayQuizItem.create({
         data: {
           eventId: publishedEvent.id,
           tourNodeId: eligibleNode?.id ?? null,
-          questionText: "Fixture Published Quiz Missing Event Relation?",
+          questionText: "Fixture Published Quiz Linked To Event?",
           optionsJson: ["Option A", "Option B", "Option C"],
           correctIndex: 1,
-          explanation: "SECRET_UNLINKED_QUIZ_EXPLANATION",
+          explanation: "SECRET_PUBLISHED_QUIZ_EXPLANATION",
           sortOrder: 90,
+          status: "PUBLISHED",
+        },
+      });
+      const quizUnderDraftEvent = await prisma.openDayQuizItem.create({
+        data: {
+          eventId: draftEvent.id,
+          tourNodeId: eligibleNode?.id ?? null,
+          questionText: "Trap Quiz Under Draft Event?",
+          optionsJson: ["Option 1", "Option 2"],
+          correctIndex: 0,
+          explanation: "SECRET_UNDER_DRAFT_EVENT_EXPLANATION",
+          sortOrder: 91,
           status: "PUBLISHED",
         },
       });
@@ -611,7 +637,7 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
           optionsJson: ["Draft A", "Draft B"],
           correctIndex: 0,
           explanation: "SECRET_DRAFT_QUIZ_EXPLANATION",
-          sortOrder: 91,
+          sortOrder: 92,
           status: "DRAFT",
         },
       });
@@ -623,7 +649,7 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
           optionsJson: ["Deleted A", "Deleted B"],
           correctIndex: 0,
           explanation: "SECRET_DELETED_QUIZ_EXPLANATION",
-          sortOrder: 92,
+          sortOrder: 93,
           status: "PUBLISHED",
           deletedAt: new Date(),
         },
@@ -644,6 +670,8 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
       expect(draftSerialized).not.toContain("Secret Draft Open Day Event");
       expect(draftSerialized).not.toContain(sessionUnderDraftEvent.id);
       expect(draftSerialized).not.toContain("Trap Session Under Draft Event");
+      expect(draftSerialized).not.toContain(quizUnderDraftEvent.id);
+      expect(draftSerialized).not.toContain("SECRET_UNDER_DRAFT_EVENT_EXPLANATION");
 
       // 2. Explicit query for soft-deleted event -> event=null, sessions=[], faqs=[], quizItems=[]
       const deletedEventRes = await request(server)
@@ -665,7 +693,7 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
         "Trap Session Under Deleted Event",
       );
 
-      // 3. Active PUBLISHED event returns ONLY eligible public sessions & omits ALL quizItems
+      // 3. Active PUBLISHED event returns ONLY eligible public sessions & PUBLISHED quizItems (no answers)
       const activeEventsRes = await request(server)
         .get("/api/v1/public/events")
         .expect(200);
@@ -686,7 +714,21 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
       expect(returnedSessionIds).not.toContain(deletedSession.id);
       expect(returnedSessionIds).not.toContain(sessionUnderDraftEvent.id);
       expect(returnedSessionIds).not.toContain(sessionUnderDeletedEvent.id);
-      expect(activePayload.quizItems).toEqual([]);
+
+      const returnedQuizIds = activePayload.quizItems.map(
+        (q: { id: string }) => q.id,
+      );
+      expect(returnedQuizIds).toContain(publishedEventQuiz.id);
+      expect(returnedQuizIds).not.toContain(quizUnderDraftEvent.id);
+      expect(returnedQuizIds).not.toContain(draftQuiz.id);
+      expect(returnedQuizIds).not.toContain(deletedQuiz.id);
+
+      const publishedQuizDto = activePayload.quizItems.find(
+        (q: { id: string }) => q.id === publishedEventQuiz.id,
+      );
+      expect(publishedQuizDto?.tourNodeSlug).toBe(
+        eligibleNode ? "fixture-eligible-node" : null,
+      );
 
       const activeSerialized = JSON.stringify(activeEventsRes.body);
       expect(activeSerialized).not.toContain("correctIndex");
@@ -696,99 +738,109 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
       expect(activeSerialized).not.toContain("Fixture Soft Deleted Session");
       expect(activeSerialized).not.toContain("Trap Session Under Draft Event");
       expect(activeSerialized).not.toContain("Trap Session Under Deleted Event");
-      expect(activeSerialized).not.toContain(publishedUnlinkedQuiz.id);
+      expect(activeSerialized).not.toContain(quizUnderDraftEvent.id);
       expect(activeSerialized).not.toContain(draftQuiz.id);
       expect(activeSerialized).not.toContain(deletedQuiz.id);
-      expect(activeSerialized).not.toContain(
-        "Fixture Published Quiz Missing Event Relation?",
-      );
+      expect(activeSerialized).not.toContain("Trap Quiz Under Draft Event?");
       expect(activeSerialized).not.toContain("Fixture Draft Quiz Question?");
       expect(activeSerialized).not.toContain("Fixture Deleted Quiz Question?");
-      expect(activeSerialized).not.toContain("SECRET_UNLINKED_QUIZ_EXPLANATION");
+      expect(activeSerialized).not.toContain("SECRET_PUBLISHED_QUIZ_EXPLANATION");
+      expect(activeSerialized).not.toContain("SECRET_UNDER_DRAFT_EVENT_EXPLANATION");
       expect(activeSerialized).not.toContain("SECRET_DRAFT_QUIZ_EXPLANATION");
       expect(activeSerialized).not.toContain("SECRET_DELETED_QUIZ_EXPLANATION");
 
-      // 4. POST /public/quiz/verify must reject ALL requests immediately (PUBLISHED without Event FK,
-      // DRAFT, soft-deleted, and arbitrary valid UUID) with 404 NOT_FOUND before querying DB or leaking answers
-      const matrixQuizFindManySpy = jest.spyOn(
-        prisma.openDayQuizItem,
-        "findMany",
-      );
-      const matrixQuizFindFirstSpy = jest.spyOn(
-        prisma.openDayQuizItem,
-        "findFirst",
-      );
-      const matrixQuizFindUniqueSpy = jest.spyOn(
-        prisma.openDayQuizItem,
-        "findUnique",
-      );
-      try {
-        const quizVerifyCases = [
+      // 4. POST /public/quiz/verify scores eligible quiz & fails closed on mixed/draft/deleted/missing/out-of-bounds
+      const okVerify = await request(server)
+        .post("/api/v1/public/quiz/verify")
+        .send({
+          items: [{ questionId: publishedEventQuiz.id, selectedIndex: 1 }],
+        })
+        .expect(200);
+      expect(okVerify.body.data).toEqual({
+        results: [
           {
-            label: "PUBLISHED quiz missing Event FK",
-            questionId: publishedUnlinkedQuiz.id,
-            selectedIndex: 0,
-            forbiddenTerms: [
-              "SECRET_UNLINKED_QUIZ_EXPLANATION",
-              "Fixture Published Quiz Missing Event Relation?",
-            ],
+            questionId: publishedEventQuiz.id,
+            selectedIndex: 1,
+            isCorrect: true,
+            correctIndex: 1,
+            explanation: "SECRET_PUBLISHED_QUIZ_EXPLANATION",
           },
-          {
-            label: "DRAFT quiz",
-            questionId: draftQuiz.id,
-            selectedIndex: 0,
-            forbiddenTerms: [
-              "SECRET_DRAFT_QUIZ_EXPLANATION",
-              "Fixture Draft Quiz Question?",
-            ],
-          },
-          {
-            label: "soft-deleted PUBLISHED quiz",
-            questionId: deletedQuiz.id,
-            selectedIndex: 0,
-            forbiddenTerms: [
-              "SECRET_DELETED_QUIZ_EXPLANATION",
-              "Fixture Deleted Quiz Question?",
-            ],
-          },
-          {
-            label: "nonexistent valid UUID",
-            questionId: "00000000-0000-4000-8000-000000000099",
-            selectedIndex: 0,
-            forbiddenTerms: [],
-          },
-        ];
+        ],
+        correctCount: 1,
+        total: 1,
+      });
 
-        for (const testCase of quizVerifyCases) {
-          const verifyRes = await request(server)
-            .post("/api/v1/public/quiz/verify")
-            .send({
-              items: [
-                {
-                  questionId: testCase.questionId,
-                  selectedIndex: testCase.selectedIndex,
-                },
-              ],
-            })
-            .expect(404);
-          expect(verifyRes.body.error.code).toBe("NOT_FOUND");
-          expect(verifyRes.body).not.toHaveProperty("data");
-          const serialized = JSON.stringify(verifyRes.body);
-          expect(serialized).not.toContain("isCorrect");
-          expect(serialized).not.toContain("correctIndex");
-          expect(serialized).not.toContain("explanation");
-          for (const term of testCase.forbiddenTerms) {
-            expect(serialized).not.toContain(term);
-          }
+      // Out-of-bounds selectedIndex (3 options -> index 3) fails 400 BEFORE returning partial answers
+      const oobRes = await request(server)
+        .post("/api/v1/public/quiz/verify")
+        .send({
+          items: [
+            { questionId: publishedEventQuiz.id, selectedIndex: 1 },
+            { questionId: publishedEventQuiz.id, selectedIndex: 5 },
+          ],
+        })
+        .expect(400);
+      expect(oobRes.body.error.code).toBe("VALIDATION_ERROR");
+      expect(oobRes.body).not.toHaveProperty("data");
+      expect(JSON.stringify(oobRes.body)).not.toContain(
+        "SECRET_PUBLISHED_QUIZ_EXPLANATION",
+      );
+
+      // Mixed batch containing a valid PUBLISHED quiz + an ineligible ID MUST fail 404 with ZERO partial leakage
+      const failClosedCases = [
+        {
+          label: "quiz under DRAFT event",
+          questionId: quizUnderDraftEvent.id,
+          forbiddenTerms: [
+            "SECRET_UNDER_DRAFT_EVENT_EXPLANATION",
+            "SECRET_PUBLISHED_QUIZ_EXPLANATION",
+            "Trap Quiz Under Draft Event?",
+          ],
+        },
+        {
+          label: "DRAFT quiz",
+          questionId: draftQuiz.id,
+          forbiddenTerms: [
+            "SECRET_DRAFT_QUIZ_EXPLANATION",
+            "SECRET_PUBLISHED_QUIZ_EXPLANATION",
+            "Fixture Draft Quiz Question?",
+          ],
+        },
+        {
+          label: "soft-deleted PUBLISHED quiz",
+          questionId: deletedQuiz.id,
+          forbiddenTerms: [
+            "SECRET_DELETED_QUIZ_EXPLANATION",
+            "SECRET_PUBLISHED_QUIZ_EXPLANATION",
+            "Fixture Deleted Quiz Question?",
+          ],
+        },
+        {
+          label: "nonexistent valid UUID",
+          questionId: "00000000-0000-4000-8000-000000000099",
+          forbiddenTerms: ["SECRET_PUBLISHED_QUIZ_EXPLANATION"],
+        },
+      ];
+
+      for (const testCase of failClosedCases) {
+        const verifyRes = await request(server)
+          .post("/api/v1/public/quiz/verify")
+          .send({
+            items: [
+              { questionId: publishedEventQuiz.id, selectedIndex: 1 },
+              { questionId: testCase.questionId, selectedIndex: 0 },
+            ],
+          })
+          .expect(404);
+        expect(verifyRes.body.error.code).toBe("NOT_FOUND");
+        expect(verifyRes.body).not.toHaveProperty("data");
+        const serialized = JSON.stringify(verifyRes.body);
+        expect(serialized).not.toContain("isCorrect");
+        expect(serialized).not.toContain("correctIndex");
+        expect(serialized).not.toContain("explanation");
+        for (const term of testCase.forbiddenTerms) {
+          expect(serialized).not.toContain(term);
         }
-
-        expect(matrixQuizFindManySpy).not.toHaveBeenCalled();
-        expect(matrixQuizFindFirstSpy).not.toHaveBeenCalled();
-        expect(matrixQuizFindUniqueSpy).not.toHaveBeenCalled();
-      } finally {
-        matrixQuizFindManySpy.mockRestore();
-        matrixQuizFindFirstSpy.mockRestore();
-        matrixQuizFindUniqueSpy.mockRestore();
       }
 
       // 5. When NO PUBLISHED non-deleted event exists, default GET /public/events returns null/empty
@@ -812,11 +864,73 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
           "Secret Soft Deleted Open Day Event",
         );
         expect(noPubSerialized).not.toContain("Fixture Eligible Public Session");
+        expect(noPubSerialized).not.toContain("SECRET_PUBLISHED_QUIZ_EXPLANATION");
       } finally {
         await prisma.openDayEvent.update({
           where: { id: publishedEvent.id },
           data: { status: "PUBLISHED" },
         });
+      }
+    });
+  });
+
+  describe("M2 Quiz Verify Rate Limit & IP Spoofing Protection (DEC-M2-A)", () => {
+    it("allows 15 POST /public/quiz/verify requests/60s, returns 429 RATE_LIMITED + Retry-After on 16th, ignores spoofed X-Forwarded-For, and leaves other public routes unaffected", async () => {
+      const rateCtx = await createIntegrationApiApp({
+        databaseUrl: dbHandle.testDbUrl,
+      });
+      try {
+        const prisma = rateCtx.app.get(PrismaService);
+        const server = rateCtx.app.getHttpServer();
+        const quiz = await prisma.openDayQuizItem.findFirstOrThrow({
+          where: {
+            status: "PUBLISHED",
+            deletedAt: null,
+            event: { status: "PUBLISHED", deletedAt: null },
+          },
+          select: { id: true, correctIndex: true },
+        });
+
+        for (let i = 1; i <= 15; i += 1) {
+          const okRes = await request(server)
+            .post("/api/v1/public/quiz/verify")
+            .send({
+              items: [{ questionId: quiz.id, selectedIndex: quiz.correctIndex }],
+            })
+            .expect(200);
+          expect(okRes.body.data.correctCount).toBe(1);
+        }
+
+        const blockedRes = await request(server)
+          .post("/api/v1/public/quiz/verify")
+          .send({
+            items: [{ questionId: quiz.id, selectedIndex: quiz.correctIndex }],
+          })
+          .expect(429);
+        expect(blockedRes.body.success).toBe(false);
+        expect(blockedRes.body.error.code).toBe("RATE_LIMITED");
+        const retryAfterRaw = blockedRes.headers["retry-after"];
+        expect(retryAfterRaw).toBeDefined();
+        const retryAfterSec = Number(retryAfterRaw);
+        expect(Number.isFinite(retryAfterSec)).toBe(true);
+        expect(retryAfterSec).toBeGreaterThanOrEqual(1);
+        expect(retryAfterSec).toBeLessThanOrEqual(60);
+
+        // Spoofed X-Forwarded-For must be ignored because Express trust proxy stays disabled
+        const spoofedRes = await request(server)
+          .post("/api/v1/public/quiz/verify")
+          .set("X-Forwarded-For", "203.0.113.99")
+          .send({
+            items: [{ questionId: quiz.id, selectedIndex: quiz.correctIndex }],
+          })
+          .expect(429);
+        expect(spoofedRes.body.error.code).toBe("RATE_LIMITED");
+
+        // Other public routes share the global 120 req/60s bucket and stay accessible
+        await request(server).get("/api/v1/public/events").expect(200);
+        await request(server).get("/api/v1/public/campus").expect(200);
+      } finally {
+        await rateCtx.close();
       }
     });
   });

@@ -200,9 +200,10 @@ Phục vụ `/locations` (lọc theo `?buildingCode=`, `?category=common|lab|stu
   - `sessions`: **chỉ** trả `open_day_sessions` có **`status = 'PUBLISHED'`, `deleted_at IS NULL` và `is_public = true`** (`accessType: 'public'`). **Tuyệt đối không trả session `is_public = false` cho request công khai** (giữ kiểu union `accessType: 'public' | 'invited'` trong `@fpt-campus/shared` nhưng không công khai dữ liệu invited trên endpoint public; `nodeSlug = null` nếu `tourNode` chưa publish+approved).
   - `faqs`: danh sách `open_day_faqs` (`status = 'PUBLISHED'`, `deleted_at IS NULL`, `id, question, answer, sortOrder`)
   - `quizItems`: **Hiện không công khai quiz items (`quizItems: []`)** trong response `GET /api/v1/public/events`. Đây là giới hạn có chủ đích khi thực thi đúng `D-2A2-03 §3.4`, do `OpenDayQuizItem` trong Prisma schema hiện tại chưa có quan hệ Event (`event_id` FK) đủ để xác định quyền công khai theo sự kiện mà không suy diễn quan hệ hoặc sửa schema. Muốn công khai quiz theo Event trong tương lai phải có quyết định thiết kế dữ liệu và phê duyệt riêng. (Giữ nguyên DTO `{ id, tourNodeSlug, questionText, options }` và quy tắc **TUYỆT ĐỐI không trả `correctIndex` hay `explanation`** trong payload `GET`, `OD-08`, `D-2A2-03`).
-- **`POST /api/v1/public/quiz/verify`** *(Stateless — Không cần đăng nhập, Không lưu DB cá nhân, Không XP/Leaderboard — `OD-08`)*:
-  - Request: `{ "items": [{ "questionId": "uuid", "selectedIndex": 1 }] }`
-  - Response (`200`): `{ "results": [{ "questionId": "uuid", "selectedIndex": 1, "isCorrect": true, "correctIndex": 1, "explanation": "..." }], "correctCount": 1, "total": 1 }` (chỉ chấm trên `open_day_quiz_items` có `status = 'PUBLISHED' && deleted_at IS NULL`).
+- **`POST /api/v1/public/quiz/verify`** *(Giữ route/DTO stateless theo `OD-08`; **tạm thời vô hiệu hóa trong Phase 2A-2**)*:
+  - Request DTO: `{ "items": [{ "questionId": "uuid", "selectedIndex": 1 }] }`
+  - **Trạng thái hiện tại (Giới hạn có chủ đích — `D-2A2-03`):** Endpoint **tạm thời trả `404 NOT_FOUND` cho mọi request** ngay trước khi truy vấn database `open_day_quiz_items` hoặc xử lý đáp án (không trả `isCorrect`, `correctIndex`, `explanation` hay dữ liệu câu hỏi cho cả quiz `PUBLISHED` không có Event FK, `DRAFT`, soft-deleted hoặc UUID bất kỳ).
+  - **Kế hoạch khôi phục:** Chỉ khôi phục response `200 QuizVerifyResponse` (`{ "results": [{ "questionId": "uuid", "selectedIndex": 1, "isCorrect": true, "correctIndex": 1, "explanation": "..." }], "correctCount": 1, "total": 1 }`) sau khi có quyết định thiết kế dữ liệu và phê duyệt riêng về quan hệ an toàn giữa `OpenDayQuizItem` và `OpenDayEvent`.
 
 ---
 

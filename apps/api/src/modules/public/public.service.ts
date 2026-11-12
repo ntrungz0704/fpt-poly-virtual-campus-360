@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from "@nestjs/common";
+import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 import {
   DEFAULT_QTSC_CAMPUS_CODE,
   type BuildingCode,
@@ -28,7 +23,6 @@ import {
   type PublicOpenDaySessionDto,
   type PublicQuizQuestionDto,
   type PublicTourNodeDetailDto,
-  type QuizVerifyItemResultDto,
   type QuizVerifyResponse,
   type TourHotspotDto,
   type TourNodeSummaryDto,
@@ -1102,66 +1096,14 @@ export class PublicService {
   }
 
   /**
-   * Stateless quiz answer verification (OD-08): evaluates answers directly against
-   * published quiz items without persisting quiz submissions or lead data.
+   * Temporarily disabled under D-2A2-03 public data isolation: OpenDayQuizItem
+   * lacks an Event relation (eventId FK), so public quiz verification is rejected
+   * immediately before any DB query or answer inspection until schema/design approval.
    */
-  async verifyQuiz(dto: QuizVerifyDto): Promise<QuizVerifyResponse> {
-    const questionIds = Array.from(new Set(dto.items.map((item) => item.questionId)));
-
-    const publishedQuizzes = await this.prisma.openDayQuizItem.findMany({
-      where: {
-        id: { in: questionIds },
-        status: PublishStatus.PUBLISHED,
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-        optionsJson: true,
-        correctIndex: true,
-        explanation: true,
-      },
+  async verifyQuiz(_dto: QuizVerifyDto): Promise<QuizVerifyResponse> {
+    throw new NotFoundException({
+      code: "NOT_FOUND",
+      message: "Chức năng kiểm tra quiz công khai tạm thời không khả dụng.",
     });
-
-    const quizById = new Map(publishedQuizzes.map((quiz) => [quiz.id, quiz]));
-
-    const results: QuizVerifyItemResultDto[] = [];
-    let correctCount = 0;
-
-    for (const item of dto.items) {
-      const quiz = quizById.get(item.questionId);
-      if (!quiz) {
-        throw new NotFoundException({
-          code: "NOT_FOUND",
-          message: `Không tìm thấy câu hỏi quiz công khai: ${item.questionId}.`,
-        });
-      }
-
-      const options = this.parseStringArray(quiz.optionsJson);
-      if (item.selectedIndex < 0 || item.selectedIndex >= options.length) {
-        throw new BadRequestException({
-          code: "VALIDATION_ERROR",
-          message: `Lựa chọn đáp án không hợp lệ cho câu hỏi ${item.questionId}.`,
-        });
-      }
-
-      const isCorrect = item.selectedIndex === quiz.correctIndex;
-      if (isCorrect) {
-        correctCount += 1;
-      }
-
-      results.push({
-        questionId: quiz.id,
-        selectedIndex: item.selectedIndex,
-        isCorrect,
-        correctIndex: quiz.correctIndex,
-        explanation: quiz.explanation,
-      });
-    }
-
-    return {
-      results,
-      correctCount,
-      total: results.length,
-    };
   }
 }

@@ -89,7 +89,10 @@
 1. **TourNode Publication Filter (toàn bộ Public API):** Mọi endpoint `/api/v1/public/*` chỉ được sử dụng/xuất `TourNode` thỏa đồng thời `status === 'PUBLISHED' && deletedAt === null && panoramaAsset.isPreviewApproved === true`. Mọi node không đạt chuẩn đều phải mask `defaultEntryNodeSlug`, `defaultNodeSlug`, `primaryNodeSlug`, `nodeSlug`, `tourNodeSlug` thành `null`, `publishedNodeCount` thành `0`, `nodes[]`/`tourNodes[]` loại bỏ hoàn toàn (không rò rỉ slug, ID hay thông tin nội bộ).
 2. **Location DTO:** `GET /api/v1/public/locations` trả `PublicLocationSummaryDto[]`; `GET /api/v1/public/locations/:slug` trả `PublicLocationDetailDto`.
 3. **Open Day Session Privacy (Điều chỉnh bắt buộc):** `GET /api/v1/public/events` **chỉ** trả session có `isPublic === true && status === 'PUBLISHED' && deletedAt === null`. Tuyệt đối không trả session `isPublic = false` cho request công khai kể cả khi event cha đã `PUBLISHED`. Không tự tạo endpoint private/invited session mới ngoài contract.
-4. **OpenDayQuizItem (Thực thi đúng `D-2A2-03 §3.4`):** Vì bảng `open_day_quiz_items` trong `prisma/schema.prisma` hiện chưa có quan hệ `OpenDayEvent` (`event_id` FK; chỉ có `tour_node_id` nullable), hệ thống không đủ căn cứ xác định quan hệ an toàn giữa quiz item và sự kiện công khai mà không suy diễn hoặc sửa schema/migration. Do đó `GET /api/v1/public/events` **hiện không công khai quiz items** (trả `quizItems: []` theo DTO hiện hành). Đây là giới hạn có chủ đích nhằm giữ đúng nguyên tắc cách ly dữ liệu của quyết định `D-2A2-03` đã chốt; muốn công khai quiz theo Event trong tương lai phải có quyết định thiết kế dữ liệu và phê duyệt riêng. Tuyệt đối ẩn `correctIndex` và `explanation` trong payload `GET /public/events`.
+4. **OpenDayQuizItem (Thực thi đúng `D-2A2-03 §3.4`):** Vì bảng `open_day_quiz_items` trong `prisma/schema.prisma` hiện chưa có quan hệ `OpenDayEvent` (`event_id` FK; chỉ có `tour_node_id` nullable), hệ thống không đủ căn cứ xác định quan hệ an toàn giữa quiz item và sự kiện công khai mà không suy diễn hoặc sửa schema/migration. Do đó:
+   - `GET /api/v1/public/events` **hiện không công khai quiz items** (trả `quizItems: []` theo DTO hiện hành) và không bao giờ trả `correctIndex` hay `explanation`.
+   - `POST /api/v1/public/quiz/verify` **tạm thời trả `404 NOT_FOUND` cho mọi request** ngay trước khi truy vấn `open_day_quiz_items` hay xử lý đáp án (vẫn giữ nguyên route/DTO để tương thích cấu trúc API).
+   - Đây là giới hạn có chủ đích nhằm bảo vệ ranh giới cô lập dữ liệu công khai; việc khôi phục chấm quiz theo Event trong tương lai thuộc về một quyết định thiết kế dữ liệu và phê duyệt riêng.
 
 ### 3.4. Chi tiết Quy tắc `D-2A2-04` (`APPROVED WITH CONDITIONS`)
 - Cookie `refresh_token`: `HttpOnly = true`, `SameSite = Lax`, `Path = /api/v1/auth`; `Secure = true` trên production HTTPS, chỉ tắt `Secure` trên local HTTP dev (`NODE_ENV !== 'production'`).
@@ -161,7 +164,7 @@ apps/api/
 | **Public** | `GET /api/v1/public/locations` & `/:slug` | `@Public()` | Read-only | Liệt kê trả `PublicLocationSummaryDto[]`; `:slug` trả `PublicLocationDetailDto`; `primaryNodeSlug=null` khi node chưa duyệt |
 | **Public** | `GET /api/v1/public/tour/nodes` & `/:slug` | `@Public()` | Read-only | Chỉ `PUBLISHED && deletedAt===null && isPreviewApproved===true` (`[]` / `404` trên seed AI hiện tại) |
 | **Public** | `GET /api/v1/public/events` | `@Public()` | Read-only | **CHỈ** trả session `isPublic=true && status=PUBLISHED && deletedAt=null` thuộc Event hợp lệ; **hiện không công khai `quizItems` (`quizItems: []`)** do giới hạn có chủ đích (`OpenDayQuizItem` chưa có quan hệ Event); mask `nodeSlug=null` |
-| **Public** | `POST /api/v1/public/quiz/verify` | `@Public()` | Moderate rate limit | Stateless verification trên item `status=PUBLISHED`, trả `QuizVerifyResponse` không ghi DB |
+| **Public** | `POST /api/v1/public/quiz/verify` | `@Public()` | Moderate rate limit | **Tạm thời trả `404 NOT_FOUND` cho mọi request** (không truy vấn DB hay trả đáp án vì `OpenDayQuizItem` chưa có quan hệ Event); giữ route/DTO đến khi có quyết định phê duyệt khôi phục |
 
 ---
 

@@ -94,7 +94,7 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
         .expect(404);
     });
 
-    it("returns ONLY 4 isPublic=true sessions (omitting 2 private sessions), withholds quizItems (no Event FK), leaks zero answers, and verifies quiz statelessly", async () => {
+    it("returns ONLY 4 isPublic=true sessions (omitting 2 private sessions), withholds quizItems (no Event FK), leaks zero answers, and rejects POST /public/quiz/verify with 404 before DB query", async () => {
       const prisma = ctx.app.get(PrismaService);
       const server = ctx.app.getHttpServer();
 
@@ -150,20 +150,41 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
         expect(serializedEvents).not.toContain(q.explanation);
       }
 
-      // Stateless quiz verify remains intact on PUBLISHED items without writing submissions to DB
-      const verifyRes = await request(server)
-        .post("/api/v1/public/quiz/verify")
-        .send({
-          items: [
-            { questionId: seededPublishedQuizzes[0].id, selectedIndex: 0 },
-            { questionId: seededPublishedQuizzes[1].id, selectedIndex: 1 },
-          ],
-        })
-        .expect(200);
-      expect(verifyRes.body.data.total).toBe(2);
-      expect(verifyRes.body.data.results).toHaveLength(2);
-      expect(typeof verifyRes.body.data.results[0].correctIndex).toBe("number");
-      expect(typeof verifyRes.body.data.results[0].explanation).toBe("string");
+      // Public quiz verification is temporarily disabled (404 NOT_FOUND before DB query/answer processing)
+      const quizFindManySpy = jest.spyOn(prisma.openDayQuizItem, "findMany");
+      const quizFindFirstSpy = jest.spyOn(prisma.openDayQuizItem, "findFirst");
+      const quizFindUniqueSpy = jest.spyOn(
+        prisma.openDayQuizItem,
+        "findUnique",
+      );
+      try {
+        const verifyRes = await request(server)
+          .post("/api/v1/public/quiz/verify")
+          .send({
+            items: [
+              { questionId: seededPublishedQuizzes[0].id, selectedIndex: 0 },
+              { questionId: seededPublishedQuizzes[1].id, selectedIndex: 1 },
+            ],
+          })
+          .expect(404);
+        expect(verifyRes.body.error.code).toBe("NOT_FOUND");
+        expect(verifyRes.body).not.toHaveProperty("data");
+        const verifySerialized = JSON.stringify(verifyRes.body);
+        expect(verifySerialized).not.toContain("isCorrect");
+        expect(verifySerialized).not.toContain("correctIndex");
+        expect(verifySerialized).not.toContain("explanation");
+        for (const q of seededPublishedQuizzes) {
+          expect(verifySerialized).not.toContain(q.questionText);
+          expect(verifySerialized).not.toContain(q.explanation);
+        }
+        expect(quizFindManySpy).not.toHaveBeenCalled();
+        expect(quizFindFirstSpy).not.toHaveBeenCalled();
+        expect(quizFindUniqueSpy).not.toHaveBeenCalled();
+      } finally {
+        quizFindManySpy.mockRestore();
+        quizFindFirstSpy.mockRestore();
+        quizFindUniqueSpy.mockRestore();
+      }
     });
   });
 
@@ -684,28 +705,88 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
       expect(activeSerialized).not.toContain("SECRET_DRAFT_QUIZ_EXPLANATION");
       expect(activeSerialized).not.toContain("SECRET_DELETED_QUIZ_EXPLANATION");
 
-      // 4. POST /public/quiz/verify must reject DRAFT and soft-deleted quizzes without leaking answers
-      const verifyDraftRes = await request(server)
-        .post("/api/v1/public/quiz/verify")
-        .send({ items: [{ questionId: draftQuiz.id, selectedIndex: 0 }] })
-        .expect(404);
-      expect(verifyDraftRes.body.error.code).toBe("NOT_FOUND");
-      expect(JSON.stringify(verifyDraftRes.body)).not.toContain(
-        "SECRET_DRAFT_QUIZ_EXPLANATION",
+      // 4. POST /public/quiz/verify must reject ALL requests immediately (PUBLISHED without Event FK,
+      // DRAFT, soft-deleted, and arbitrary valid UUID) with 404 NOT_FOUND before querying DB or leaking answers
+      const matrixQuizFindManySpy = jest.spyOn(
+        prisma.openDayQuizItem,
+        "findMany",
       );
-      expect(JSON.stringify(verifyDraftRes.body)).not.toContain("correctIndex");
+      const matrixQuizFindFirstSpy = jest.spyOn(
+        prisma.openDayQuizItem,
+        "findFirst",
+      );
+      const matrixQuizFindUniqueSpy = jest.spyOn(
+        prisma.openDayQuizItem,
+        "findUnique",
+      );
+      try {
+        const quizVerifyCases = [
+          {
+            label: "PUBLISHED quiz missing Event FK",
+            questionId: publishedUnlinkedQuiz.id,
+            selectedIndex: 0,
+            forbiddenTerms: [
+              "SECRET_UNLINKED_QUIZ_EXPLANATION",
+              "Fixture Published Quiz Missing Event Relation?",
+            ],
+          },
+          {
+            label: "DRAFT quiz",
+            questionId: draftQuiz.id,
+            selectedIndex: 0,
+            forbiddenTerms: [
+              "SECRET_DRAFT_QUIZ_EXPLANATION",
+              "Fixture Draft Quiz Question?",
+            ],
+          },
+          {
+            label: "soft-deleted PUBLISHED quiz",
+            questionId: deletedQuiz.id,
+            selectedIndex: 0,
+            forbiddenTerms: [
+              "SECRET_DELETED_QUIZ_EXPLANATION",
+              "Fixture Deleted Quiz Question?",
+            ],
+          },
+          {
+            label: "nonexistent valid UUID",
+            questionId: "00000000-0000-4000-8000-000000000099",
+            selectedIndex: 0,
+            forbiddenTerms: [],
+          },
+        ];
 
-      const verifyDeletedRes = await request(server)
-        .post("/api/v1/public/quiz/verify")
-        .send({ items: [{ questionId: deletedQuiz.id, selectedIndex: 0 }] })
-        .expect(404);
-      expect(verifyDeletedRes.body.error.code).toBe("NOT_FOUND");
-      expect(JSON.stringify(verifyDeletedRes.body)).not.toContain(
-        "SECRET_DELETED_QUIZ_EXPLANATION",
-      );
-      expect(JSON.stringify(verifyDeletedRes.body)).not.toContain(
-        "correctIndex",
-      );
+        for (const testCase of quizVerifyCases) {
+          const verifyRes = await request(server)
+            .post("/api/v1/public/quiz/verify")
+            .send({
+              items: [
+                {
+                  questionId: testCase.questionId,
+                  selectedIndex: testCase.selectedIndex,
+                },
+              ],
+            })
+            .expect(404);
+          expect(verifyRes.body.error.code).toBe("NOT_FOUND");
+          expect(verifyRes.body).not.toHaveProperty("data");
+          const serialized = JSON.stringify(verifyRes.body);
+          expect(serialized).not.toContain("isCorrect");
+          expect(serialized).not.toContain("correctIndex");
+          expect(serialized).not.toContain("explanation");
+          for (const term of testCase.forbiddenTerms) {
+            expect(serialized).not.toContain(term);
+          }
+        }
+
+        expect(matrixQuizFindManySpy).not.toHaveBeenCalled();
+        expect(matrixQuizFindFirstSpy).not.toHaveBeenCalled();
+        expect(matrixQuizFindUniqueSpy).not.toHaveBeenCalled();
+      } finally {
+        matrixQuizFindManySpy.mockRestore();
+        matrixQuizFindFirstSpy.mockRestore();
+        matrixQuizFindUniqueSpy.mockRestore();
+      }
 
       // 5. When NO PUBLISHED non-deleted event exists, default GET /public/events returns null/empty
       await prisma.openDayEvent.update({

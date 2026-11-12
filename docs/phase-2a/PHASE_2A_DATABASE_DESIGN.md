@@ -267,7 +267,7 @@ erDiagram
 | `heading_offset_deg` | `DOUBLE PRECISION` | `NOT NULL, DEFAULT 0` | Góc xoay đồng bộ hướng `yaw = 0` với hướng chuẩn trên Floor Plan |
 | `initial_yaw` | `DOUBLE PRECISION` | `NOT NULL, DEFAULT 0` | Góc nhìn ngang mặc định khi bước vào node (`-180..180`) |
 | `initial_pitch` | `DOUBLE PRECISION` | `NOT NULL, DEFAULT 0` | Góc nhìn dọc mặc định (`-90..90`) |
-| `initial_fov` | `DOUBLE PRECISION` | `NOT NULL, DEFAULT 75` | Trường nhìn ban đầu (`45..100`) |
+| `initial_fov` | `DOUBLE PRECISION` | `NOT NULL, DEFAULT 75` | Trường nhìn ban đầu (`30..100`, CHECK `30..100`) |
 | `is_terminal_approved` | `BOOLEAN` | `NOT NULL, DEFAULT false` | Ngoại lệ phê duyệt điểm kết thúc hợp lệ (0 outbound edges nhưng không bị Validator chặn) |
 | `terminal_approval_reason` | `VARCHAR(240)` | `NULLABLE` | Lý do phê duyệt ngoại lệ ngõ cụt (bắt buộc nếu `is_terminal_approved = true`) |
 | `sort_order` | `INTEGER` | `NOT NULL, DEFAULT 0` | Thứ tự hiển thị trên Scene Selector |
@@ -348,6 +348,9 @@ erDiagram
   - **Unique Constraint:** `UNIQUE (user_id, event_id)`.
   - **Ràng buộc phạm vi (`OD-05` Phương án A):** **Không thêm `CHECKED_IN`, `ticket_code` hay `checked_in_at` trong MVP** (chưa triển khai Check-in QR hay điểm danh thật ở giai đoạn này).
 - **`user_import_batches`** (Nhật ký kết quả import hàng loạt — **KHÔNG lưu file gốc/tên file/đường dẫn file**): `id (UUID PK)`, `imported_by (UUID FK -> users.id NOT NULL)`, `default_user_type (UserType: 'STUDENT' | 'PARENT')`, `provisioning_method (ProvisioningMethod: 'ADMIN_DIRECT' | 'EMAIL_SMS_INVITATION')`, `total_rows (INT NOT NULL)`, `success_count (INT NOT NULL)`, `skipped_count (INT NOT NULL)`, `failed_count (INT NOT NULL)`, `row_results_summary_json (JSONB NOT NULL)` *(chỉ chứa STT dòng, kết quả và mã lý do lỗi, không chứa thông tin nhạy cảm hay tên file)*, `created_at (TIMESTAMPTZ NOT NULL)`.
+- **`upload_tokens`** (Theo dõi token upload single-use nguyên tử `jti` cho `MediaAsset` / `FloorPlan` — `M1-C`, `D-2A3-03`):
+  - `id (UUID PK)`, `jti (UUID UNIQUE NOT NULL)`, `subject_user_id (UUID FK -> users.id NOT NULL ON DELETE RESTRICT)`, `target_type (UploadTargetType NOT NULL: 'MEDIA_ASSET' | 'FLOOR_PLAN')`, `media_asset_id (UUID FK -> media_assets.id NULLABLE ON DELETE RESTRICT)`, `floor_plan_id (UUID FK -> floor_plans.id NULLABLE ON DELETE RESTRICT)`, `object_key (TEXT NOT NULL)`, `expected_mime_type (VARCHAR(120) NOT NULL)`, `max_size_bytes (BIGINT NOT NULL CHECK (max_size_bytes > 0))`, `expires_at (TIMESTAMPTZ NOT NULL)`, `used_at (TIMESTAMPTZ NULLABLE)`, `revoked_at (TIMESTAMPTZ NULLABLE)`, `created_at (TIMESTAMPTZ NOT NULL DEFAULT NOW())`.
+  - **XOR & Indexes (`M1-C`):** `CHECK ((target_type = 'MEDIA_ASSET' AND media_asset_id IS NOT NULL AND floor_plan_id IS NULL) OR (target_type = 'FLOOR_PLAN' AND floor_plan_id IS NOT NULL AND media_asset_id IS NULL))`; indexes `idx_upload_tokens_media_asset_id`, `idx_upload_tokens_floor_plan_id`, `idx_upload_tokens_expires_at`, `idx_upload_tokens_subject_unused (subject_user_id, used_at)`. *(Không thêm `consumed_by_ip`; không tạo vòng đời endpoint/claim trước M3.)*
 - **`refresh_tokens`**: `id (UUID PK)`, `user_id (FK)`, `token_hash (CHAR(64) UNIQUE)`, `family_id (UUID NOT NULL)` (phát hiện reuse attack), `expires_at`, `revoked_at`, `user_agent`, `ip_address`, `created_at`.
 - **`audit_logs`** (Append-only — cấm ghi mật khẩu/raw token/tên file Excel gốc): `id (UUID PK)`, `actor_user_id (UUID FK NULLABLE)`, `actor_username (VARCHAR(64))`, `action (VARCHAR(80) NOT NULL)` (`LOGIN_SUCCESS`, `LOGIN_FAILED`, `PASSWORD_CHANGED`, `USER_CREATED`, `USER_IMPORTED_BATCH`, `INVITATION_SENT`, `INVITATION_RESENT`, `ACCOUNT_ACTIVATED`, `FLOOR_PLAN_REPLACED`, `ALIGNMENT_CONFIRMED`, `TOUR_NODE_DELETED`, `TOUR_PUBLISHED`, `EVENT_UPDATED`, ...), `resource_type (VARCHAR(64))`, `resource_id (UUID NULLABLE)`, `diff_json (JSONB NULLABLE)`, `ip_address (INET)`, `created_at (TIMESTAMPTZ NOT NULL)`.
 
@@ -366,9 +369,9 @@ erDiagram
   - `id (UUID PK)`, `event_id (UUID FK -> open_day_events.id NOT NULL)`, `campus_id (UUID FK -> campuses.id NOT NULL)`, `building_id (UUID FK -> buildings.id NULLABLE)`, `location_id (UUID FK -> locations.id NULLABLE)`, `tour_node_id (UUID FK -> tour_nodes.id NULLABLE)`, `title (VARCHAR(160) NOT NULL)`, `session_period (SessionPeriod NOT NULL: 'MORNING' | 'NOON' | 'AFTERNOON')`, `start_time_label (VARCHAR(24) NOT NULL)`, `end_time_label (VARCHAR(24) NOT NULL)`, `time_range_label (VARCHAR(48) NOT NULL)`, `custom_location_label (VARCHAR(160) NOT NULL)`, `host_unit (VARCHAR(120) NOT NULL)`, `is_public (BOOLEAN NOT NULL DEFAULT true)`, `description (TEXT NOT NULL)`, `sort_order (INT NOT NULL DEFAULT 0)`, `status (PublishStatus NOT NULL DEFAULT 'DRAFT')`, `created_at`, `updated_at`, `deleted_at`.
 - **`open_day_faqs`**:
   - `id (UUID PK)`, `event_id (UUID FK -> open_day_events.id NULLABLE)`, `campus_id (UUID FK -> campuses.id NOT NULL)`, `question (VARCHAR(280) NOT NULL)`, `answer (TEXT NOT NULL)`, `sort_order (INT NOT NULL DEFAULT 0)`, `status (PublishStatus NOT NULL DEFAULT 'DRAFT')`, `created_at`, `updated_at`, `deleted_at`.
-- **`open_day_quiz_items`** (Public Orientation Quiz — `OD-08`):
-  - `id (UUID PK)`, `tour_node_id (UUID FK -> tour_nodes.id NULLABLE)`, `question_text (VARCHAR(280) NOT NULL)`, `options_json (JSONB NOT NULL)`, `correct_index (INT NOT NULL CHECK (correct_index >= 0))`, `explanation (TEXT NOT NULL)`, `sort_order (INT NOT NULL DEFAULT 0)`, `status (PublishStatus NOT NULL DEFAULT 'DRAFT')`, `created_at`, `updated_at`, `deleted_at`.
-  - *(Bảo mật `OD-08`: Endpoint `GET /api/v1/public/events` không trả `correct_index` và `explanation`; chấm đáp án stateless qua `POST /api/v1/public/quiz/verify`.)*
+- **`open_day_quiz_items`** (Public Orientation Quiz — `OD-08`, `D-2A3-02` / `M1-A`):
+  - `id (UUID PK)`, `event_id (UUID FK -> open_day_events.id NOT NULL ON DELETE RESTRICT, idx_open_day_quiz_items_event_id)`, `tour_node_id (UUID FK -> tour_nodes.id NULLABLE ON DELETE SET NULL)`, `question_text (VARCHAR(280) NOT NULL)`, `options_json (JSONB NOT NULL)`, `correct_index (INT NOT NULL CHECK (correct_index >= 0))`, `explanation (TEXT NOT NULL)`, `sort_order (INT NOT NULL DEFAULT 0)`, `status (PublishStatus NOT NULL DEFAULT 'DRAFT')`, `created_at`, `updated_at`, `deleted_at`.
+  - *(Bảo mật `OD-08`: Endpoint `GET /api/v1/public/events` không trả `correct_index` và `explanation`; chấm đáp án stateless qua `POST /api/v1/public/quiz/verify` chỉ mở khóa sau M2.)*
 
 ---
 
@@ -487,6 +490,11 @@ enum ParticipationStatus {
   CONFIRMED
   CANCELLED
 }
+
+enum UploadTargetType {
+  MEDIA_ASSET
+  FLOOR_PLAN
+}
 ```
 
 ### Quy tắc Cascade, Soft-Delete, Snapshot & Optional Floor Plan (`OD-06`, `OD-10`):
@@ -518,3 +526,17 @@ Do tồn tại các vòng tham chiếu hợp lệ (`campuses.default_entry_node_
 - **Seed Admin an toàn (`Phase 2A-1`):** `ADMIN_BOOTSTRAP_PASSWORD` đọc từ environment và hash bằng **Argon2id**; tuyệt đối không hardcode mật khẩu.
 - **Không lưu ảnh panorama lớn trong PostgreSQL:** Cột `media_assets.*_key` chỉ lưu object key / đường dẫn tham chiếu.
 - **Chuẩn hóa SĐT & Giao dịch (`Phase 2A-2` / `Phase 2A-3`):** Chuẩn hóa `users.phone` (`E.164/VN`) trước khi kiểm tra uniqueness và login (`Phase 2A-2`); xóa mềm `TourNode` xử lý `tour_edges`/`hotspots` trong cùng transaction và `confirm-alignment` cập nhật đúng `tour_nodes.floor_plan_id` (`Phase 2A-3`).
+
+### Quy trình Preflight, Cutover & Khôi phục Lỗi Migration `M1` (`BLK-E1`, `P3018` / `P3009`):
+1. **Preflight bắt buộc trước khi chạy migration trên DB đích (`prisma/preflight-m1-quiz-event.sql`):**
+   - Trước khi chạy `prisma migrate deploy`, vận hành chạy truy vấn READ-ONLY `prisma/preflight-m1-quiz-event.sql` trên bản sao hoặc DB đích trước cửa sổ cutover.
+   - Chỉ được phép triển khai khi **mọi** dòng `open_day_quiz_items` đều có `final_resolution_status = 'RESOLVED'` và `cross_campus_mismatch_cnt = 0`. Nếu tồn tại bất kỳ dòng `AMBIGUOUS` hoặc `UNRESOLVED` (ví dụ `NULL_TOUR_NODE_NO_LINEAGE`, `CROSS_CAMPUS_MISMATCH`, `SOFT_DELETED_LINEAGE`), dừng cutover ngay (`BLK-E1` Gate) và xử lý dữ liệu gốc trước khi chạy lại Preflight.
+2. **Bảo đảm nguyên tử giao dịch (`C1-A`):**
+   - Migration `20261112000001_m1_quiz_event_upload_tokens` chạy trong transaction duy nhất do Prisma `migrate deploy` quản lý: nếu bất kỳ bước backfill hay khối kiểm tra fail-closed (`MIGRATION_ABORT_*`) ném `RAISE EXCEPTION` (`P3018`), PostgreSQL rollback toàn bộ DDL (`ALTER TABLE`, `CREATE INDEX`, `CREATE TYPE`, `CREATE TABLE`) và DML trước đó, giữ DB sạch nguyên trạng.
+3. **Khôi phục khi Prisma ghi nhận trạng thái `P3009` (failed migration record):**
+   - Kiểm tra trạng thái bằng `pnpm exec prisma migrate status --schema=prisma/schema.prisma`.
+   - Khi thấy `20261112000001_m1_quiz_event_upload_tokens` ở trạng thái failed (dù SQL bên trong đã rollback sạch):
+     1. Khắc phục dữ liệu nguồn làm Preflight fail cho đến khi `prisma/preflight-m1-quiz-event.sql` trả 100% `RESOLVED` & `cross_campus_mismatch_cnt = 0`.
+     2. Đánh dấu bản ghi lịch sử Prisma đã rollback:
+        `pnpm exec prisma migrate resolve --rolled-back "20261112000001_m1_quiz_event_upload_tokens" --schema=prisma/schema.prisma`
+     3. Chạy lại `pnpm exec prisma migrate deploy --schema=prisma/schema.prisma` và kiểm tra lại bằng `migrate status`.

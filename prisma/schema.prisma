@@ -130,6 +130,11 @@ enum ParticipationStatus {
   CANCELLED
 }
 
+enum UploadTargetType {
+  MEDIA_ASSET
+  FLOOR_PLAN
+}
+
 // ============================================================================
 // 3.1 Campus & FloorPlan Domain
 // ============================================================================
@@ -241,6 +246,7 @@ model FloorPlan {
   tourNodes         TourNode[]
   newSnapshots      FloorPlanAlignmentSnapshot[] @relation("SnapshotNewFloorPlan")
   previousSnapshots FloorPlanAlignmentSnapshot[] @relation("SnapshotPreviousFloorPlan")
+  uploadTokens      UploadToken[]
 
   @@unique([floorId, version])
   @@map("floor_plans")
@@ -341,6 +347,7 @@ model MediaAsset {
   coverForBuildings Building[]      @relation("BuildingCoverMedia")
   panoramaTourNodes TourNode[]      @relation("TourNodePanoramaAsset")
   locationMedia     LocationMedia[]
+  uploadTokens      UploadToken[]
 
   @@index([sha256Checksum], map: "idx_media_sha256")
   @@map("media_assets")
@@ -477,6 +484,7 @@ model User {
   importBatches           UserImportBatch[]            @relation("BatchImporter")
   refreshTokens           RefreshToken[]
   auditLogs               AuditLog[]
+  uploadTokens            UploadToken[]
 
   @@map("users")
 }
@@ -638,6 +646,7 @@ model OpenDayEvent {
   sessions       OpenDaySession[]
   faqs           OpenDayFaq[]
   participations EventParticipation[]
+  quizItems      OpenDayQuizItem[]
 
   @@map("open_day_events")
 }
@@ -693,6 +702,7 @@ model OpenDayFaq {
 
 model OpenDayQuizItem {
   id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId      String        @map("event_id") @db.Uuid
   tourNodeId   String?       @map("tour_node_id") @db.Uuid
   questionText String        @map("question_text") @db.VarChar(280)
   optionsJson  Json          @map("options_json") @db.JsonB
@@ -704,7 +714,35 @@ model OpenDayQuizItem {
   updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz(6)
 
-  tourNode TourNode? @relation(fields: [tourNodeId], references: [id], onDelete: SetNull)
+  event    OpenDayEvent @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  tourNode TourNode?    @relation(fields: [tourNodeId], references: [id], onDelete: SetNull)
 
+  @@index([eventId], map: "idx_open_day_quiz_items_event_id")
   @@map("open_day_quiz_items")
+}
+
+model UploadToken {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  jti              String           @unique @db.Uuid
+  subjectUserId    String           @map("subject_user_id") @db.Uuid
+  targetType       UploadTargetType @map("target_type")
+  mediaAssetId     String?          @map("media_asset_id") @db.Uuid
+  floorPlanId      String?          @map("floor_plan_id") @db.Uuid
+  objectKey        String           @map("object_key") @db.Text
+  expectedMimeType String           @map("expected_mime_type") @db.VarChar(120)
+  maxSizeBytes     BigInt           @map("max_size_bytes") @db.BigInt
+  expiresAt        DateTime         @map("expires_at") @db.Timestamptz(6)
+  usedAt           DateTime?        @map("used_at") @db.Timestamptz(6)
+  revokedAt        DateTime?        @map("revoked_at") @db.Timestamptz(6)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  subjectUser User        @relation(fields: [subjectUserId], references: [id], onDelete: Restrict)
+  mediaAsset  MediaAsset? @relation(fields: [mediaAssetId], references: [id], onDelete: Restrict)
+  floorPlan   FloorPlan?  @relation(fields: [floorPlanId], references: [id], onDelete: Restrict)
+
+  @@index([mediaAssetId], map: "idx_upload_tokens_media_asset_id")
+  @@index([floorPlanId], map: "idx_upload_tokens_floor_plan_id")
+  @@index([expiresAt], map: "idx_upload_tokens_expires_at")
+  @@index([subjectUserId, usedAt], map: "idx_upload_tokens_subject_unused")
+  @@map("upload_tokens")
 }

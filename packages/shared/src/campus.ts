@@ -2,10 +2,12 @@ import type {
   AlignmentStatus,
   FloorPlanFormat,
   GeoLatLngTuple,
+  ISO8601Timestamp,
   NormCoord2D,
   ProcessingStatus,
   PublishStatus,
   StorageDriver,
+  UploadTargetType,
   UUID,
 } from "./common.js";
 import type { LocationCategoryGroup } from "./location.js";
@@ -195,6 +197,85 @@ export interface FloorPlanPresignResponse {
   version: number;
   storageDriver: StorageDriver;
   uploadUrl: string;
+  targetType?: UploadTargetType;
+  uploadToken?: string;
+  maxSizeBytes?: number;
+  expiresAt?: ISO8601Timestamp;
+}
+
+export interface FloorPlanStatusDto {
+  id: UUID;
+  floorId: UUID;
+  version: number;
+  sourceFormat: FloorPlanFormat;
+  processingStatus: ProcessingStatus;
+  processingError: string | null;
+  renderUrl: string | null;
+  thumbUrl: string | null;
+  renderWidth: number | null;
+  renderHeight: number | null;
+  alignmentStatus: AlignmentStatus | null;
+  nodesPendingRealignmentCount: number;
+}
+
+export interface AdminCampusDto extends PublicCampusSummaryDto {
+  defaultEntryNodeId: UUID | null;
+  status: PublishStatus;
+  updatedAt: ISO8601Timestamp;
+}
+
+export interface UpdateCampusInput {
+  name?: string;
+  address?: string;
+  defaultEntryNodeId?: UUID | null;
+  originPoint?: CampusGeoPoint;
+  landmarks?: CampusLandmarkItem[];
+  status?: PublishStatus;
+}
+
+export interface AdminBuildingDto extends PublicBuildingDto {
+  campusId: UUID;
+  coverMediaId: UUID | null;
+  defaultNodeId: UUID | null;
+  sortOrder: number;
+  status: PublishStatus;
+  createdAt: ISO8601Timestamp;
+  updatedAt: ISO8601Timestamp;
+}
+
+export interface AdminFloorDto {
+  id: UUID;
+  buildingId: UUID;
+  code: string;
+  name: string;
+  levelIndex: number;
+  requiresFloorPlan: boolean;
+  activeFloorPlanId: UUID | null;
+  activeFloorPlan: FloorPlanDto | null;
+  status: PublishStatus;
+  sortOrder: number;
+  nodeCount: number;
+  nodesPendingRealignmentCount: number;
+  createdAt: ISO8601Timestamp;
+  updatedAt: ISO8601Timestamp;
+}
+
+export interface CreateFloorInput {
+  code: string;
+  name: string;
+  levelIndex: number;
+  requiresFloorPlan?: boolean;
+  sortOrder?: number;
+  status?: PublishStatus;
+}
+
+export interface UpdateFloorInput {
+  code?: string;
+  name?: string;
+  levelIndex?: number;
+  requiresFloorPlan?: boolean;
+  sortOrder?: number;
+  status?: PublishStatus;
 }
 
 export interface FloorPlanAlignmentSnapshotItem {

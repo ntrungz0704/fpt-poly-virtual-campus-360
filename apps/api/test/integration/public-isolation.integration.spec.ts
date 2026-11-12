@@ -593,6 +593,7 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
 
       const publishedUnlinkedQuiz = await prisma.openDayQuizItem.create({
         data: {
+          eventId: publishedEvent.id,
           tourNodeId: eligibleNode?.id ?? null,
           questionText: "Fixture Published Quiz Missing Event Relation?",
           optionsJson: ["Option A", "Option B", "Option C"],
@@ -604,6 +605,7 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
       });
       const draftQuiz = await prisma.openDayQuizItem.create({
         data: {
+          eventId: publishedEvent.id,
           tourNodeId: eligibleNode?.id ?? null,
           questionText: "Fixture Draft Quiz Question?",
           optionsJson: ["Draft A", "Draft B"],
@@ -615,6 +617,7 @@ describe("Public Endpoints & TourNode/Media/Events Isolation integration tests (
       });
       const deletedQuiz = await prisma.openDayQuizItem.create({
         data: {
+          eventId: publishedEvent.id,
           tourNodeId: eligibleNode?.id ?? null,
           questionText: "Fixture Deleted Quiz Question?",
           optionsJson: ["Deleted A", "Deleted B"],

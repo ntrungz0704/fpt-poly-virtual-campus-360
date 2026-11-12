@@ -100,7 +100,24 @@ export interface AdminCreateUserRequest {
   eventKeys?: string[];
 }
 
-export type ImportRowResolutionStatus = "VALID" | "DUPLICATE_UPDATE" | "INVALID";
+export type ImportRowResolutionStatus =
+  | "VALID"
+  | "DUPLICATE_UPDATE"
+  | "SKIPPED"
+  | "INVALID";
+
+export type ImportReasonCode =
+  | "ROLE_CONFLICT"
+  | "IDENTITY_CONFLICT"
+  | "INVALID_EMAIL"
+  | "INVALID_PHONE"
+  | "MISSING_CONTACT"
+  | "DUPLICATE_IN_FILE"
+  | "ALREADY_INVITED_OR_PARTICIPATING"
+  | "ACTIVATED_ACCOUNT_PROTECTED"
+  | "LIMIT_EXCEEDED"
+  | "VALIDATION_ERROR"
+  | (string & {});
 
 export interface UserImportPreviewRowDto {
   rowNumber: number;
@@ -110,6 +127,8 @@ export interface UserImportPreviewRowDto {
   userType: "STUDENT" | "PARENT";
   status: ImportRowResolutionStatus;
   errorCode: string | null;
+  reasonCode?: ImportReasonCode | null;
+  existingUserId?: UUID | null;
   note: string | null;
 }
 
@@ -117,6 +136,7 @@ export interface UserImportPreviewResponse {
   totalRows: number;
   validCount: number;
   duplicateUpdateCount: number;
+  skippedCount: number;
   invalidCount: number;
   rows: UserImportPreviewRowDto[];
 }
@@ -144,7 +164,9 @@ export interface UserImportConfirmResultDto {
   rowResults: Array<{
     rowNumber: number;
     outcome: "CREATED" | "UPDATED" | "SKIPPED" | "FAILED";
-    reasonCode: string | null;
+    reasonCode: ImportReasonCode | null;
+    /** Returned strictly ONCE in HTTP response when provisioningMethod === "ADMIN_DIRECT" issues a new token; never persisted in user_import_batches. */
+    activationToken?: string | null;
   }>;
 }
 
@@ -200,4 +222,41 @@ export interface AuditLogEntryDto {
   diffJson: Record<string, unknown> | null;
   ipAddress: string | null;
   createdAt: ISO8601Timestamp;
+}
+
+export interface AdminUsersFilterQuery {
+  userType?: UserType;
+  accountStatus?: AccountStatus;
+  activationStatus?: ActivationStatus;
+  provisioningMethod?: ProvisioningMethod;
+  openDayEventKey?: string;
+  q?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface AdminUsersListResponseDto {
+  items: AdminUserListItemDto[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
+export interface AdminAuditLogsQuery {
+  actorUserId?: UUID;
+  actorUsername?: string;
+  action?: string;
+  resourceType?: string;
+  resourceId?: UUID;
+  from?: ISO8601Timestamp;
+  to?: ISO8601Timestamp;
+  page?: number;
+  limit?: number;
+}
+
+export interface AdminAuditLogsResponseDto {
+  items: AuditLogEntryDto[];
+  page: number;
+  limit: number;
+  total: number;
 }

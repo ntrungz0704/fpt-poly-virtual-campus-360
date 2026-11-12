@@ -978,6 +978,12 @@ async function main() {
         const { rows: [edgeRow] } = await pg.query(
           `SELECT id, from_node_id FROM tour_edges LIMIT 1`,
         );
+        const { rows: [adminUserRow] } = await pg.query(
+          `SELECT id FROM users WHERE username = 'admin' AND deleted_at IS NULL`,
+        );
+        const { rows: [defaultEventRow] } = await pg.query(
+          `SELECT id FROM open_day_events WHERE event_key = 'open-day-2026-qtsc' AND deleted_at IS NULL`,
+        );
 
         // AC-06.1: Active duplicate unique rejected (users username/email/phone, locations slug, tour_nodes slug)
         await assertPgRejects(
@@ -1108,8 +1114,9 @@ async function main() {
         await assertPgRejects(
           () =>
             pg.query(
-              `INSERT INTO open_day_quiz_items (question_text, options_json, correct_index, explanation)
-               VALUES ('Invalid quiz', '["A","B"]'::jsonb, -1, 'Negative')`,
+              `INSERT INTO open_day_quiz_items (event_id, question_text, options_json, correct_index, explanation)
+               VALUES ($1, 'Invalid quiz', '["A","B"]'::jsonb, -1, 'Negative')`,
+              [defaultEventRow.id],
             ),
           "23514",
           "chk_open_day_quiz_items_correct_index_non_negative",
@@ -1238,6 +1245,84 @@ async function main() {
         assert.equal(mediaPreserved.length, 1);
         assert.equal(mediaPreserved[0].deleted_at, null);
         recordPass("AC-06.7", "TourNode/TourEdge/Hotspot deletion policy & transactional soft-delete verified");
+
+        // AC-09 (M1): Quiz-Event NOT NULL + RESTRICT FK & UploadToken constraints
+        const { rows: quizNullEventRows } = await pg.query(
+          `SELECT COUNT(*)::int AS cnt FROM open_day_quiz_items WHERE event_id IS NULL`,
+        );
+        assert.equal(quizNullEventRows[0].cnt, 0);
+        await assertPgRejects(
+          () =>
+            pg.query(
+              `INSERT INTO open_day_quiz_items (question_text, options_json, correct_index, explanation)
+               VALUES ('Missing event id', '["A","B"]'::jsonb, 0, 'Null FK')`,
+            ),
+          "23502",
+        );
+        await assertPgRejects(
+          () => pg.query(`DELETE FROM open_day_events WHERE id = $1`, [defaultEventRow.id]),
+          "23503",
+        );
+
+        const validJti = crypto.randomUUID();
+        const { rows: [insertedUploadToken] } = await pg.query(
+          `INSERT INTO upload_tokens (jti, subject_user_id, target_type, media_asset_id, floor_plan_id, object_key, expected_mime_type, max_size_bytes, expires_at)
+           VALUES ($1, $2, 'MEDIA_ASSET', $3, NULL, 'source/m1-verify.jpg', 'image/jpeg', 52428800, NOW() + INTERVAL '15 minutes')
+           RETURNING id, jti`,
+          [validJti, adminUserRow.id, mediaRow.id],
+        );
+        assert.equal(insertedUploadToken.jti, validJti);
+        await assertPgRejects(
+          () =>
+            pg.query(
+              `INSERT INTO upload_tokens (jti, subject_user_id, target_type, media_asset_id, floor_plan_id, object_key, expected_mime_type, max_size_bytes, expires_at)
+               VALUES ($1, $2, 'MEDIA_ASSET', $3, NULL, 'source/m1-dup.jpg', 'image/jpeg', 1024, NOW() + INTERVAL '15 minutes')`,
+              [validJti, adminUserRow.id, mediaRow.id],
+            ),
+          "23505",
+          "upload_tokens_jti_key",
+        );
+        await assertPgRejects(
+          () =>
+            pg.query(
+              `INSERT INTO upload_tokens (jti, subject_user_id, target_type, media_asset_id, floor_plan_id, object_key, expected_mime_type, max_size_bytes, expires_at)
+               VALUES ($1, $2, 'MEDIA_ASSET', NULL, NULL, 'source/m1-null.jpg', 'image/jpeg', 1024, NOW() + INTERVAL '15 minutes')`,
+              [crypto.randomUUID(), adminUserRow.id],
+            ),
+          "23514",
+          "chk_upload_tokens_single_typed_target",
+        );
+        await assertPgRejects(
+          () =>
+            pg.query(
+              `INSERT INTO upload_tokens (jti, subject_user_id, target_type, media_asset_id, floor_plan_id, object_key, expected_mime_type, max_size_bytes, expires_at)
+               VALUES ($1, $2, 'FLOOR_PLAN', $3, NULL, 'source/m1-mismatch.pdf', 'application/pdf', 1024, NOW() + INTERVAL '15 minutes')`,
+              [crypto.randomUUID(), adminUserRow.id, mediaRow.id],
+            ),
+          "23514",
+          "chk_upload_tokens_single_typed_target",
+        );
+        await assertPgRejects(
+          () =>
+            pg.query(
+              `INSERT INTO upload_tokens (jti, subject_user_id, target_type, media_asset_id, floor_plan_id, object_key, expected_mime_type, max_size_bytes, expires_at)
+               VALUES ($1, $2, 'MEDIA_ASSET', $3, NULL, 'source/m1-zero.jpg', 'image/jpeg', 0, NOW() + INTERVAL '15 minutes')`,
+              [crypto.randomUUID(), adminUserRow.id, mediaRow.id],
+            ),
+          "23514",
+          "chk_upload_tokens_max_size_positive",
+        );
+        await assertPgRejects(
+          () =>
+            pg.query(
+              `INSERT INTO upload_tokens (jti, subject_user_id, target_type, media_asset_id, floor_plan_id, object_key, expected_mime_type, max_size_bytes, expires_at)
+               VALUES ($1, $2, 'MEDIA_ASSET', $3, NULL, 'source/m1-badfk.jpg', 'image/jpeg', 1024, NOW() + INTERVAL '15 minutes')`,
+              [crypto.randomUUID(), adminUserRow.id, fakeUuid],
+            ),
+          "23503",
+        );
+        await pg.query(`DELETE FROM upload_tokens WHERE id = $1`, [insertedUploadToken.id]);
+        recordPass("AC-09", "M1 Quiz-Event NOT NULL/RESTRICT FK & UploadToken XOR/FK/size constraints enforced");
 
         // AC-07: Real local filesystem integrity check (path safety, size, 64-hex SHA-256, MIME, dimensions) + Negative Suite
         const publicRoot = path.resolve(process.cwd(), "apps/web/public");

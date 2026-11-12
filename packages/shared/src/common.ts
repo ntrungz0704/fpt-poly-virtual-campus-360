@@ -13,6 +13,8 @@ export type AlignmentStatus = "PENDING_REVIEW" | "CONFIRMED";
 
 export type StorageDriver = "local" | "s3";
 
+export type UploadTargetType = "MEDIA_ASSET" | "FLOOR_PLAN";
+
 export interface NormCoord2D {
   x: number;
   y: number;

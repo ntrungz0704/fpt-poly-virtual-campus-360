@@ -1795,11 +1795,13 @@ async function seed() {
     for (const qSpec of OPEN_DAY_QUIZ_ITEMS_DATA) {
       const existingQuiz = await tx.openDayQuizItem.findFirst({
         where: {
+          eventId: event.id,
           sortOrder: qSpec.sortOrder,
           deletedAt: null,
         },
       });
       const quizPayload = {
+        eventId: event.id,
         tourNodeId: tourNodeIdBySlug.get(qSpec.tourNodeSlug)!,
         questionText: qSpec.questionText,
         optionsJson: qSpec.optionsJson,

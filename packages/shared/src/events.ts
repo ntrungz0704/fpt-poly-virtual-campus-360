@@ -1,5 +1,5 @@
 import type { BuildingCode } from "./campus.js";
-import type { PublishStatus, UUID } from "./common.js";
+import type { ISO8601Timestamp, PublishStatus, UUID } from "./common.js";
 
 export type SessionPeriod = "MORNING" | "NOON" | "AFTERNOON";
 
@@ -123,6 +123,7 @@ export interface UpsertOpenDayFaqInput {
 }
 
 export interface UpsertOpenDayQuizItemInput {
+  eventId: UUID;
   tourNodeId?: UUID | null;
   questionText: string;
   options: string[];
@@ -130,4 +131,63 @@ export interface UpsertOpenDayQuizItemInput {
   explanation: string;
   sortOrder?: number;
   status?: PublishStatus;
+}
+
+export interface OpenDayEventMetadataDto {
+  id: UUID;
+  eventKey: string;
+  title: string;
+  dateLabel: string;
+  timeLabel: string;
+  eventDate: string | null;
+  isDefault: boolean;
+  status: PublishStatus;
+}
+
+export interface AdminOpenDayEventDto extends OpenDayEventMetadataDto {
+  campusId: UUID;
+  subtitle: string | null;
+  sessionCount: number;
+  faqCount: number;
+  quizItemCount: number;
+  createdAt: ISO8601Timestamp;
+  updatedAt: ISO8601Timestamp;
+}
+
+export interface AdminOpenDaySessionDto extends PublicOpenDaySessionDto {
+  campusId: UUID;
+  buildingId: UUID | null;
+  locationId: UUID | null;
+  tourNodeId: UUID | null;
+  sessionPeriod: SessionPeriod;
+  startTimeLabel: string;
+  endTimeLabel: string;
+  customLocationLabel: string;
+  isPublic: boolean;
+  status: PublishStatus;
+  createdAt: ISO8601Timestamp;
+  updatedAt: ISO8601Timestamp;
+}
+
+export interface AdminOpenDayFaqDto extends PublicOpenDayFaqDto {
+  eventId: UUID | null;
+  campusId: UUID;
+  status: PublishStatus;
+  createdAt: ISO8601Timestamp;
+  updatedAt: ISO8601Timestamp;
+}
+
+export interface AdminOpenDayQuizItemDto {
+  id: UUID;
+  eventId: UUID;
+  tourNodeId: UUID | null;
+  tourNodeSlug: string | null;
+  questionText: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  sortOrder: number;
+  status: PublishStatus;
+  createdAt: ISO8601Timestamp;
+  updatedAt: ISO8601Timestamp;
 }

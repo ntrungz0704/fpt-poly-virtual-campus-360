@@ -1,5 +1,10 @@
 import type { BuildingCode } from "./campus.js";
-import type { NormCoord2D, PublishStatus, UUID } from "./common.js";
+import type {
+  ISO8601Timestamp,
+  NormCoord2D,
+  PublishStatus,
+  UUID,
+} from "./common.js";
 
 export type LocationTypeCode =
   | "CLASSROOM"
@@ -75,4 +80,56 @@ export interface UpsertLocationInput {
   restrictionNote?: string | null;
   primaryNodeId?: UUID | null;
   status?: PublishStatus;
+}
+
+export interface LocationTypeDto {
+  id: UUID;
+  code: LocationTypeCode;
+  filterGroup: LocationCategoryGroup;
+  label: string;
+  iconName: string;
+  isInterFloorConnector: boolean;
+}
+
+export interface AdminLocationSummaryDto extends PublicLocationSummaryDto {
+  buildingId: UUID;
+  floorId: UUID | null;
+  locationTypeId: UUID;
+  floorNormX: number | null;
+  floorNormY: number | null;
+  floorPolygonNorm: NormCoord2D[] | null;
+  primaryNodeId: UUID | null;
+  createdAt: ISO8601Timestamp;
+  updatedAt: ISO8601Timestamp;
+}
+
+export interface AdminLocationMediaLinkDto {
+  id: UUID;
+  mediaAssetId: UUID;
+  sortOrder: number;
+  isCover: boolean;
+  caption: string | null;
+  url: string | null;
+  thumbUrl: string | null;
+}
+
+export interface AdminLocationDetailDto extends AdminLocationSummaryDto {
+  mediaLinks: AdminLocationMediaLinkDto[];
+  tourNodes: Array<{
+    id: UUID;
+    slug: string;
+    title: string;
+    status: PublishStatus;
+  }>;
+}
+
+export interface LocationMediaLinkItemInput {
+  mediaAssetId: UUID;
+  sortOrder: number;
+  isCover?: boolean;
+  caption?: string | null;
+}
+
+export interface UpdateLocationMediaInput {
+  items: LocationMediaLinkItemInput[];
 }

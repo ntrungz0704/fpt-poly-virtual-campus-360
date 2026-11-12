@@ -26,7 +26,7 @@ export default function LoginStatusPage() {
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
             shield_lock
           </span>
-          <span>Auth chờ Phase 3</span>
+          <span>Chờ kết nối Phase 2B</span>
         </span>
       </header>
 
@@ -43,16 +43,16 @@ export default function LoginStatusPage() {
                 {OFFICIAL_CAMPUS_INFO.shortName} · {OFFICIAL_CAMPUS_INFO.campusLabel}
               </p>
               <h1 className="type-h2 text-on-surface">
-                Hệ thống Đăng nhập &amp; Xác thực chưa được triển khai
+                Cổng Đăng nhập đang chờ tích hợp giao diện (Phase 2B)
               </h1>
             </div>
           </div>
 
           <p className="type-body-sm text-secondary leading-relaxed">
-            Trong phiên bản MVP hiện tại, nền tảng tập trung vào trải nghiệm công khai không cần đăng nhập
+            Trong bản xem trước hiện tại, nền tảng tập trung vào trải nghiệm công khai không cần đăng nhập
             (<strong>Tham quan 360°</strong>, <strong>Bản đồ GIS</strong> và <strong>Thông tin Địa điểm</strong>).
-            Cơ chế xác thực thực tế ở phía máy chủ (Server Auth, Session bảo mật và phân quyền RBAC) sẽ được
-            xây dựng trong <strong>Backend Phase 3</strong>.
+            API xác thực phía máy chủ đã hoàn thiện ở Backend; giao diện biểu mẫu đăng nhập và kích hoạt tài khoản
+            sẽ được nối trong <strong>Phase 2B</strong>.
           </p>
 
           <div className="rounded-xl border border-outline-variant bg-surface-container-low p-4 space-y-3 text-sm text-on-surface">
@@ -70,9 +70,9 @@ export default function LoginStatusPage() {
                 mark_email_read
               </span>
               <p className="text-secondary leading-relaxed">
-                <strong className="text-on-surface">Tài khoản Quản trị &amp; Open Day:</strong> Quy trình cấp tài khoản
-                nhân sự và kích hoạt tài khoản tham dự Open Day (liên kết dùng một lần / lời mời Email-SMS) sẽ được
-                mở sau khi Backend Auth hoàn tất.
+                <strong className="text-on-surface">Tài khoản Khách tham dự, Sinh viên &amp; Nhân sự:</strong> Quy trình
+                kích hoạt tài khoản tham dự Open Day (liên kết dùng một lần) và đăng nhập chung một cổng cho khách hàng,
+                sinh viên lẫn cán bộ quản lý sẽ được mở khi kết nối giao diện <strong>Phase 2B</strong>.
               </p>
             </div>
             <div className="flex items-start gap-2.5">

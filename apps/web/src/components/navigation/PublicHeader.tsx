@@ -101,9 +101,9 @@ export function PublicHeader() {
               }`}
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[17px]">
-                admin_panel_settings
+                login
               </span>
-              <span>Quản trị</span>
+              <span>Đăng nhập</span>
             </Link>
           </nav>
 
@@ -116,9 +116,9 @@ export function PublicHeader() {
               }`}
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[17px]">
-                admin_panel_settings
+                login
               </span>
-              <span>Quản trị</span>
+              <span>Đăng nhập</span>
             </Link>
             <button
               type="button"
@@ -184,9 +184,9 @@ export function PublicHeader() {
                   className="mt-2 ui-btn ui-btn-primary min-h-[44px] w-full justify-center"
                 >
                   <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
-                    admin_panel_settings
+                    login
                   </span>
-                  <span>Quản trị</span>
+                  <span>Đăng nhập</span>
                 </Link>
               </nav>
             </div>

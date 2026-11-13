@@ -1301,14 +1301,14 @@ async function seed() {
         data: {
           username: "admin",
           fullName: "Quản trị viên Hệ thống",
-          email: "admin@fpt.edu.vn",
+          email: "admin@poly.edu.vn",
           phone: null,
           userType: "ADMIN",
           accountStatus: "ACTIVE",
           activationStatus: "ACTIVATED",
           provisioningMethod: "BOOTSTRAP",
           passwordHash: bootstrapPasswordHash!,
-          mustChangePassword: true,
+          mustChangePassword: false,
         },
       });
       adminCreated = true;
@@ -1318,7 +1318,7 @@ async function seed() {
         where: { id: adminUser.id },
         data: {
           fullName: "Quản trị viên Hệ thống",
-          email: "admin@fpt.edu.vn",
+          email: "admin@poly.edu.vn",
           userType: "ADMIN",
         },
       });

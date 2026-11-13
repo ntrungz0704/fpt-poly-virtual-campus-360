@@ -163,15 +163,13 @@ pnpm dev
 
 ---
 
-## 🔑 Tài Khoản Thử Nghiệm Mặc Định (Seed Test Accounts)
+## 🔑 Tài Khoản Quản Trị Hệ Thống (Single Super Admin)
 
 | Vai trò (Role) | Tên đăng nhập / Email | Mật khẩu mặc định | Ghi chú |
 |---|---|---|---|
-| **Super Admin** | `admin@poly.edu.vn` | `Admin@123456` | Toàn quyền truy cập `/admin/*` |
-| **Event Operator** | `operator@poly.edu.vn` | `Admin@123456` | Quản lý sự kiện Open Day & Check-in |
-| **Content Staff** | `staff@poly.edu.vn` | `Admin@123456` | Quản trị tin tức & nội dung địa điểm |
-| **Student** | `student1@poly.edu.vn` | `Student@123456` | Đăng nhập Portal `/portal` (Không vào được `/admin`) |
-| **First-Login User** | `firstlogin@poly.edu.vn`| `Temp@123456` | Bắt buộc chuyển hướng đến `/change-password` |
+| **Super Admin** | `admin@poly.edu.vn` (hoặc `admin`) | `Admin@123456` | Toàn quyền quản trị hệ thống `/admin/*` |
+
+> Khách tham quan, học sinh và phụ huynh có thể tự do trải nghiệm Tour 360°, Bản đồ GIS, Địa điểm và Đăng ký tham gia Open Day nhận vé QR mà không cần tài khoản nội bộ.
 
 ---
 

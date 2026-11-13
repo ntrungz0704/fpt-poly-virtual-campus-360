@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 const WEB_BASE = "http://localhost:3000";
 const API_BASE = "http://localhost:4000/api/v1";
-const ADMIN_PASSWORD = process.env.ADMIN_BOOTSTRAP_PASSWORD || "FptPolyAdmin#3a57daac6fe4b4e161025e86";
+const ADMIN_PASSWORD = process.env.ADMIN_BOOTSTRAP_PASSWORD || "Admin@123456";
 
 function attachErrorCollector(page: Page) {
   const pageErrors: string[] = [];

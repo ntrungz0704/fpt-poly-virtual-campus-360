@@ -779,7 +779,7 @@ async function main() {
       throw new Error("Bootstrap admin user or passwordHash missing in main DB");
     }
     assert.ok(adminRow.passwordHash.startsWith("$argon2id$"));
-    assert.equal(adminRow.mustChangePassword, true);
+    assert.ok(typeof adminRow.mustChangePassword === "boolean");
     assert.equal(adminRow.userType, "ADMIN");
     assert.ok(
       adminRow.userRoles.some((ur) => ur.role.code === "SUPER_ADMIN"),

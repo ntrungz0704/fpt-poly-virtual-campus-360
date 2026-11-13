@@ -6,12 +6,15 @@ import {
   SpotlightCard,
 } from "@/components/animations";
 import Image from "next/image";
-import { CAMPUS_LOCATIONS } from "@/data/campus-data";
+import { CAMPUS_LOCATIONS, type CampusLocationItem } from "@/data/campus-data";
+import {
+  fetchPublicLocationBySlug,
+  fetchPublicLocations,
+  mapPublicLocationToItem,
+} from "@/lib/public/public-api";
 import { Badge, NotFoundState } from "@/components/ui";
 
-export function generateStaticParams() {
-  return CAMPUS_LOCATIONS.map((loc) => ({ slug: loc.slug }));
-}
+export const dynamic = "force-dynamic";
 
 interface LocationDetailPageProps {
   params: Promise<{ slug: string }>;
@@ -21,7 +24,19 @@ export default async function LocationDetailPage({
   params,
 }: LocationDetailPageProps) {
   const { slug } = await params;
-  const location = CAMPUS_LOCATIONS.find((item) => item.slug === slug);
+
+  let location: CampusLocationItem | null = null;
+  let related: CampusLocationItem[] = [];
+
+  try {
+    const detailDto = await fetchPublicLocationBySlug(slug);
+    if (detailDto) {
+      location = mapPublicLocationToItem(detailDto);
+    }
+  } catch {
+    // Graceful fallback to local registry if API server is temporarily unreachable
+    location = CAMPUS_LOCATIONS.find((item) => item.slug === slug) ?? null;
+  }
 
   if (!location) {
     return (
@@ -38,9 +53,19 @@ export default async function LocationDetailPage({
     );
   }
 
-  const related = CAMPUS_LOCATIONS.filter(
-    (item) => item.slug !== location.slug && item.status === "published"
-  ).slice(0, 3);
+  try {
+    const allLocations = await fetchPublicLocations();
+    if (allLocations && allLocations.length > 0) {
+      related = allLocations
+        .filter((item) => item.slug !== slug)
+        .slice(0, 3)
+        .map(mapPublicLocationToItem);
+    }
+  } catch {
+    related = CAMPUS_LOCATIONS.filter(
+      (item) => item.slug !== location.slug && item.status === "published"
+    ).slice(0, 3);
+  }
 
   return (
     <div className="bg-surface min-h-screen py-8 sm:py-12">

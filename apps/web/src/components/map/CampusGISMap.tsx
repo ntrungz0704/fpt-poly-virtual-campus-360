@@ -9,12 +9,19 @@ import {
   BuildingCode,
   CAMPUS_BUILDINGS,
   CampusBuildingItem,
+  CampusGeoPoint,
+  CampusLandmarkItem,
   computeRouteDistanceMeters,
   formatDistanceEstimate,
   haversineDistanceMeters,
   QTSC_LANDMARKS,
   QTSC_ORIGIN_POINT,
 } from "@/data/campus-data";
+import {
+  fetchPublicCampus,
+  mapPublicBuildingToCampusItem,
+} from "@/lib/public/public-api";
+import type { PublicCampusResponseDto } from "@fpt-campus/shared";
 import { SearchInput } from "@/components/ui";
 import { BuildingDetailDrawer } from "./BuildingDetailDrawer";
 import {
@@ -125,15 +132,48 @@ export function CampusGISMap({
   const [mapReady, setMapReady] = useState<boolean>(false);
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const [campusData, setCampusData] = useState<PublicCampusResponseDto | null>(null);
   const leafletRef = useRef<typeof LeafletNS | null>(null);
   const mapRef = useRef<LeafletNS.Map | null>(null);
   const layersGroupRef = useRef<LeafletNS.LayerGroup | null>(null);
   const buildingMarkersRef = useRef<Map<BuildingCode, LeafletNS.Marker>>(new Map());
   const routeLayerRef = useRef<LeafletNS.Polyline | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchPublicCampus();
+        if (!cancelled && res) {
+          setCampusData(res);
+        }
+      } catch {
+        // Fallback to static registry on network/server error
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const buildings = useMemo<CampusBuildingItem[]>(() => {
+    if (campusData?.buildings && campusData.buildings.length > 0) {
+      return campusData.buildings.map(mapPublicBuildingToCampusItem);
+    }
+    return CAMPUS_BUILDINGS;
+  }, [campusData]);
+
+  const campusOrigin = useMemo<CampusGeoPoint>(() => {
+    return campusData?.campus.originPoint ?? QTSC_ORIGIN_POINT;
+  }, [campusData]);
+
+  const landmarks = useMemo<CampusLandmarkItem[]>(() => {
+    return campusData?.campus.landmarks ?? QTSC_LANDMARKS;
+  }, [campusData]);
+
   const filteredBuildings = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return CAMPUS_BUILDINGS.filter((b) => {
+    return buildings.filter((b) => {
       const catOk = activeCategory === "all" || b.category === activeCategory;
       const textOk =
         !q ||
@@ -143,7 +183,7 @@ export function CampusGISMap({
         b.addressNote.toLowerCase().includes(q);
       return catOk && textOk;
     });
-  }, [activeCategory, searchQuery]);
+  }, [buildings, activeCategory, searchQuery]);
 
   const activeBuilding = useMemo(() => {
     if (filteredBuildings.length > 0) {
@@ -153,10 +193,10 @@ export function CampusGISMap({
       );
     }
     return (
-      CAMPUS_BUILDINGS.find((b) => b.code === selectedCode) ??
-      CAMPUS_BUILDINGS[0]
+      buildings.find((b) => b.code === selectedCode) ??
+      buildings[0]
     );
-  }, [filteredBuildings, selectedCode]);
+  }, [buildings, filteredBuildings, selectedCode]);
 
   const activeOrigin = useMemo(() => {
     if (gpsStatus === "active" && gpsOrigin) {
@@ -168,12 +208,12 @@ export function CampusGISMap({
       };
     }
     return {
-      lat: QTSC_ORIGIN_POINT.lat,
-      lng: QTSC_ORIGIN_POINT.lng,
-      label: QTSC_ORIGIN_POINT.label,
+      lat: campusOrigin.lat,
+      lng: campusOrigin.lng,
+      label: campusOrigin.label,
       usingGps: false,
     };
-  }, [gpsOrigin, gpsStatus]);
+  }, [campusOrigin, gpsOrigin, gpsStatus]);
 
   const activeRoutePoints = useMemo<[number, number][]>(() => {
     if (activeOrigin.usingGps) {
@@ -204,8 +244,8 @@ export function CampusGISMap({
       if (!L || !map) return;
 
       const points: [number, number][] = [
-        [QTSC_ORIGIN_POINT.lat, QTSC_ORIGIN_POINT.lng],
-        ...CAMPUS_BUILDINGS.map((b): [number, number] => [b.lat, b.lng]),
+        [campusOrigin.lat, campusOrigin.lng],
+        ...buildings.map((b): [number, number] => [b.lat, b.lng]),
       ];
       if (includeGpsOrigin && gpsOrigin) {
         points.push([gpsOrigin.lat, gpsOrigin.lng]);
@@ -218,7 +258,7 @@ export function CampusGISMap({
         maxZoom: 17,
       });
     },
-    [gpsOrigin],
+    [buildings, campusOrigin, gpsOrigin],
   );
 
   // Initialize Leaflet map instance (client-only)
@@ -257,8 +297,8 @@ export function CampusGISMap({
       });
 
       const initialPoints: [number, number][] = [
-        [QTSC_ORIGIN_POINT.lat, QTSC_ORIGIN_POINT.lng],
-        ...CAMPUS_BUILDINGS.map((b): [number, number] => [b.lat, b.lng]),
+        [campusOrigin.lat, campusOrigin.lng],
+        ...buildings.map((b): [number, number] => [b.lat, b.lng]),
       ];
       const w = window.innerWidth;
       map.fitBounds(L.latLngBounds(initialPoints), {
@@ -279,6 +319,8 @@ export function CampusGISMap({
         markersMap.clear();
       }
     };
+    // Leaflet map instance is instantiated once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Re-render markers, landmarks, dashed route polyline & desktop FixNear popup reactively
@@ -310,7 +352,7 @@ export function CampusGISMap({
     }).addTo(group);
 
     // 2. Traffic landmarks (e.g. Cầu vượt Quang Trung)
-    for (const lm of QTSC_LANDMARKS) {
+    for (const lm of landmarks) {
       L.marker([lm.lat, lm.lng], {
         icon: L.divIcon({
           className: "qtsc-div-icon",
@@ -415,6 +457,7 @@ export function CampusGISMap({
     activeOrigin,
     activeRoutePoints,
     filteredBuildings,
+    landmarks,
     mapReady,
     router,
   ]);

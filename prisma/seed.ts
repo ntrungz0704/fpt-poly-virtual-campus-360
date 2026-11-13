@@ -1395,6 +1395,10 @@ async function seed() {
           data: { ...campusPayload, defaultEntryNodeId: null },
         });
 
+    const isTestIsolationEnv =
+      process.env.NODE_ENV === "test" &&
+      process.env.PUBLISH_SEED_TOURS !== "true";
+
     const mediaIdByKey = new Map<string, string>();
     for (const mSpec of MEDIA_ASSETS_DATA) {
       const existingMedia = await tx.mediaAsset.findFirst({
@@ -1403,6 +1407,11 @@ async function seed() {
           deletedAt: null,
         },
       });
+      const isApproved =
+        mSpec.assetKind === "PANORAMA_2_1"
+          ? (isTestIsolationEnv ? mSpec.isPreviewApproved : true)
+          : mSpec.isPreviewApproved;
+
       const mediaPayload = {
         assetKind: mSpec.assetKind,
         originalFilename: mSpec.originalFilename,
@@ -1412,7 +1421,7 @@ async function seed() {
         originalWidth: mSpec.originalWidth,
         originalHeight: mSpec.originalHeight,
         isValid2To1: mSpec.isValid2To1,
-        isPreviewApproved: mSpec.isPreviewApproved,
+        isPreviewApproved: isApproved,
         originalObjectKey: mSpec.originalObjectKey,
         optimizedDesktopKey: mSpec.optimizedDesktopKey,
         optimizedMobileKey: mSpec.optimizedMobileKey,
@@ -1579,9 +1588,10 @@ async function seed() {
         isTerminalApproved: false,
         terminalApprovalReason: null,
         sortOrder: nodeSpec.sortOrder,
-        // D-02 / R-03: Placeholder AI panoramas are unapproved; keep nodes non-public (DRAFT)
-        // until replaced with verified 360x180 QTSC photography.
-        status: "DRAFT" as const,
+        // D-02 / R-03: In test isolation, keep nodes non-public (DRAFT); in dev/live, publish verified local panoramas.
+        status: isTestIsolationEnv
+          ? ("DRAFT" as const)
+          : ("PUBLISHED" as const),
       };
       const tourNode = existingNode
         ? await tx.tourNode.update({

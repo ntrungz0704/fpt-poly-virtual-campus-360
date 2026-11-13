@@ -1,12 +1,17 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   BuildingCode,
   CAMPUS_BUILDINGS,
   CAMPUS_LOCATIONS,
+  CampusLocationItem,
   LocationCategoryKey,
 } from "@/data/campus-data";
+import {
+  fetchPublicLocations,
+  mapPublicLocationToItem,
+} from "@/lib/public/public-api";
 import { EmptyState } from "@/components/ui";
 import { AnimatedContent, SpotlightCard } from "@/components/animations";
 import { LocationCard } from "./LocationCard";
@@ -37,10 +42,33 @@ export function LocationsExplorer({ initialBuildingParam }: LocationsExplorerPro
     resolveInitialBuilding(initialBuildingParam)
   );
 
-  const publishedLocations = useMemo(
-    () => CAMPUS_LOCATIONS.filter((loc) => loc.status === "published"),
-    []
-  );
+  const [locations, setLocations] = useState<CampusLocationItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setIsLoading(true);
+      try {
+        const dtos = await fetchPublicLocations();
+        if (!cancelled && dtos) {
+          setLocations(dtos.map(mapPublicLocationToItem));
+        }
+      } catch {
+        if (!cancelled) {
+          // Fallback to static registry on network/server error
+          setLocations(CAMPUS_LOCATIONS.filter((loc) => loc.status === "published"));
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const publishedLocations = locations;
 
   const filteredLocations = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -79,7 +107,12 @@ export function LocationsExplorer({ initialBuildingParam }: LocationsExplorerPro
 
       {/* Stable height stage prevents footer jumping when filter narrows results */}
       <div className="min-h-[520px] sm:min-h-[700px] lg:min-h-[846px] flex flex-col">
-        {filteredLocations.length === 0 ? (
+        {isLoading && locations.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center py-16 gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm font-medium text-secondary">Đang tải danh mục không gian từ máy chủ...</p>
+          </div>
+        ) : filteredLocations.length === 0 ? (
           <div className="flex-1 flex items-center justify-center py-8">
             <EmptyState
               icon="search_off"

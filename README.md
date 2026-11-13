@@ -56,11 +56,11 @@ Hệ thống được phát triển theo mô hình **Monorepo** chuẩn mực v�
 
 ## ✨ Tính Năng Nổi Bật (Key Features)
 
-### 1. 🌐 Trải Nghiệm Khám Phá Nhập Vai (Public & Immersive Experience)
-- **Tham quan 360° WebGL (`/campus`):** Trình xem ảnh panorama toàn cảnh tỷ lệ chuẩn 2:1 dựng trên nền WebGL Three.js, hỗ trợ xoay góc nhìn 360° × 180°, chuyển đổi giữa các tầng, tòa nhà và tương tác hotspot.
-- **Bản đồ GIS Khuôn viên (`/map`):** Bản đồ tương tác định vị chuẩn tọa độ WGS-84, phân tầng không gian (Tòa Innovation, Tòa T, Hội trường, Thư viện, Khu thể thao), tính toán khoảng cách đi bộ và thời gian di chuyển thực tế từ Cổng QTSC.
-- **Danh mục Địa điểm & Cơ sở vật chất (`/locations`, `/locations/[slug]`):** Phân loại theo chuyên khoa (Lab CNTT, Studio Đồ họa & iMac, Thư viện số, Hội trường), xem chi tiết phòng, sức chứa và thiết bị.
-- **Cổng Sự kiện Open Day (`/events`, `/games`):** Xem lịch trình chi tiết sự kiện tham quan trường học, tham gia Mini-game Quiz định hướng nghề nghiệp và xác thực điểm số trực tiếp từ máy chủ.
+### 1. 🌐 Trải Nghiệm Khám Phá Nhập Vai (Public & Immersive Experience — Milestone M3B)
+- **Tham quan 360° WebGL (`/campus`):** Kết nối trực tiếp `GET /api/v1/public/tour/nodes` và `GET /api/v1/public/tour/nodes/:slug`. Trình xem ảnh panorama toàn cảnh tỷ lệ chuẩn 2:1 dựng trên nền WebGL Three.js, hỗ trợ xoay góc nhìn 360° × 180°, chuyển đổi giữa các tầng, tòa nhà và tương tác hotspot thời gian thực với dữ liệu từ PostgreSQL.
+- **Bản đồ GIS Khuôn viên (`/map`):** Kết nối trực tiếp `GET /api/v1/public/campus` và `GET /api/v1/public/buildings/:slug`. Bản đồ tương tác định vị chuẩn tọa độ WGS-84, phân tầng không gian (Tòa Innovation, Tòa T, Tòa F, Tòa P, Khu thể thao), tính toán khoảng cách đi bộ và thời gian di chuyển thực tế từ Cổng QTSC.
+- **Danh mục Địa điểm & Cơ sở vật chất (`/locations`, `/locations/[slug]`):** Kết nối trực tiếp `GET /api/v1/public/locations` và `GET /api/v1/public/locations/:slug`. Phân loại theo chuyên khoa (Lab CNTT, Studio Đồ họa & iMac, Thư viện số, Hội trường), xem chi tiết phòng, bộ sưu tập ảnh và liên kết trực tiếp sang góc nhìn 360°.
+- **Cổng Sự kiện Open Day (`/events`, `/games`):** Kết nối trực tiếp `GET /api/v1/public/events` và `POST /api/v1/public/quiz/verify`. Xem lịch trình chi tiết sự kiện tham quan trường học, tham gia Mini-game Quiz định hướng nghề nghiệp và xác thực điểm số trực tiếp từ máy chủ.
 
 ### 2. 🔐 Hệ Thống Xác Thực & Phân Quyền Bảo Mật Doanh Nghiệp (Enterprise Auth & RBAC)
 - **Kiến trúc Dual-Token an toàn cao:**
@@ -112,7 +112,7 @@ fpt-poly-virtual-campus-360/
 │       └── src/
 │           ├── app/              # Routes: (public), (auth), (portal), admin
 │           ├── components/       # AuthProvider, ProtectedRoute, 360 Viewer, GIS Map
-│           └── lib/              # Auth routing, api-client, session management
+│           └── lib/              # Auth routing, api-client, public-api, session management
 ├── packages/
 │   └── shared/                   # Gói hợp đồng dùng chung @fpt-campus/shared
 │       └── src/                  # DTOs, Enums, Roles, Error codes, API contracts

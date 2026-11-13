@@ -490,6 +490,12 @@ model User {
   quizAttempts            QuizAttempt[]
   xpLedgers               XpLedger[]
   userSpinHistories       UserSpinHistory[]
+  studentCode             String?                      @map("student_code") @db.VarChar(32)
+  major                   String?                      @map("major") @db.VarChar(120)
+  avatarUrl               String?                      @map("avatar_url") @db.VarChar(512)
+  bio                     String?                      @db.VarChar(500)
+  parentLinks             ParentStudentLink[]          @relation("ParentLinks")
+  studentLinks            ParentStudentLink[]          @relation("StudentLinks")
 
   @@map("users")
 }
@@ -846,3 +852,33 @@ model UserSpinHistory {
   @@index([userId], map: "idx_user_spin_histories_user_id")
   @@map("user_spin_histories")
 }
+
+// ============================================================================
+// 3.7 Parent - Student Portal Domain (M4)
+// ============================================================================
+
+enum LinkStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model ParentStudentLink {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  parentId     String     @map("parent_id") @db.Uuid
+  studentId    String     @map("student_id") @db.Uuid
+  status       LinkStatus @default(PENDING)
+  relationship String?    @db.VarChar(64)
+  notes        String?    @db.VarChar(255)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  parent  User @relation("ParentLinks", fields: [parentId], references: [id], onDelete: Cascade)
+  student User @relation("StudentLinks", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, studentId])
+  @@index([parentId], map: "idx_parent_student_links_parent_id")
+  @@index([studentId], map: "idx_parent_student_links_student_id")
+  @@map("parent_student_links")
+}
+

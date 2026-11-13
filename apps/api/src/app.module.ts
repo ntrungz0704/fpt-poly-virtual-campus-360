@@ -21,6 +21,7 @@ import { MediaModule } from "./modules/media/media.module";
 import { OpenDayModule } from "./modules/open-day/open-day.module";
 import { PublicModule } from "./modules/public/public.module";
 import { GamificationModule } from "./modules/gamification/gamification.module";
+import { PortalModule } from "./modules/portal/portal.module";
 import { StorageModule } from "./modules/storage/storage.module";
 import { UsersRbacModule } from "./modules/users-rbac/users-rbac.module";
 
@@ -45,6 +46,7 @@ import { UsersRbacModule } from "./modules/users-rbac/users-rbac.module";
     OpenDayModule,
     PublicModule,
     GamificationModule,
+    PortalModule,
   ],
   providers: [
     {

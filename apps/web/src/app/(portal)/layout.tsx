@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { canAccessAdmin, getPrimaryRoleLabel } from "@/lib/auth/auth-routing";
+import { PortalNavTabs } from "@/components/portal/PortalNavTabs";
 
 function PortalShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -103,7 +104,10 @@ function PortalShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 w-full ui-container py-6 sm:py-8">{children}</main>
+      <main className="flex-1 w-full ui-container py-6 sm:py-8 space-y-6">
+        <PortalNavTabs />
+        <div>{children}</div>
+      </main>
     </div>
   );
 }

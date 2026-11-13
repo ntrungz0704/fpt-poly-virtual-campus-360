@@ -20,6 +20,7 @@ import { HealthModule } from "./modules/health/health.module";
 import { MediaModule } from "./modules/media/media.module";
 import { OpenDayModule } from "./modules/open-day/open-day.module";
 import { PublicModule } from "./modules/public/public.module";
+import { GamificationModule } from "./modules/gamification/gamification.module";
 import { StorageModule } from "./modules/storage/storage.module";
 import { UsersRbacModule } from "./modules/users-rbac/users-rbac.module";
 
@@ -43,6 +44,7 @@ import { UsersRbacModule } from "./modules/users-rbac/users-rbac.module";
     HealthModule,
     OpenDayModule,
     PublicModule,
+    GamificationModule,
   ],
   providers: [
     {

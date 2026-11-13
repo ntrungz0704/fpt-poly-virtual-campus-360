@@ -52,6 +52,9 @@ export function PublicFooter() {
               <Link href="/events" className="hover:text-white transition-colors py-0.5">
                 Lịch trình Open Day
               </Link>
+              <Link href="/games" className="hover:text-white transition-colors py-0.5">
+                Thử thách Quiz & Vòng quay
+              </Link>
               <Link href="/about" className="hover:text-white transition-colors py-0.5">
                 Giới thiệu trải nghiệm
               </Link>

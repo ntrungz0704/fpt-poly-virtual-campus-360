@@ -1830,6 +1830,95 @@ async function seed() {
       }
     }
 
+    // M3D: Seed Spin Wheel Reward Configs
+    const existingRewardsCount = await tx.spinRewardConfig.count();
+    if (existingRewardsCount === 0) {
+      const defaultSpinRewards = [
+        {
+          label: "50 XP Poly",
+          rewardType: "XP",
+          amountXp: 50,
+          probabilityWeight: 25,
+          colorHex: "#F27024",
+          icon: "bolt",
+          sortOrder: 1,
+        },
+        {
+          label: "Áo thun FPT Poly",
+          rewardType: "GIFT",
+          amountXp: 150,
+          probabilityWeight: 10,
+          colorHex: "#1E3A8A",
+          icon: "checkroom",
+          stockQuantity: 50,
+          remainingQuantity: 50,
+          sortOrder: 2,
+        },
+        {
+          label: "100 XP Thần Tốc",
+          rewardType: "XP",
+          amountXp: 100,
+          probabilityWeight: 20,
+          colorHex: "#059669",
+          icon: "military_tech",
+          sortOrder: 3,
+        },
+        {
+          label: "Bình giữ nhiệt Poly",
+          rewardType: "GIFT",
+          amountXp: 120,
+          probabilityWeight: 10,
+          colorHex: "#7C3AED",
+          icon: "water_bottle",
+          stockQuantity: 50,
+          remainingQuantity: 50,
+          sortOrder: 4,
+        },
+        {
+          label: "Huy hiệu Poly 360",
+          rewardType: "BADGE",
+          amountXp: 40,
+          probabilityWeight: 15,
+          colorHex: "#D97706",
+          icon: "shield",
+          sortOrder: 5,
+        },
+        {
+          label: "200 XP Siêu Cấp",
+          rewardType: "XP",
+          amountXp: 200,
+          probabilityWeight: 5,
+          colorHex: "#DC2626",
+          icon: "diamond",
+          sortOrder: 6,
+        },
+        {
+          label: "Sổ tay FPT Poly",
+          rewardType: "GIFT",
+          amountXp: 80,
+          probabilityWeight: 10,
+          colorHex: "#0891B2",
+          icon: "menu_book",
+          stockQuantity: 100,
+          remainingQuantity: 100,
+          sortOrder: 7,
+        },
+        {
+          label: "May mắn lần sau (+10 XP)",
+          rewardType: "LUCK_NEXT_TIME",
+          amountXp: 10,
+          probabilityWeight: 5,
+          colorHex: "#64748B",
+          icon: "sentiment_satisfied",
+          sortOrder: 8,
+        },
+      ];
+
+      for (const reward of defaultSpinRewards) {
+        await tx.spinRewardConfig.create({ data: reward });
+      }
+    }
+
     return {
       adminCreated,
       counts: {

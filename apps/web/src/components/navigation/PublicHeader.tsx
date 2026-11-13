@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/map", label: "Bản đồ GIS", icon: "map" },
   { href: "/locations", label: "Địa điểm", icon: "apartment" },
   { href: "/events", label: "Open Day", icon: "event" },
+  { href: "/games", label: "Thử thách & Quà", icon: "casino" },
 ];
 
 export function PublicHeader() {

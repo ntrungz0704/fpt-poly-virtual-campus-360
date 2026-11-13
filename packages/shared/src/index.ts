@@ -5,3 +5,4 @@ export * from "./location.js";
 export * from "./tour.js";
 export * from "./auth.js";
 export * from "./events.js";
+export * from "./gamification.js";

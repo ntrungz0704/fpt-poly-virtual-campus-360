@@ -77,10 +77,10 @@ function AdminShell({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      {/* Admin P0 Sidebar */}
+      {/* Admin P0 Sidebar - Pinned 100vh Sticky Viewport */}
       <aside
         aria-label="Thanh điều hướng Admin P0"
-        className={`fixed inset-y-0 left-0 z-50 lg:static bg-surface-container-lowest border-r border-surface-container transition-all duration-300 flex flex-col justify-between shrink-0 lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 lg:sticky lg:top-0 lg:h-screen lg:self-start bg-surface-container-lowest border-r border-surface-container transition-all duration-300 flex flex-col justify-between shrink-0 lg:translate-x-0 ${
           mobileDrawerOpen ? "translate-x-0 shadow-elevation-3" : "-translate-x-full lg:translate-x-0"
         } ${sidebarCollapsed ? "w-64 lg:w-20" : "w-64"}`}
       >

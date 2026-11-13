@@ -13,8 +13,24 @@ import {
 } from "@/components/ui";
 import { cn } from "@/lib/utils";
 
+function getInitialScenes(): TourSceneItem[] {
+  if (typeof window === "undefined") return TOUR_SCENES;
+  try {
+    const saved = localStorage.getItem("vc_admin_tour_scenes");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {
+    // Fallback to default
+  }
+  return TOUR_SCENES;
+}
+
 export default function AdminVirtualTourPage() {
-  const [scenes, setScenes] = useState<TourSceneItem[]>(TOUR_SCENES);
+  const [scenes, setScenes] = useState<TourSceneItem[]>(getInitialScenes);
   const [activeSceneId, setActiveSceneId] = useState<string>(TOUR_SCENES[0].id);
   const [selectedHotspotId, setSelectedHotspotId] = useState<string | null>(
     TOUR_SCENES[0].hotspots[0]?.id ?? null
@@ -23,6 +39,21 @@ export default function AdminVirtualTourPage() {
   const [toast, setToast] = useState({ open: false, message: "" });
 
   const stageRef = useRef<PanoramaStageHandle>(null);
+
+  const handleSaveTourConfiguration = () => {
+    try {
+      localStorage.setItem("vc_admin_tour_scenes", JSON.stringify(scenes));
+      setToast({
+        open: true,
+        message: "Đã lưu toàn bộ cấu hình Tour 360° & Hotspot thành công!",
+      });
+    } catch {
+      setToast({
+        open: true,
+        message: "Không thể lưu vào bộ nhớ cục bộ.",
+      });
+    }
+  };
 
   const activeScene = useMemo(
     () => scenes.find((s) => s.id === activeSceneId) ?? scenes[0],
@@ -155,12 +186,21 @@ export default function AdminVirtualTourPage() {
             Đặt làm góc nhìn mặc định
           </Button>
           <Button
-            variant="primary"
+            variant="outline"
             size="md"
             icon="add_location_alt"
             onClick={handleAddCenterHotspot}
           >
             Thêm hotspot ở tâm nhìn
+          </Button>
+          <Button
+            variant="primary"
+            size="md"
+            icon="save"
+            onClick={handleSaveTourConfiguration}
+            data-testid="save-tour-btn"
+          >
+            Lưu cấu hình Tour 360°
           </Button>
         </div>
       </div>
@@ -341,24 +381,44 @@ export default function AdminVirtualTourPage() {
                 />
               </div>
 
-              <div className="flex items-center justify-between gap-2 pt-1">
+              <div className="space-y-2 pt-2 border-t border-surface-container">
                 <Button
                   type="button"
-                  variant="danger"
+                  variant="primary"
                   size="sm"
-                  icon="delete"
-                  onClick={() => handleDeleteHotspot(selectedHotspot.id)}
+                  icon="save"
+                  className="w-full justify-center"
+                  onClick={() => {
+                    handleSaveTourConfiguration();
+                    setToast({
+                      open: true,
+                      message: `Đã lưu thông tin điểm ghim "${selectedHotspot.label}" thành công!`,
+                    });
+                  }}
+                  data-testid="save-hotspot-btn"
                 >
-                  Xóa
+                  Lưu điểm ghim này
                 </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedHotspotId(null)}
-                >
-                  Bỏ chọn
-                </Button>
+
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    icon="delete"
+                    onClick={() => handleDeleteHotspot(selectedHotspot.id)}
+                  >
+                    Xóa
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedHotspotId(null)}
+                  >
+                    Bỏ chọn
+                  </Button>
+                </div>
               </div>
             </div>
           ) : (

@@ -20,6 +20,7 @@ import {
   StatusToast,
   Textarea,
 } from "@/components/ui";
+import { resolveAutoImagePath, slugifyVietnamese } from "@/lib/slug-utils";
 
 export default function AdminLocationsPage() {
   const [locations, setLocations] = useState<CampusLocationItem[]>(CAMPUS_LOCATIONS);
@@ -130,10 +131,15 @@ export default function AdminLocationsPage() {
       );
       setToast({ open: true, message: `Đã cập nhật địa điểm "${formState.name}".` });
     } else {
-      const slugBase = formState.code.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      const generatedSlug =
+        slugifyVietnamese(formState.name) ||
+        formState.code.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      const autoSlug = `${generatedSlug}-${Date.now().toString().slice(-4)}`;
+      const autoImageUrl = resolveAutoImagePath(generatedSlug, "location");
+
       const created: CampusLocationItem = {
         id: `loc-${Date.now()}`,
-        slug: `${slugBase}-${Date.now().toString().slice(-4)}`,
+        slug: autoSlug,
         code: formState.code.trim(),
         name: formState.name.trim(),
         buildingCode: formState.buildingCode,
@@ -144,12 +150,12 @@ export default function AdminLocationsPage() {
         shortDesc: formState.shortDesc.trim() || "Không gian học tập tại CVPM Quang Trung.",
         description: formState.shortDesc.trim() || "Không gian học tập tại CVPM Quang Trung.",
         highlights: ["Đang cập nhật mô tả chi tiết"],
-        imageUrl: matchedBuilding?.imageUrl ?? "/images/locations/building-innovation.jpg",
+        imageUrl: autoImageUrl || matchedBuilding?.imageUrl || "/images/locations/building-innovation.jpg",
         sceneId: formState.sceneId || null,
         status: formState.status,
       };
       setLocations((prev) => [created, ...prev]);
-      setToast({ open: true, message: `Đã tạo địa điểm mới "${created.name}".` });
+      setToast({ open: true, message: `Đã tạo địa điểm mới "${created.name}" (Slug: ${autoSlug}).` });
     }
     setDrawerOpen(false);
   };

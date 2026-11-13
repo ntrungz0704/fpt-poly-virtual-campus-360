@@ -5,14 +5,12 @@ import type {
   CreateLinkRequest,
   ParentStudentDetailDto,
   ParentStudentSummaryDto,
-  StudentLinkRequestItemDto,
 } from "@fpt-campus/shared";
 import { Badge, Button, EmptyState, ErrorState, Input, LoadingState } from "@/components/ui";
 import { portalApi } from "@/lib/portal/portal-api";
 
 export default function ParentPortalPage() {
   const [students, setStudents] = useState<ParentStudentSummaryDto[]>([]);
-  const [incomingRequests, setIncomingRequests] = useState<StudentLinkRequestItemDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,12 +29,8 @@ export default function ParentPortalPage() {
 
   const reloadData = useCallback(async () => {
     try {
-      const [studentsData, incoming] = await Promise.all([
-        portalApi.getLinkedStudents(),
-        portalApi.getStudentLinkRequests(),
-      ]);
+      const studentsData = await portalApi.getLinkedStudents();
       setStudents(studentsData);
-      setIncomingRequests(incoming);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể tải dữ liệu Cổng Phụ huynh.");
     }
@@ -48,13 +42,9 @@ export default function ParentPortalPage() {
       try {
         setLoading(true);
         setError(null);
-        const [studentsData, incoming] = await Promise.all([
-          portalApi.getLinkedStudents(),
-          portalApi.getStudentLinkRequests(),
-        ]);
+        const studentsData = await portalApi.getLinkedStudents();
         if (!active) return;
         setStudents(studentsData);
-        setIncomingRequests(incoming);
       } catch (err) {
         if (!active) return;
         setError(err instanceof Error ? err.message : "Không thể tải dữ liệu Cổng Phụ huynh.");
@@ -94,14 +84,6 @@ export default function ParentPortalPage() {
     }
   };
 
-  const handleRespondRequest = async (linkId: string, action: "APPROVE" | "REJECT") => {
-    try {
-      await portalApi.respondLinkRequest(linkId, action);
-      void reloadData();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Xử lý yêu cầu thất bại.");
-    }
-  };
 
   const handleViewDetail = async (studentId: string) => {
     setSelectedStudentId(studentId);
@@ -165,48 +147,6 @@ export default function ParentPortalPage() {
         </div>
       )}
 
-      {/* Incoming requests for Student (if any) */}
-      {incomingRequests.filter((r) => r.status === "PENDING").length > 0 && (
-        <section className="rounded-2xl border border-amber-300 bg-amber-50/70 p-5 space-y-3">
-          <div className="flex items-center gap-2 text-amber-950 font-bold text-sm">
-            <span className="material-symbols-outlined text-[18px] text-amber-600">notifications_active</span>
-            <span>Yêu cầu liên kết từ Phụ huynh đang chờ bạn duyệt:</span>
-          </div>
-          <div className="space-y-2">
-            {incomingRequests
-              .filter((r) => r.status === "PENDING")
-              .map((req) => (
-                <div
-                  key={req.linkId}
-                  className="bg-white rounded-xl p-3.5 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs"
-                >
-                  <div>
-                    <p className="font-bold text-on-surface">{req.parentName}</p>
-                    <p className="text-secondary">
-                      Email: {req.parentEmail} · Quan hệ: {req.relationship || "Phụ huynh"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => handleRespondRequest(req.linkId, "APPROVE")}
-                    >
-                      Đồng ý
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleRespondRequest(req.linkId, "REJECT")}
-                    >
-                      Từ chối
-                    </Button>
-                  </div>
-                </div>
-              ))}
-          </div>
-        </section>
-      )}
 
       {/* Linked Students List */}
       <section className="space-y-4">

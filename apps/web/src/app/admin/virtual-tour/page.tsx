@@ -45,7 +45,8 @@ export default function AdminVirtualTourPage() {
       localStorage.setItem("vc_admin_tour_scenes", JSON.stringify(scenes));
       setToast({
         open: true,
-        message: "Đã lưu toàn bộ cấu hình Tour 360° & Hotspot thành công!",
+        message:
+          "Đã lưu bản nháp Tour 360° & Hotspot vào bộ nhớ trình duyệt (Local Draft). Lưu ý: Đây là bản nháp trên thiết bị này, chưa đồng bộ lên cơ sở dữ liệu.",
       });
     } catch {
       setToast({
@@ -200,7 +201,7 @@ export default function AdminVirtualTourPage() {
             onClick={handleSaveTourConfiguration}
             data-testid="save-tour-btn"
           >
-            Lưu cấu hình Tour 360°
+            Lưu bản nháp Tour 360°
           </Button>
         </div>
       </div>
@@ -392,12 +393,12 @@ export default function AdminVirtualTourPage() {
                     handleSaveTourConfiguration();
                     setToast({
                       open: true,
-                      message: `Đã lưu thông tin điểm ghim "${selectedHotspot.label}" thành công!`,
+                      message: `Đã lưu bản nháp điểm ghim "${selectedHotspot.label}" vào bộ nhớ trình duyệt cục bộ.`,
                     });
                   }}
                   data-testid="save-hotspot-btn"
                 >
-                  Lưu điểm ghim này
+                  Lưu bản nháp điểm ghim
                 </Button>
 
                 <div className="flex items-center justify-between gap-2 pt-1">

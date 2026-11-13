@@ -2,7 +2,12 @@ import { expect, test, type Page } from "@playwright/test";
 
 const WEB_BASE = "http://localhost:3000";
 const API_BASE = "http://localhost:4000/api/v1";
-const ADMIN_PASSWORD = process.env.ADMIN_BOOTSTRAP_PASSWORD || "Admin@123456";
+const ADMIN_PASSWORD = process.env.ADMIN_BOOTSTRAP_PASSWORD;
+if (!ADMIN_PASSWORD) {
+  throw new Error(
+    "ADMIN_BOOTSTRAP_PASSWORD environment variable is required to run E2E tests.",
+  );
+}
 
 function attachErrorCollector(page: Page) {
   const pageErrors: string[] = [];

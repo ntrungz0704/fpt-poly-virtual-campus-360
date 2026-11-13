@@ -14,7 +14,6 @@ import type {
   PortalTicketDto,
   StudentLinkRequestItemDto,
   StudentProfileDto,
-  UpdateStudentProfileRequest,
 } from "@fpt-campus/shared";
 import { PrismaService } from "../../common/adapters/prisma.service";
 import type { CreateLinkRequestDto, UpdateProfileDto } from "./dto/portal.dto";
@@ -22,6 +21,28 @@ import type { CreateLinkRequestDto, UpdateProfileDto } from "./dto/portal.dto";
 @Injectable()
 export class PortalService {
   constructor(private readonly prisma: PrismaService) {}
+
+  // ==========================================================================
+  // Helper: Claim unassigned tickets by verified email (Single Source of Truth)
+  // ==========================================================================
+  private async claimUnassignedTickets(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+    const normalizedEmail = user?.email?.trim().toLowerCase();
+    if (normalizedEmail) {
+      await this.prisma.eventParticipation.updateMany({
+        where: {
+          userId: null,
+          attendeeEmail: normalizedEmail,
+        },
+        data: {
+          userId,
+        },
+      });
+    }
+  }
 
   // ==========================================================================
   // 1. Student Profile
@@ -53,24 +74,26 @@ export class PortalService {
       });
     }
 
+    // Auto-claim any unassigned tickets matching verified email
+    await this.claimUnassignedTickets(userId);
+
+    const userTickets = await this.prisma.eventParticipation.findMany({
+      where: { userId },
+      select: { ticketCode: true },
+    });
+    const ticketCodes = userTickets.map((t) => t.ticketCode);
+
     const [xpAgg, ticketCount, parentCount] = await Promise.all([
       this.prisma.xpLedger.aggregate({
         where: {
           OR: [
             { userId },
-            ...(user.email ? [{ attendeeName: user.fullName }] : []),
+            ...(ticketCodes.length > 0 ? [{ ticketCode: { in: ticketCodes } }] : []),
           ],
         },
         _sum: { amountXp: true },
       }),
-      this.prisma.eventParticipation.count({
-        where: {
-          OR: [
-            { userId },
-            ...(user.email ? [{ attendeeEmail: user.email.toLowerCase() }] : []),
-          ],
-        },
-      }),
+      userTickets.length,
       this.prisma.parentStudentLink.count({
         where: { studentId: userId, status: "APPROVED" },
       }),
@@ -130,21 +153,12 @@ export class PortalService {
 
   async getTickets(
     userId: string,
-    userEmail: string | null,
+    _userEmail: string | null,
   ): Promise<PortalTicketDto[]> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true },
-    });
-    const effectiveEmail = (userEmail || user?.email)?.toLowerCase();
+    await this.claimUnassignedTickets(userId);
 
     const participations = await this.prisma.eventParticipation.findMany({
-      where: {
-        OR: [
-          { userId },
-          ...(effectiveEmail ? [{ attendeeEmail: effectiveEmail }] : []),
-        ],
-      },
+      where: { userId },
       include: {
         event: true,
       },
@@ -206,13 +220,9 @@ export class PortalService {
 
   async getSchedule(
     userId: string,
-    userEmail: string | null,
+    _userEmail: string | null,
   ): Promise<PortalScheduleItemDto[]> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true },
-    });
-    const effectiveEmail = (userEmail || user?.email)?.toLowerCase();
+    await this.claimUnassignedTickets(userId);
 
     const [allSessions, userTickets] = await Promise.all([
       this.prisma.openDaySession.findMany({
@@ -221,12 +231,7 @@ export class PortalService {
         orderBy: [{ sortOrder: "asc" }, { startTimeLabel: "asc" }],
       }),
       this.prisma.eventParticipation.findMany({
-        where: {
-          OR: [
-            { userId },
-            ...(effectiveEmail ? [{ attendeeEmail: effectiveEmail }] : []),
-          ],
-        },
+        where: { userId },
         select: { metadataJson: true },
       }),
     ]);
@@ -256,80 +261,121 @@ export class PortalService {
   }
 
   // ==========================================================================
-  // 3. Student Gamification & Progress
+  // 3. Student Gamification & Progress (Full DB Aggregation across all history)
   // ==========================================================================
 
   async getGamification(
     userId: string,
-    userEmail: string | null,
+    _userEmail: string | null,
   ): Promise<PortalProgressDto> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true, fullName: true },
-    });
-    const effectiveEmail = (userEmail || user?.email)?.toLowerCase();
+    await this.claimUnassignedTickets(userId);
 
     const tickets = await this.prisma.eventParticipation.findMany({
-      where: {
-        OR: [
-          { userId },
-          ...(effectiveEmail ? [{ attendeeEmail: effectiveEmail }] : []),
-        ],
-      },
+      where: { userId },
       select: { ticketCode: true },
     });
     const ticketCodes = tickets.map((t) => t.ticketCode);
 
-    const [xpLedgers, quizAttemptsCount, spinHistories] = await Promise.all([
-      this.prisma.xpLedger.findMany({
-        where: {
-          OR: [
-            { userId },
-            ...(ticketCodes.length > 0 ? [{ ticketCode: { in: ticketCodes } }] : []),
-          ],
-        },
-        orderBy: { createdAt: "desc" },
-        take: 10,
+    const filter: Prisma.XpLedgerWhereInput = {
+      OR: [
+        { userId },
+        ...(ticketCodes.length > 0 ? [{ ticketCode: { in: ticketCodes } }] : []),
+      ],
+    };
+
+    const spinFilter: Prisma.UserSpinHistoryWhereInput = {
+      OR: [
+        { userId },
+        ...(ticketCodes.length > 0 ? [{ ticketCode: { in: ticketCodes } }] : []),
+      ],
+    };
+
+    const quizFilter: Prisma.QuizAttemptWhereInput = {
+      OR: [
+        { userId },
+        ...(ticketCodes.length > 0 ? [{ ticketCode: { in: ticketCodes } }] : []),
+      ],
+    };
+
+    const [
+      xpAggregate,
+      totalSpinsUsed,
+      quizAttemptsCount,
+      recentXpLedgers,
+      recentSpins,
+      checkedInTicket,
+      passedQuiz,
+    ] = await Promise.all([
+      // 1. Full aggregation across ALL history (Task 2 / B2)
+      this.prisma.xpLedger.aggregate({
+        where: filter,
+        _sum: { amountXp: true },
       }),
+      // 2. Full count of spins used across ALL history
+      this.prisma.userSpinHistory.count({
+        where: spinFilter,
+      }),
+      // 3. Full count of quiz attempts
       this.prisma.quizAttempt.count({
-        where: {
-          OR: [
-            { userId },
-            ...(ticketCodes.length > 0 ? [{ ticketCode: { in: ticketCodes } }] : []),
-          ],
-        },
+        where: quizFilter,
       }),
-      this.prisma.userSpinHistory.findMany({
-        where: {
-          OR: [
-            { userId },
-            ...(ticketCodes.length > 0 ? [{ ticketCode: { in: ticketCodes } }] : []),
-          ],
-        },
+      // 4. Recent XP activity (capped at 10)
+      this.prisma.xpLedger.findMany({
+        where: filter,
         orderBy: { createdAt: "desc" },
         take: 10,
+      }),
+      // 5. Recent spins activity (capped at 10)
+      this.prisma.userSpinHistory.findMany({
+        where: spinFilter,
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+      // 6. Check-in status for bonus spin
+      this.prisma.eventParticipation.findFirst({
+        where: { userId, checkedInAt: { not: null } },
+      }),
+      // 7. Quiz passing status for bonus spin
+      this.prisma.quizAttempt.findFirst({
+        where: { ...quizFilter, scorePercent: { gte: 60 } },
       }),
     ]);
 
-    const totalXp = xpLedgers.reduce((acc, curr) => acc + curr.amountXp, 0);
-    const totalSpinsUsed = spinHistories.length;
-    // 1 base spin + 1 spin per 50 XP (max 5)
-    const totalEarnedSpins = Math.min(5, 1 + Math.floor(totalXp / 50));
-    const availableSpins = Math.max(0, totalEarnedSpins - totalSpinsUsed);
+    const totalXp = xpAggregate._sum.amountXp ?? 0;
+
+    // Gamification rule alignment with M3D:
+    // Base: 1 spin for having a valid ticket OR at least 1 quiz attempt
+    // Bonus +2 spins if checked in at event
+    // Bonus +1 spin if passed quiz (>= 60%)
+    // Bonus +1 spin per 100 XP
+    let earnedSpins = 0;
+    if (tickets.length > 0 || quizAttemptsCount > 0) {
+      earnedSpins += 1;
+    }
+    if (checkedInTicket) {
+      earnedSpins += 2;
+    }
+    if (passedQuiz) {
+      earnedSpins += 1;
+    }
+    earnedSpins += Math.floor(Math.max(0, totalXp) / 100);
+
+    const availableSpins = Math.max(0, earnedSpins - totalSpinsUsed);
+    const level = Math.floor(Math.max(0, totalXp) / 100) + 1;
 
     return {
       totalXp,
-      level: Math.floor(totalXp / 100) + 1,
-      rank: 1, // dynamically computed or top tier
+      level,
+      rank: 1,
       availableSpins,
       quizAttemptsCount,
-      recentXpLedgers: xpLedgers.map((l) => ({
+      recentXpLedgers: recentXpLedgers.map((l) => ({
         id: l.id,
         amountXp: l.amountXp,
         source: l.source,
         createdAt: l.createdAt.toISOString(),
       })),
-      recentSpins: spinHistories.map((s) => ({
+      recentSpins: recentSpins.map((s) => ({
         id: s.id,
         rewardLabel: s.rewardLabel,
         awardedXp: s.awardedXp,
@@ -389,11 +435,27 @@ export class PortalService {
       });
     }
 
+    if (link.status !== "PENDING") {
+      throw new BadRequestException({
+        code: "LINK_ALREADY_RESOLVED",
+        message: "Yêu cầu liên kết này đã được xử lý (APPROVED hoặc REJECTED), không thể sửa đổi.",
+      });
+    }
+
     const nextStatus: LinkStatus = action === "APPROVE" ? "APPROVED" : "REJECTED";
-    await this.prisma.parentStudentLink.update({
-      where: { id: link.id },
+
+    // Concurrency-safe atomic update
+    const updateResult = await this.prisma.parentStudentLink.updateMany({
+      where: { id: linkId, studentId, status: "PENDING" },
       data: { status: nextStatus },
     });
+
+    if (updateResult.count === 0) {
+      throw new BadRequestException({
+        code: "LINK_ALREADY_RESOLVED",
+        message: "Yêu cầu liên kết đã được xử lý trước đó hoặc không hợp lệ.",
+      });
+    }
 
     return { success: true, status: nextStatus };
   }
@@ -422,15 +484,24 @@ export class PortalService {
 
     const results: ParentStudentSummaryDto[] = [];
     for (const l of links) {
-      const [xpAgg, ticketCount] = await Promise.all([
-        this.prisma.xpLedger.aggregate({
-          where: { userId: l.student.id },
-          _sum: { amountXp: true },
-        }),
-        this.prisma.eventParticipation.count({
-          where: { userId: l.student.id },
-        }),
-      ]);
+      // B1 Requirement: Parent only views detailed XP and ticket counts of APPROVED students
+      const isApproved = l.status === "APPROVED";
+      let totalXp = 0;
+      let ticketCount = 0;
+
+      if (isApproved) {
+        const [xpAgg, count] = await Promise.all([
+          this.prisma.xpLedger.aggregate({
+            where: { userId: l.student.id },
+            _sum: { amountXp: true },
+          }),
+          this.prisma.eventParticipation.count({
+            where: { userId: l.student.id },
+          }),
+        ]);
+        totalXp = xpAgg._sum.amountXp ?? 0;
+        ticketCount = count;
+      }
 
       results.push({
         linkId: l.id,
@@ -441,9 +512,9 @@ export class PortalService {
         major: l.student.major,
         status: l.status as LinkStatus,
         relationship: l.relationship,
-        totalXp: xpAgg._sum.amountXp ?? 0,
+        totalXp,
         ticketsCount: ticketCount,
-        lastActive: l.student.lastLoginAt ? l.student.lastLoginAt.toISOString() : null,
+        lastActive: isApproved && l.student.lastLoginAt ? l.student.lastLoginAt.toISOString() : null,
       });
     }
 
@@ -510,6 +581,22 @@ export class PortalService {
       throw new BadRequestException({
         code: "CANNOT_LINK_SELF",
         message: "Tài khoản không thể tự liên kết với chính mình.",
+      });
+    }
+
+    // B1: Server-side validation of target user type
+    if (student.userType !== "STUDENT") {
+      throw new BadRequestException({
+        code: "INVALID_TARGET_USER_TYPE",
+        message: "Chỉ có thể gửi yêu cầu liên kết tới tài khoản sinh viên (STUDENT). Không được liên kết tới Quản trị viên, Cán bộ hoặc Phụ huynh.",
+      });
+    }
+
+    // B1: Server-side validation of target account status
+    if (student.accountStatus !== "ACTIVE") {
+      throw new BadRequestException({
+        code: "STUDENT_ACCOUNT_INACTIVE",
+        message: "Tài khoản sinh viên chưa được kích hoạt hoặc đã bị khóa.",
       });
     }
 

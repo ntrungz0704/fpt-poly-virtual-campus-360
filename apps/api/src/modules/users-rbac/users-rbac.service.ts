@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import {
   BadRequestException,
   ConflictException,
@@ -310,6 +311,10 @@ export class UsersRbacService {
           data: matchedEvents.map((event) => ({
             userId: user.id,
             eventId: event.id,
+            ticketCode: `OD26-INV-${crypto.randomBytes(4).toString("hex").toUpperCase()}`,
+            attendeeName: user.fullName,
+            attendeeEmail: user.email,
+            attendeePhone: user.phone,
             participationStatus: "INVITED",
             provisionedBy: actor.id,
           })),

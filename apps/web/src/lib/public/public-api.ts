@@ -1,4 +1,5 @@
 import type {
+  OpenDayTicketDto,
   PublicBuildingDetailDto,
   PublicBuildingDto,
   PublicCampusResponseDto,
@@ -10,6 +11,7 @@ import type {
   PublishStatus,
   QuizVerifyRequest,
   QuizVerifyResponse,
+  RegisterOpenDayInput,
   TourNodeSummaryDto,
 } from "@fpt-campus/shared";
 import { apiRequest } from "../auth/api-client";
@@ -136,6 +138,33 @@ export async function verifyPublicQuiz(
     body: dto,
     auth: false,
   });
+}
+
+/**
+ * Register attendee for Open Day event (M3C).
+ * POST /api/v1/public/events/register
+ */
+export async function registerPublicOpenDay(
+  input: RegisterOpenDayInput,
+): Promise<OpenDayTicketDto> {
+  return apiRequest<OpenDayTicketDto>("/public/events/register", {
+    method: "POST",
+    body: input,
+    auth: false,
+  });
+}
+
+/**
+ * Lookup registered ticket by unique ticket code (M3C).
+ * GET /api/v1/public/events/tickets/:ticketCode
+ */
+export async function fetchPublicTicketByCode(
+  ticketCode: string,
+): Promise<OpenDayTicketDto> {
+  return apiRequest<OpenDayTicketDto>(
+    `/public/events/tickets/${encodeURIComponent(ticketCode.trim().toUpperCase())}`,
+    { auth: false },
+  );
 }
 
 // ============================================================================

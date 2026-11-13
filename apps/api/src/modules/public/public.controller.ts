@@ -10,6 +10,7 @@ import {
 } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import type {
+  OpenDayTicketDto,
   PublicBuildingDetailDto,
   PublicCampusResponseDto,
   PublicEventsResponseDto,
@@ -26,6 +27,7 @@ import {
   PublicLocationsQueryDto,
   PublicTourNodeQueryDto,
   QuizVerifyDto,
+  RegisterOpenDayDto,
 } from "./dto/public-query.dto";
 import { PublicService } from "./public.service";
 
@@ -85,6 +87,20 @@ export class PublicController {
     @Query() query: PublicEventsQueryDto,
   ): Promise<PublicEventsResponseDto> {
     return this.publicService.getEvents(query);
+  }
+
+  @Post("events/register")
+  @HttpCode(HttpStatus.CREATED)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  registerEvent(@Body() dto: RegisterOpenDayDto): Promise<OpenDayTicketDto> {
+    return this.publicService.registerEvent(dto);
+  }
+
+  @Get("events/tickets/:ticketCode")
+  getTicketByCode(
+    @Param("ticketCode") ticketCode: string,
+  ): Promise<OpenDayTicketDto> {
+    return this.publicService.getTicketByCode(ticketCode);
   }
 
   @Post("quiz/verify")

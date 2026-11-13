@@ -5,8 +5,71 @@ export type SessionPeriod = "MORNING" | "NOON" | "AFTERNOON";
 
 export type SessionAccessType = "public" | "invited";
 
-/** Minimal Open Day participation lifecycle in MVP (no CHECKED_IN / QR ticket per OD-05). */
-export type ParticipationStatus = "INVITED" | "CONFIRMED" | "CANCELLED";
+/** Open Day participation lifecycle in M3C with real QR ticket and check-in. */
+export type ParticipationStatus =
+  | "INVITED"
+  | "CONFIRMED"
+  | "CHECKED_IN"
+  | "CANCELLED";
+
+export interface RegisterOpenDayInput {
+  eventId: UUID;
+  fullName: string;
+  email: string;
+  phone: string;
+  sessionIds?: UUID[];
+  notes?: string;
+}
+
+export interface OpenDayTicketDto {
+  id: UUID;
+  ticketCode: string;
+  eventId: UUID;
+  eventTitle: string;
+  eventDateLabel: string;
+  eventTimeLabel: string;
+  attendeeName: string;
+  attendeeEmail: string;
+  attendeePhone: string;
+  participationStatus: ParticipationStatus;
+  checkedInAt: ISO8601Timestamp | null;
+  createdAt: ISO8601Timestamp;
+  qrPayload: string;
+}
+
+export interface CheckInTicketInput {
+  ticketCode: string;
+}
+
+export interface CheckInResultDto {
+  success: boolean;
+  message: string;
+  ticket: OpenDayTicketDto;
+  checkedInAt: ISO8601Timestamp;
+}
+
+export interface AdminEventParticipationDto {
+  id: UUID;
+  eventId: UUID;
+  ticketCode: string;
+  attendeeName: string;
+  attendeeEmail: string;
+  attendeePhone: string;
+  participationStatus: ParticipationStatus;
+  checkedInAt: ISO8601Timestamp | null;
+  checkedInBy: string | null;
+  checkedInByName?: string | null;
+  createdAt: ISO8601Timestamp;
+}
+
+export interface AdminParticipationsListResponseDto {
+  items: AdminEventParticipationDto[];
+  total: number;
+  totalConfirmed: number;
+  totalCheckedIn: number;
+  page: number;
+  pageSize: number;
+}
 
 export interface EventParticipationSummaryDto {
   id: UUID;

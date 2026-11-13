@@ -127,6 +127,7 @@ enum SessionPeriod {
 enum ParticipationStatus {
   INVITED
   CONFIRMED
+  CHECKED_IN
   CANCELLED
 }
 
@@ -481,6 +482,7 @@ model User {
   invitationsCreated      AccountInvitation[]          @relation("InvitationCreator")
   eventParticipations     EventParticipation[]         @relation("ParticipantUser")
   provisionedParticipants EventParticipation[]         @relation("ParticipationProvisioner")
+  checkedInParticipations EventParticipation[]         @relation("CheckedInByUser")
   importBatches           UserImportBatch[]            @relation("BatchImporter")
   refreshTokens           RefreshToken[]
   auditLogs               AuditLog[]
@@ -555,18 +557,28 @@ model AccountInvitation {
 
 model EventParticipation {
   id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId              String              @map("user_id") @db.Uuid
+  userId              String?             @map("user_id") @db.Uuid
   eventId             String              @map("event_id") @db.Uuid
-  participationStatus ParticipationStatus @default(INVITED) @map("participation_status")
+  ticketCode          String              @unique @map("ticket_code") @db.VarChar(32)
+  attendeeName        String?             @map("attendee_name") @db.VarChar(160)
+  attendeeEmail       String?             @map("attendee_email") @db.VarChar(160)
+  attendeePhone       String?             @map("attendee_phone") @db.VarChar(32)
+  metadataJson        Json?               @map("metadata_json") @db.JsonB
+  participationStatus ParticipationStatus @default(CONFIRMED) @map("participation_status")
+  checkedInAt         DateTime?           @map("checked_in_at") @db.Timestamptz(6)
+  checkedInBy         String?             @map("checked_in_by") @db.Uuid
   provisionedBy       String?             @map("provisioned_by") @db.Uuid
   createdAt           DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user        User         @relation("ParticipantUser", fields: [userId], references: [id], onDelete: Restrict)
-  event       OpenDayEvent @relation(fields: [eventId], references: [id], onDelete: Restrict)
-  provisioner User?        @relation("ParticipationProvisioner", fields: [provisionedBy], references: [id], onDelete: SetNull)
+  user            User?        @relation("ParticipantUser", fields: [userId], references: [id], onDelete: SetNull)
+  event           OpenDayEvent @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  provisioner     User?        @relation("ParticipationProvisioner", fields: [provisionedBy], references: [id], onDelete: SetNull)
+  checkedInByUser User?        @relation("CheckedInByUser", fields: [checkedInBy], references: [id], onDelete: SetNull)
 
   @@unique([userId, eventId])
+  @@index([eventId], map: "idx_event_participations_event_id")
+  @@index([attendeeEmail], map: "idx_event_participations_attendee_email")
   @@map("event_participations")
 }
 

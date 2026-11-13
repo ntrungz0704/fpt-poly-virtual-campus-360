@@ -1,7 +1,10 @@
+import crypto from "node:crypto";
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from "@nestjs/common";
 import {
@@ -15,6 +18,7 @@ import {
   type LocationTypeCode,
   type MediaGalleryItemDto,
   type NormCoord2D,
+  type OpenDayTicketDto,
   type PublicBuildingDetailDto,
   type PublicBuildingDto,
   type PublicCampusResponseDto,
@@ -49,6 +53,7 @@ import type {
   PublicLocationsQueryDto,
   PublicTourNodeQueryDto,
   QuizVerifyDto,
+  RegisterOpenDayDto,
 } from "./dto/public-query.dto";
 
 const TOUR_NODE_ELIGIBILITY_INCLUDE = {
@@ -1210,6 +1215,148 @@ export class PublicService {
       results,
       correctCount,
       total: results.length,
+    };
+  }
+
+  /**
+   * M3C: Public Open Day attendee registration with unique QR ticket code.
+   */
+  async registerEvent(dto: RegisterOpenDayDto): Promise<OpenDayTicketDto> {
+    const event = await this.prisma.openDayEvent.findFirst({
+      where: {
+        id: dto.eventId,
+        status: PublishStatus.PUBLISHED,
+        deletedAt: null,
+      },
+    });
+
+    if (!event) {
+      throw new BadRequestException({
+        code: "EVENT_NOT_AVAILABLE",
+        message: "Sự kiện không tồn tại hoặc chưa mở đăng ký công khai.",
+      });
+    }
+
+    const normalizedEmail = dto.email.trim().toLowerCase();
+    const normalizedPhone = dto.phone.trim();
+    const normalizedName = dto.fullName.trim();
+
+    // Prevent duplicate registration for the same event
+    const existingParticipation = await this.prisma.eventParticipation.findFirst({
+      where: {
+        eventId: dto.eventId,
+        attendeeEmail: normalizedEmail,
+        participationStatus: { not: "CANCELLED" },
+      },
+    });
+
+    if (existingParticipation) {
+      throw new ConflictException({
+        code: "DUPLICATE_REGISTRATION",
+        message: `Email ${normalizedEmail} đã được đăng ký tham gia sự kiện này trước đó. Vui lòng kiểm tra lại vé đã cấp.`,
+      });
+    }
+
+    // Generate unique human-readable ticket code e.g. OD26-7A9B-4C2E
+    let ticketCode = "";
+    let isUnique = false;
+    for (let attempts = 0; attempts < 10; attempts++) {
+      const randomSuffix = crypto.randomBytes(4).toString("hex").toUpperCase();
+      const codeCandidate = `OD26-${randomSuffix.slice(0, 4)}-${randomSuffix.slice(4, 8)}`;
+      const existingCode = await this.prisma.eventParticipation.findUnique({
+        where: { ticketCode: codeCandidate },
+      });
+      if (!existingCode) {
+        ticketCode = codeCandidate;
+        isUnique = true;
+        break;
+      }
+    }
+
+    if (!isUnique || !ticketCode) {
+      throw new InternalServerErrorException(
+        "Không thể tạo mã vé duy nhất. Vui lòng thử lại.",
+      );
+    }
+
+    const metadata: Record<string, unknown> = {};
+    if (dto.sessionIds && dto.sessionIds.length > 0) {
+      metadata.sessionIds = dto.sessionIds;
+    }
+    if (dto.notes) {
+      metadata.notes = dto.notes;
+    }
+
+    const participation = await this.prisma.eventParticipation.create({
+      data: {
+        eventId: dto.eventId,
+        ticketCode,
+        attendeeName: normalizedName,
+        attendeeEmail: normalizedEmail,
+        attendeePhone: normalizedPhone,
+        metadataJson:
+          Object.keys(metadata).length > 0
+            ? (metadata as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
+        participationStatus: "CONFIRMED",
+      },
+      include: {
+        event: true,
+      },
+    });
+
+    return {
+      id: participation.id,
+      ticketCode: participation.ticketCode,
+      eventId: participation.eventId,
+      eventTitle: participation.event.title,
+      eventDateLabel: participation.event.dateLabel,
+      eventTimeLabel: participation.event.timeLabel,
+      attendeeName: participation.attendeeName ?? normalizedName,
+      attendeeEmail: participation.attendeeEmail ?? normalizedEmail,
+      attendeePhone: participation.attendeePhone ?? normalizedPhone,
+      participationStatus: participation.participationStatus,
+      checkedInAt: participation.checkedInAt
+        ? participation.checkedInAt.toISOString()
+        : null,
+      createdAt: participation.createdAt.toISOString(),
+      qrPayload: `TICKET:${participation.ticketCode}`,
+    };
+  }
+
+  /**
+   * M3C: Public ticket lookup by ticket code.
+   */
+  async getTicketByCode(ticketCode: string): Promise<OpenDayTicketDto> {
+    const code = ticketCode.trim().toUpperCase();
+    const participation = await this.prisma.eventParticipation.findUnique({
+      where: { ticketCode: code },
+      include: { event: true },
+    });
+
+    if (!participation || participation.event.deletedAt !== null) {
+      throw new NotFoundException({
+        code: "TICKET_NOT_FOUND",
+        message: "Mã vé không tồn tại hoặc không hợp lệ.",
+      });
+    }
+
+    return {
+      id: participation.id,
+      ticketCode: participation.ticketCode,
+      eventId: participation.eventId,
+      eventTitle: participation.event.title,
+      eventDateLabel: participation.event.dateLabel,
+      eventTimeLabel: participation.event.timeLabel,
+      attendeeName: participation.attendeeName ?? "",
+      attendeeEmail: participation.attendeeEmail ?? "",
+      attendeePhone: participation.attendeePhone ?? "",
+      participationStatus: participation.participationStatus,
+      checkedInAt: participation.checkedInAt
+        ? participation.checkedInAt.toISOString()
+        : null,
+      createdAt: participation.createdAt.toISOString(),
+      qrPayload: `TICKET:${participation.ticketCode}`,
     };
   }
 }

@@ -7,6 +7,7 @@ import {
   IsDateString,
   IsIn,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
@@ -493,4 +494,39 @@ export class PatchOpenDayQuizItemDto {
   @IsOptional()
   @IsIn(PUBLISH_STATUSES)
   status?: PublishStatus;
+}
+
+export class AdminEventParticipationsQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  @Transform(({ value }) => trimIfString(value))
+  search?: string;
+
+  @IsOptional()
+  @IsIn(["INVITED", "CONFIRMED", "CHECKED_IN", "CANCELLED"])
+  status?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  pageSize?: number;
+}
+
+export class CheckInTicketDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(32)
+  @Transform(({ value }) =>
+    typeof value === "string" ? value.trim().toUpperCase() : value,
+  )
+  ticketCode!: string;
 }

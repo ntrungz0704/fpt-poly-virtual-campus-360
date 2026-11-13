@@ -7,12 +7,16 @@ import {
 } from "@nestjs/common";
 import {
   DEFAULT_QTSC_CAMPUS_CODE,
+  type AdminEventParticipationDto,
   type AdminOpenDayEventDto,
   type AdminOpenDayFaqDto,
   type AdminOpenDayQuizItemDto,
   type AdminOpenDaySessionDto,
+  type AdminParticipationsListResponseDto,
   type BuildingCode,
+  type CheckInResultDto,
   type OpenDayEventMetadataDto,
+  type ParticipationStatus,
 } from "@fpt-campus/shared";
 import { Prisma, PublishStatus } from "@prisma/client";
 import type { AuthenticatedUser } from "../../common/decorators/auth.decorators";
@@ -23,7 +27,9 @@ import {
 } from "../../common/interceptors/response-envelope.interceptor";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import type {
+  AdminEventParticipationsQueryDto,
   AdminEventsQueryDto,
+  CheckInTicketDto,
   OpenDayLookupBuildingDto,
   OpenDayLookupTourNodeDto,
   PatchOpenDayEventDto,
@@ -1231,5 +1237,177 @@ export class OpenDayService {
     });
 
     return { id: existing.id, deleted: true };
+  }
+
+  // ---------------------------------------------------------------------------
+  // M3C: Open Day Participations & Check-in
+  // ---------------------------------------------------------------------------
+
+  async listParticipations(
+    eventId: string,
+    query: AdminEventParticipationsQueryDto,
+  ): Promise<AdminParticipationsListResponseDto> {
+    const event = await this.prisma.openDayEvent.findFirst({
+      where: { id: eventId, deletedAt: null },
+    });
+    if (!event) {
+      throw new NotFoundException("Sự kiện không tồn tại.");
+    }
+
+    const page = Math.max(1, query.page ?? 1);
+    const pageSize = Math.min(100, Math.max(1, query.pageSize ?? 20));
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.EventParticipationWhereInput = {
+      eventId,
+    };
+
+    if (query.status) {
+      where.participationStatus = query.status as ParticipationStatus;
+    }
+
+    if (query.search && query.search.trim()) {
+      const q = query.search.trim();
+      where.OR = [
+        { ticketCode: { contains: q, mode: "insensitive" } },
+        { attendeeName: { contains: q, mode: "insensitive" } },
+        { attendeeEmail: { contains: q, mode: "insensitive" } },
+        { attendeePhone: { contains: q, mode: "insensitive" } },
+      ];
+    }
+
+    const [total, totalConfirmed, totalCheckedIn, rows] = await Promise.all([
+      this.prisma.eventParticipation.count({ where: { eventId } }),
+      this.prisma.eventParticipation.count({
+        where: { eventId, participationStatus: "CONFIRMED" },
+      }),
+      this.prisma.eventParticipation.count({
+        where: { eventId, participationStatus: "CHECKED_IN" },
+      }),
+      this.prisma.eventParticipation.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: pageSize,
+        include: {
+          checkedInByUser: {
+            select: { id: true, fullName: true, username: true },
+          },
+        },
+      }),
+    ]);
+
+    const items: AdminEventParticipationDto[] = rows.map((r) => ({
+      id: r.id,
+      eventId: r.eventId,
+      ticketCode: r.ticketCode,
+      attendeeName: r.attendeeName ?? "",
+      attendeeEmail: r.attendeeEmail ?? "",
+      attendeePhone: r.attendeePhone ?? "",
+      participationStatus: r.participationStatus,
+      checkedInAt: r.checkedInAt ? r.checkedInAt.toISOString() : null,
+      checkedInBy: r.checkedInBy,
+      checkedInByName:
+        r.checkedInByUser?.fullName ?? r.checkedInByUser?.username ?? null,
+      createdAt: r.createdAt.toISOString(),
+    }));
+
+    return {
+      items,
+      total,
+      totalConfirmed,
+      totalCheckedIn,
+      page,
+      pageSize,
+    };
+  }
+
+  async checkInTicket(
+    dto: CheckInTicketDto,
+    actor: AuthenticatedUser,
+    ipAddress: string | null,
+  ): Promise<CheckInResultDto> {
+    const code = dto.ticketCode.trim().toUpperCase();
+    const participation = await this.prisma.eventParticipation.findUnique({
+      where: { ticketCode: code },
+      include: { event: true },
+    });
+
+    if (!participation || participation.event.deletedAt !== null) {
+      throw new NotFoundException({
+        code: "TICKET_NOT_FOUND",
+        message: `Mã vé "${code}" không tồn tại trên hệ thống.`,
+      });
+    }
+
+    if (participation.participationStatus === "CHECKED_IN") {
+      const timeStr = participation.checkedInAt
+        ? new Date(participation.checkedInAt).toLocaleString("vi-VN")
+        : "";
+      throw new ConflictException({
+        code: "ALREADY_CHECKED_IN",
+        message: `Vé "${code}" đã được check-in vào lúc ${timeStr}. Không thể check-in lại!`,
+      });
+    }
+
+    if (participation.participationStatus === "CANCELLED") {
+      throw new BadRequestException({
+        code: "TICKET_CANCELLED",
+        message: `Vé "${code}" đã bị hủy, không thể thực hiện check-in.`,
+      });
+    }
+
+    const now = new Date();
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.eventParticipation.update({
+        where: { id: participation.id },
+        data: {
+          participationStatus: "CHECKED_IN",
+          checkedInAt: now,
+          checkedInBy: actor.id,
+        },
+        include: { event: true },
+      });
+
+      await this.auditLogService.record({
+        actorUserId: actor.id,
+        actorUsername: actor.username,
+        action: "OPEN_DAY_CHECK_IN",
+        resourceType: "event_participation",
+        resourceId: result.id,
+        diffJson: {
+          ticketCode: result.ticketCode,
+          checkedInAt: now.toISOString(),
+          eventId: result.eventId,
+        },
+        ipAddress,
+        tx,
+      });
+
+      return result;
+    });
+
+    return {
+      success: true,
+      message: `Check-in thành công cho khách tham quan: ${updated.attendeeName || code}!`,
+      ticket: {
+        id: updated.id,
+        ticketCode: updated.ticketCode,
+        eventId: updated.eventId,
+        eventTitle: updated.event.title,
+        eventDateLabel: updated.event.dateLabel,
+        eventTimeLabel: updated.event.timeLabel,
+        attendeeName: updated.attendeeName ?? "",
+        attendeeEmail: updated.attendeeEmail ?? "",
+        attendeePhone: updated.attendeePhone ?? "",
+        participationStatus: updated.participationStatus,
+        checkedInAt: updated.checkedInAt
+          ? updated.checkedInAt.toISOString()
+          : null,
+        createdAt: updated.createdAt.toISOString(),
+        qrPayload: `TICKET:${updated.ticketCode}`,
+      },
+      checkedInAt: now.toISOString(),
+    };
   }
 }

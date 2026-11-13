@@ -15,6 +15,8 @@ import type {
   AdminOpenDayFaqDto,
   AdminOpenDayQuizItemDto,
   AdminOpenDaySessionDto,
+  AdminParticipationsListResponseDto,
+  CheckInResultDto,
   OpenDayEventMetadataDto,
 } from "@fpt-campus/shared";
 import {
@@ -26,7 +28,9 @@ import type { PaginatedPayload } from "../../common/interceptors/response-envelo
 import type { RequestWithMeta } from "../../common/middleware/request-id.middleware";
 import { sanitizeIpAddress } from "../../common/utils/ip-sanitizer";
 import {
+  AdminEventParticipationsQueryDto,
   AdminEventsQueryDto,
+  CheckInTicketDto,
   PatchOpenDayEventDto,
   PatchOpenDayFaqDto,
   PatchOpenDayQuizItemDto,
@@ -54,6 +58,23 @@ export class OpenDayController {
   @Get("lookups/tour-nodes")
   listLookupTourNodes(): Promise<OpenDayLookupTourNodeDto[]> {
     return this.openDayService.listLookupTourNodes();
+  }
+
+  // ---------------------------------------------------------------------------
+  // M3C: Check-in endpoint
+  // ---------------------------------------------------------------------------
+
+  @Post("check-in")
+  checkInTicket(
+    @Body() dto: CheckInTicketDto,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Req() req: RequestWithMeta,
+  ): Promise<CheckInResultDto> {
+    return this.openDayService.checkInTicket(
+      dto,
+      actor,
+      sanitizeIpAddress(req.ip),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -294,5 +315,17 @@ export class OpenDayController {
       actor,
       sanitizeIpAddress(req.ip),
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // M3C: Open Day Participations
+  // ---------------------------------------------------------------------------
+
+  @Get(":eventId/participations")
+  listParticipations(
+    @Param("eventId", new ParseUUIDPipe()) eventId: string,
+    @Query() query: AdminEventParticipationsQueryDto,
+  ): Promise<AdminParticipationsListResponseDto> {
+    return this.openDayService.listParticipations(eventId, query);
   }
 }

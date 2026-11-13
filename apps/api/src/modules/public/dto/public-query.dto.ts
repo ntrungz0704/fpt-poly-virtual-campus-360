@@ -3,11 +3,14 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsEmail,
   IsIn,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -79,4 +82,33 @@ export class QuizVerifyDto {
   @ValidateNested({ each: true })
   @Type(() => QuizVerifyAnswerItemDto)
   items!: QuizVerifyAnswerItemDto[];
+}
+
+export class RegisterOpenDayDto {
+  @IsUUID("4")
+  eventId!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  fullName!: string;
+
+  @IsEmail()
+  email!: string;
+
+  @IsString()
+  @Matches(/^0[1-9][0-9]{8}$|^[+]?[0-9]{9,15}$/, {
+    message: "Số điện thoại không hợp lệ (yêu cầu định dạng số điện thoại Việt Nam 10 chữ số)",
+  })
+  phone!: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID("4", { each: true })
+  sessionIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  notes?: string;
 }

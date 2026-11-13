@@ -1,152 +1,184 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import {
-  AdminParticipantUser,
-  BuildingCode,
-  CAMPUS_BUILDINGS,
-  INITIAL_ADMIN_USERS,
-  OPEN_DAY_SESSIONS,
-  OpenDaySessionItem,
-} from "@/data/campus-data";
+import React, { useEffect, useState } from "react";
+import type {
+  AdminEventParticipationDto,
+  AdminOpenDayEventDto,
+  AdminOpenDaySessionDto,
+} from "@fpt-campus/shared";
 import {
   Badge,
   Button,
   DataTable,
   DataTableColumn,
-  Input,
-  Modal,
+  LoadingState,
   SearchInput,
-  Select,
   StatusToast,
-  Textarea,
 } from "@/components/ui";
+import {
+  checkInAttendeeTicket,
+  fetchAdminEvents,
+  fetchAdminEventSessions,
+  fetchAdminParticipations,
+} from "@/lib/admin/events-admin-api";
+import { ApiClientError } from "@/lib/auth/api-client";
 import { cn } from "@/lib/utils";
 
 export default function AdminEventsPage() {
   const [tab, setTab] = useState<"schedule" | "checkin">("schedule");
-  const [sessions, setSessions] = useState<OpenDaySessionItem[]>(OPEN_DAY_SESSIONS);
-  const [roster, setRoster] = useState<AdminParticipantUser[]>(
-    INITIAL_ADMIN_USERS.filter((u) => u.role === "participant")
-  );
+  const [events, setEvents] = useState<AdminOpenDayEventDto[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+
+  // Schedule state
+  const [sessions, setSessions] = useState<AdminOpenDaySessionDto[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+
+  // Check-in roster state
+  const [participations, setParticipations] = useState<AdminEventParticipationDto[]>([]);
+  const [totalRoster, setTotalRoster] = useState(0);
+  const [totalCheckedIn, setTotalCheckedIn] = useState(0);
+  const [isLoadingRoster, setIsLoadingRoster] = useState(true);
   const [rosterQuery, setRosterQuery] = useState("");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingSession, setEditingSession] = useState<OpenDaySessionItem | null>(null);
-  const [form, setForm] = useState<{
-    timeRange: string;
-    period: OpenDaySessionItem["period"];
-    title: string;
-    description: string;
-    buildingCode: BuildingCode;
-    locationLabel: string;
-    accessType: OpenDaySessionItem["accessType"];
-    hostUnit: string;
-  }>({
-    timeRange: "09:30 – 10:15",
-    period: "morning",
-    title: "",
-    description: "",
-    buildingCode: "INNOVATION",
-    locationLabel: "Hội trường Đa năng — Tòa Innovation",
-    accessType: "public",
-    hostUnit: "Ban Tổ Chức Open Day",
-  });
-  const [toast, setToast] = useState({ open: false, message: "" });
 
-  const filteredRoster = useMemo(() => {
-    const q = rosterQuery.trim().toLowerCase();
-    if (!q) return roster;
-    return roster.filter(
-      (u) =>
-        u.fullName.toLowerCase().includes(q) ||
-        u.accountCode.toLowerCase().includes(q) ||
-        u.ticketCode.toLowerCase().includes(q)
-    );
-  }, [roster, rosterQuery]);
+  // Quick check-in input state
+  const [quickTicketCode, setQuickTicketCode] = useState("");
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
 
-  const checkedInCount = roster.filter((u) => u.checkedIn).length;
+  // Toast state
+  const [toast, setToast] = useState<{
+    open: boolean;
+    message: string;
+    type?: "success" | "error" | "info";
+  }>({ open: false, message: "" });
 
-  const openCreateModal = () => {
-    setEditingSession(null);
-    setForm({
-      timeRange: "09:30 – 10:15",
-      period: "morning",
-      title: "",
-      description: "",
-      buildingCode: "INNOVATION",
-      locationLabel: "Sảnh Đón Tiếp — Tòa Innovation",
-      accessType: "public",
-      hostUnit: "Ban Tổ Chức Open Day",
-    });
-    setModalOpen(true);
+  // Load admin events on mount
+  useEffect(() => {
+    fetchAdminEvents()
+      .then((items) => {
+        setEvents(items);
+        if (items.length > 0) {
+          const defaultEv = items.find((e) => e.isDefault) ?? items[0];
+          setSelectedEventId(defaultEv.id);
+        }
+      })
+      .catch((err) => {
+        setToast({
+          open: true,
+          message: err instanceof Error ? err.message : "Không thể tải danh sách sự kiện",
+          type: "error",
+        });
+      });
+  }, []);
+
+  // Load sessions when selected event changes
+  useEffect(() => {
+    if (!selectedEventId) return;
+    let cancelled = false;
+    fetchAdminEventSessions(selectedEventId)
+      .then((data) => {
+        if (!cancelled) {
+          setSessions(data);
+          setIsLoadingSessions(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setToast({
+            open: true,
+            message: err instanceof Error ? err.message : "Lỗi tải lịch trình",
+            type: "error",
+          });
+          setIsLoadingSessions(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEventId]);
+
+  // Load participations when tab is 'checkin', event changes, or query changes
+  const loadParticipations = (eventId: string, query: string) => {
+    setIsLoadingRoster(true);
+    fetchAdminParticipations(eventId, { search: query.trim() || undefined, pageSize: 50 })
+      .then((res) => {
+        setParticipations(res.items);
+        setTotalRoster(res.total);
+        setTotalCheckedIn(res.totalCheckedIn);
+      })
+      .catch((err) => {
+        setToast({
+          open: true,
+          message: err instanceof Error ? err.message : "Lỗi tải danh sách khách",
+          type: "error",
+        });
+      })
+      .finally(() => {
+        setIsLoadingRoster(false);
+      });
   };
 
-  const openEditModal = (session: OpenDaySessionItem) => {
-    setEditingSession(session);
-    setForm({
-      timeRange: session.timeRange,
-      period: session.period,
-      title: session.title,
-      description: session.description,
-      buildingCode: session.buildingCode,
-      locationLabel: session.locationLabel,
-      accessType: session.accessType,
-      hostUnit: session.hostUnit,
-    });
-    setModalOpen(true);
-  };
+  useEffect(() => {
+    if (!selectedEventId || tab !== "checkin") return;
+    const timer = setTimeout(() => {
+      loadParticipations(selectedEventId, rosterQuery);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [selectedEventId, tab, rosterQuery]);
 
-  const handleSaveSession = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.title.trim()) return;
-
-    if (editingSession) {
-      setSessions((prev) =>
-        prev.map((item) =>
-          item.id === editingSession.id
-            ? {
-                ...item,
-                ...form,
-                title: form.title.trim(),
-                description: form.description.trim(),
-              }
-            : item
-        )
-      );
-      setToast({ open: true, message: `Đã cập nhật phiên "${form.title}".` });
-    } else {
-      const created: OpenDaySessionItem = {
-        id: `od-${Date.now()}`,
-        ...form,
-        title: form.title.trim(),
-        description: form.description.trim() || "Hoạt động trải nghiệm Open Day tại QTSC.",
-      };
-      setSessions((prev) => [...prev, created]);
-      setToast({ open: true, message: `Đã thêm phiên mới "${created.title}".` });
+  // Handle Check-in Action
+  const handleCheckIn = async (codeToSubmit: string) => {
+    const code = codeToSubmit.trim().toUpperCase();
+    if (!code) {
+      setToast({ open: true, message: "Vui lòng nhập mã vé hợp lệ", type: "error" });
+      return;
     }
-    setModalOpen(false);
+
+    setIsCheckingIn(true);
+    try {
+      const res = await checkInAttendeeTicket({ ticketCode: code });
+      setToast({
+        open: true,
+        message: res.message || `Check-in thành công mã vé ${code}!`,
+        type: "success",
+      });
+      setQuickTicketCode("");
+      if (selectedEventId) {
+        loadParticipations(selectedEventId, rosterQuery);
+      }
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setToast({ open: true, message: err.message, type: "error" });
+      } else {
+        setToast({ open: true, message: "Lỗi kết nối khi check-in vé", type: "error" });
+      }
+    } finally {
+      setIsCheckingIn(false);
+    }
   };
 
-  const toggleCheckIn = (userId: string) => {
-    setRoster((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, checkedIn: !u.checkedIn } : u))
-    );
-    setToast({ open: true, message: "Đã cập nhật trạng thái check-in tại quầy." });
+  const handleQuickCheckInSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleCheckIn(quickTicketCode);
   };
 
-  const sessionColumns: DataTableColumn<OpenDaySessionItem>[] = [
+  // Columns for Sessions Table
+  const sessionColumns: DataTableColumn<AdminOpenDaySessionDto>[] = [
     {
       key: "time",
       header: "Khung giờ",
-      render: (row) => <span className="font-mono text-xs font-bold whitespace-nowrap">{row.timeRange}</span>,
+      render: (row) => (
+        <span className="font-mono text-xs font-bold text-on-surface">
+          {row.startTimeLabel} – {row.endTimeLabel}
+        </span>
+      ),
     },
     {
       key: "title",
-      header: "Nội dung phiên",
+      header: "Phiên hoạt động",
       render: (row) => (
         <div className="space-y-0.5">
           <p className="text-sm font-bold text-on-surface">{row.title}</p>
-          <p className="text-xs text-secondary">{row.locationLabel}</p>
+          <p className="text-xs text-secondary line-clamp-1">{row.customLocationLabel}</p>
         </div>
       ),
     },
@@ -154,8 +186,8 @@ export default function AdminEventsPage() {
       key: "access",
       header: "Quyền tham gia",
       render: (row) => (
-        <Badge variant={row.accessType === "invited" ? "brand" : "success"}>
-          {row.accessType === "invited" ? "Tài khoản mời" : "Công khai"}
+        <Badge variant={row.isPublic ? "success" : "brand"}>
+          {row.isPublic ? "Công khai" : "Tài khoản mời"}
         </Badge>
       ),
     },
@@ -165,25 +197,27 @@ export default function AdminEventsPage() {
       render: (row) => <span className="text-xs text-secondary">{row.hostUnit}</span>,
     },
     {
-      key: "actions",
-      header: "Thao tác",
-      align: "right",
+      key: "status",
+      header: "Trạng thái",
       render: (row) => (
-        <Button variant="ghost" size="sm" icon="edit" onClick={() => openEditModal(row)}>
-          Sửa
-        </Button>
+        <Badge variant={row.status === "PUBLISHED" ? "success" : "neutral"}>
+          {row.status}
+        </Badge>
       ),
     },
   ];
 
-  const rosterColumns: DataTableColumn<AdminParticipantUser>[] = [
+  // Columns for Check-in Roster Table
+  const rosterColumns: DataTableColumn<AdminEventParticipationDto>[] = [
     {
       key: "ticket",
-      header: "Mã vé / Tài khoản",
+      header: "Mã vé",
       render: (row) => (
         <div className="space-y-0.5">
-          <p className="font-mono text-xs font-bold text-on-surface">{row.ticketCode}</p>
-          <p className="text-[11px] text-secondary">{row.accountCode}</p>
+          <p className="font-mono text-xs font-bold text-primary">{row.ticketCode}</p>
+          <p className="text-[11px] text-secondary">
+            {new Date(row.createdAt).toLocaleDateString("vi-VN")}
+          </p>
         </div>
       ),
     },
@@ -192,50 +226,86 @@ export default function AdminEventsPage() {
       header: "Khách mời",
       render: (row) => (
         <div className="space-y-0.5">
-          <p className="text-sm font-bold text-on-surface">{row.fullName}</p>
-          <p className="text-xs text-secondary">{row.contactChannel}</p>
+          <p className="text-sm font-bold text-on-surface">{row.attendeeName || "Khách tham quan"}</p>
+          <p className="text-xs text-secondary">{row.attendeeEmail}</p>
+          <p className="text-xs font-mono text-secondary">{row.attendeePhone}</p>
         </div>
       ),
     },
     {
       key: "status",
-      header: "Trạng thái (Preview)",
-      render: (row) => (
-        <Badge variant={row.checkedIn ? "success" : "neutral"}>
-          {row.checkedIn ? "Đã check-in" : "Chưa đến sảnh"}
-        </Badge>
-      ),
+      header: "Trạng thái",
+      render: (row) => {
+        const isChecked = row.participationStatus === "CHECKED_IN";
+        return (
+          <div className="space-y-1">
+            <Badge variant={isChecked ? "success" : "neutral"}>
+              {isChecked ? "Đã check-in" : "Chưa check-in"}
+            </Badge>
+            {row.checkedInAt && (
+              <p className="text-[11px] text-emerald-600 font-medium">
+                {new Date(row.checkedInAt).toLocaleTimeString("vi-VN")}
+              </p>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: "actions",
-      header: "Xác nhận tại quầy",
+      header: "Thao tác quầy",
       align: "right",
-      render: (row) => (
-        <Button
-          variant={row.checkedIn ? "outline" : "primary"}
-          size="sm"
-          icon={row.checkedIn ? "undo" : "qr_code_scanner"}
-          onClick={() => toggleCheckIn(row.id)}
-        >
-          {row.checkedIn ? "Hoàn tác" : "Xác nhận check-in"}
-        </Button>
-      ),
+      render: (row) => {
+        const isChecked = row.participationStatus === "CHECKED_IN";
+        return isChecked ? (
+          <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-bold px-3 py-1.5 rounded-lg bg-emerald-50">
+            <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
+              check_circle
+            </span>
+            <span>Đã điểm danh</span>
+          </span>
+        ) : (
+          <Button
+            variant="primary"
+            size="sm"
+            icon="qr_code_scanner"
+            disabled={isCheckingIn}
+            onClick={() => handleCheckIn(row.ticketCode)}
+          >
+            Check-in
+          </Button>
+        );
+      },
     },
   ];
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
+      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="type-h1 text-on-surface">Open Day &amp; Điểm danh Check-in</h1>
           <p className="type-body-sm text-secondary mt-1">
-            Quản lý lịch trình công khai trên /events và xác nhận check-in tại quầy Innovation.
+            Quản lý lịch trình công khai trên /events và xác nhận check-in vé QR thực tế tại quầy đón tiếp QTSC.
           </p>
         </div>
 
-        <Button variant="primary" size="md" icon="add" onClick={openCreateModal}>
-          Thêm phiên Open Day
-        </Button>
+        {events.length > 1 && (
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-secondary whitespace-nowrap">Sự kiện:</label>
+            <select
+              value={selectedEventId ?? ""}
+              onChange={(e) => setSelectedEventId(e.target.value)}
+              className="px-3 py-1.5 rounded-lg bg-surface-container border border-surface-container-high text-xs font-bold text-on-surface"
+            >
+              {events.map((ev) => (
+                <option key={ev.id} value={ev.id}>
+                  {ev.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Mode Switch Tabs */}
@@ -253,7 +323,7 @@ export default function AdminEventsPage() {
             "min-h-[40px] px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer",
             tab === "schedule"
               ? "bg-primary text-white shadow-xs"
-              : "text-secondary hover:text-on-surface"
+              : "text-secondary hover:text-on-surface",
           )}
         >
           Lịch trình ({sessions.length} phiên)
@@ -267,133 +337,96 @@ export default function AdminEventsPage() {
             "min-h-[40px] px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer",
             tab === "checkin"
               ? "bg-primary text-white shadow-xs"
-              : "text-secondary hover:text-on-surface"
+              : "text-secondary hover:text-on-surface",
           )}
         >
-          Danh sách Check-in ({checkedInCount}/{roster.length})
+          Danh sách Check-in ({totalCheckedIn}/{totalRoster} khách)
         </button>
       </div>
 
       {tab === "schedule" ? (
-        <DataTable columns={sessionColumns} data={sessions} rowKey={(r) => r.id} />
+        isLoadingSessions ? (
+          <div className="p-12 flex justify-center">
+            <LoadingState label="Đang tải lịch trình từ hệ thống..." />
+          </div>
+        ) : (
+          <DataTable
+            columns={sessionColumns}
+            data={sessions}
+            rowKey={(r) => r.id}
+          />
+        )
       ) : (
-        <DataTable
-          columns={rosterColumns}
-          data={filteredRoster}
-          rowKey={(r) => r.id}
-          toolbar={
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <SearchInput
-                value={rosterQuery}
-                onChange={(e) => setRosterQuery(e.target.value)}
-                onClear={() => setRosterQuery("")}
-                placeholder="Quét/nhập mã vé QTSC-OD..., mã tài khoản hoặc họ tên..."
-                containerClassName="w-full sm:max-w-md"
-              />
-              <Badge variant="brand">
-                Đã có mặt: {checkedInCount}/{roster.length} khách mời
-              </Badge>
+        <div className="space-y-6">
+          {/* Quick Check-in Bar */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-surface-container-low border border-surface-container space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <h2 className="text-sm font-bold text-on-surface flex items-center gap-2">
+                <span aria-hidden="true" className="material-symbols-outlined text-primary text-[20px]">
+                  qr_code_scanner
+                </span>
+                <span>Quét mã QR hoặc Nhập mã vé Check-in nhanh</span>
+              </h2>
+              <span className="text-xs font-semibold text-secondary">
+                Tiến độ: <strong className="text-primary">{totalCheckedIn}</strong> / {totalRoster} đã đến sảnh
+              </span>
             </div>
-          }
-        />
+
+            <form onSubmit={handleQuickCheckInSubmit} className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                value={quickTicketCode}
+                onChange={(e) => setQuickTicketCode(e.target.value.toUpperCase())}
+                placeholder="Nhập mã vé ví dụ: OD26-A1B2-C3D4..."
+                disabled={isCheckingIn}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-white border border-surface-container font-mono text-sm uppercase placeholder:font-sans placeholder:normal-case focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              />
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                icon={isCheckingIn ? "hourglass_empty" : "check"}
+                disabled={isCheckingIn || !quickTicketCode.trim()}
+              >
+                {isCheckingIn ? "Đang điểm danh..." : "Xác nhận Check-in"}
+              </Button>
+            </form>
+          </div>
+
+          {/* Roster DataTable */}
+          {isLoadingRoster ? (
+            <div className="p-8 flex justify-center">
+              <LoadingState label="Đang tải danh sách điểm danh..." />
+            </div>
+          ) : (
+            <DataTable
+              columns={rosterColumns}
+              data={participations}
+              rowKey={(r) => r.id}
+              toolbar={
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <SearchInput
+                    value={rosterQuery}
+                    onChange={(e) => setRosterQuery(e.target.value)}
+                    onClear={() => setRosterQuery("")}
+                    placeholder="Tìm theo mã vé OD26..., họ tên, email hoặc SĐT..."
+                    containerClassName="w-full sm:max-w-md"
+                  />
+                  <Badge variant="brand">
+                    Đã có mặt: {totalCheckedIn}/{totalRoster} khách đăng ký
+                  </Badge>
+                </div>
+              }
+            />
+          )}
+        </div>
       )}
 
-      <Modal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title={editingSession ? "Chỉnh sửa phiên Open Day" : "Thêm phiên Open Day mới"}
-        size="md"
-      >
-        <form onSubmit={handleSaveSession} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Khung giờ"
-              value={form.timeRange}
-              onChange={(e) => setForm((f) => ({ ...f, timeRange: e.target.value }))}
-              required
-            />
-            <Select
-              label="Buổi"
-              value={form.period}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  period: e.target.value as OpenDaySessionItem["period"],
-                }))
-              }
-            >
-              <option value="morning">Buổi Sáng</option>
-              <option value="noon">Buổi Trưa</option>
-              <option value="afternoon">Buổi Chiều</option>
-            </Select>
-          </div>
-          <Input
-            label="Tên phiên hoạt động"
-            value={form.title}
-            onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-            required
-          />
-          <Select
-            label="Quyền truy cập"
-            value={form.accessType}
-            onChange={(e) =>
-              setForm((f) => ({
-                ...f,
-                accessType: e.target.value as OpenDaySessionItem["accessType"],
-              }))
-            }
-          >
-            <option value="public">Tham quan công khai</option>
-            <option value="invited">Chỉ tài khoản được cấp</option>
-          </Select>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Select
-              label="Khu vực tòa nhà"
-              value={form.buildingCode}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  buildingCode: e.target.value as BuildingCode,
-                }))
-              }
-            >
-              {CAMPUS_BUILDINGS.map((b) => (
-                <option key={b.code} value={b.code}>
-                  {b.shortName}
-                </option>
-              ))}
-            </Select>
-            <Input
-              label="Đơn vị phụ trách"
-              value={form.hostUnit}
-              onChange={(e) => setForm((f) => ({ ...f, hostUnit: e.target.value }))}
-            />
-          </div>
-          <Input
-            label="Địa điểm cụ thể"
-            value={form.locationLabel}
-            onChange={(e) => setForm((f) => ({ ...f, locationLabel: e.target.value }))}
-          />
-          <Textarea
-            label="Mô tả ngắn"
-            value={form.description}
-            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-          />
-          <div className="pt-2 flex justify-end gap-2.5">
-            <Button type="button" variant="outline" size="md" onClick={() => setModalOpen(false)}>
-              Đóng
-            </Button>
-            <Button type="submit" variant="primary" size="md" icon="save">
-              Lưu phiên
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
+      {/* Global Action Status Toast */}
       <StatusToast
         open={toast.open}
-        type="success"
         message={toast.message}
+        type={toast.type ?? "info"}
         onClose={() => setToast((t) => ({ ...t, open: false }))}
       />
     </div>

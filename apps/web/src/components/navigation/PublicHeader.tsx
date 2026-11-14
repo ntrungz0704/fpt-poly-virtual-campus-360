@@ -124,7 +124,7 @@ export function PublicHeader() {
           {/* Desktop Navigation (>= 1024px) */}
           <nav
             aria-label="Điều hướng chính"
-            className="hidden lg:flex items-center gap-1 xl:gap-1.5 shrink min-w-0"
+            className="hidden lg:flex items-center gap-1 xl:gap-1.5 shrink-0"
           >
             {/* Primary Nav Items */}
             {PRIMARY_NAV_ITEMS.map((item) => {
@@ -153,49 +153,20 @@ export function PublicHeader() {
               );
             })}
 
-            {/* Wide Screen Direct Items (>= 1400px) */}
-            <div className="hidden 2xl:flex items-center gap-1">
-              {SECONDARY_NAV_ITEMS.map((item) => {
-                const isActive = pathname.startsWith(item.href);
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    aria-current={isActive ? "page" : undefined}
-                    className={`min-h-[38px] px-2.5 py-1.5 rounded-xl text-[13px] font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap border ${
-                      isActive
-                        ? "bg-primary-fixed text-primary font-bold border-primary-container/45 shadow-2xs"
-                        : "border-transparent text-on-surface hover:text-primary hover:bg-surface-container-low"
-                    }`}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`material-symbols-outlined text-[17px] ${
-                        isActive ? "text-primary" : "text-secondary group-hover:text-primary"
-                      }`}
-                    >
-                      {item.icon}
-                    </span>
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-
-            {/* Compact Dropdown Menu (< 1400px on desktop) */}
-            <div className="relative 2xl:hidden" ref={moreDropdownRef}>
+            {/* Khám phá Dropdown for Secondary Nav Items */}
+            <div className="relative" ref={moreDropdownRef}>
               <button
                 type="button"
                 onClick={() => setMoreMenuOpen((prev) => !prev)}
                 aria-expanded={moreMenuOpen}
                 aria-haspopup="true"
-                className={`min-h-[38px] px-2.5 py-1.5 rounded-xl text-xs xl:text-[13px] font-semibold flex items-center gap-1 transition-all whitespace-nowrap border cursor-pointer ${
+                className={`min-h-[38px] px-2.5 xl:px-3 py-1.5 rounded-xl text-xs xl:text-[13px] font-semibold flex items-center gap-1 transition-all whitespace-nowrap border cursor-pointer ${
                   isSecondaryActive
                     ? "bg-primary-fixed text-primary font-bold border-primary-container/45 shadow-2xs"
                     : "border-transparent text-on-surface hover:text-primary hover:bg-surface-container-low"
                 }`}
               >
-                <span>Thêm</span>
+                <span>Khám phá</span>
                 <span
                   aria-hidden="true"
                   className={`material-symbols-outlined text-[16px] transition-transform duration-200 ${

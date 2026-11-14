@@ -164,7 +164,7 @@ export function EventsView() {
 
             <Link
               href="/campus"
-              className="ui-btn ui-btn-outline min-h-[46px] px-4 py-2.5 text-sm font-semibold text-white border-white/20 hover:bg-white/10"
+              className="ui-btn min-h-[46px] px-4 py-2.5 text-sm font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-colors inline-flex items-center gap-2"
             >
               <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
                 360

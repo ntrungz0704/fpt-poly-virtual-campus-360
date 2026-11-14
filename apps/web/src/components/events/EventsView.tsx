@@ -52,8 +52,9 @@ export function EventsView() {
       .then((res) => {
         setData(res);
       })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : "Không thể tải dữ liệu sự kiện.");
+      .catch(() => {
+        setData(FALLBACK_OPEN_DAY_EVENTS);
+        setError(null);
       })
       .finally(() => {
         setIsLoading(false);

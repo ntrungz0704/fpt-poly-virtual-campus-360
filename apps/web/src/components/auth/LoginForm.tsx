@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { Button, Input, LoadingState } from "@/components/ui";
-import { OFFICIAL_CAMPUS_INFO } from "@/data/campus-data";
 import { formatAuthErrorMessage } from "@/lib/auth/api-client";
 import {
   resolvePostAuthRoute,

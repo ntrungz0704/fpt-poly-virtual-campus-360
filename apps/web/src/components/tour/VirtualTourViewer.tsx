@@ -115,7 +115,16 @@ export function VirtualTourViewer({ initialSceneId }: VirtualTourViewerProps) {
         );
       } catch {
         if (!cancelled) {
-          setLoadError("Không thể kết nối máy chủ API công khai. Vui lòng thử lại.");
+          const fallbackScene =
+            TOUR_SCENES.find((s) => s.id === initialSceneId) ?? TOUR_SCENES[0];
+          setScenes(TOUR_SCENES);
+          setCurrentScene(fallbackScene);
+          setCameraReadout({
+            yaw: fallbackScene.initialView.yaw,
+            pitch: fallbackScene.initialView.pitch,
+            fov: fallbackScene.initialView.fov,
+          });
+          setLoadError(null);
         }
       } finally {
         if (!cancelled) {

@@ -1,8 +1,6 @@
 import React from "react";
 import Link from "next/link";
 import {
-  CAMPUS_LOCATIONS,
-  OPEN_DAY_SESSIONS,
   TOUR_SCENES,
 } from "@/data/campus-data";
 

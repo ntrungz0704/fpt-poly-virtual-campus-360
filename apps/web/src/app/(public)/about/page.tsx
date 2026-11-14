@@ -3,9 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import {
   CAMPUS_BUILDINGS,
-  CAMPUS_LOCATIONS,
   OFFICIAL_CAMPUS_INFO,
-  TOUR_SCENES,
 } from "@/data/campus-data";
 import { Badge } from "@/components/ui";
 

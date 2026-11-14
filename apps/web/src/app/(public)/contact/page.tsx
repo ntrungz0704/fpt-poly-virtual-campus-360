@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { OFFICIAL_CAMPUS_INFO } from "@/data/campus-data";
-import { Badge } from "@/components/ui";
 
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
@@ -321,7 +320,7 @@ export default function ContactPage() {
                 <span className="material-symbols-outlined text-primary text-lg">help</span> Tham quan 360° có cần tài khoản không?
               </h4>
               <p className="text-xs text-secondary leading-relaxed">
-                Hoàn toàn không cần tài khoản! Bạn chỉ cần vào mục "Tour 360°" trên thanh menu để xoay góc nhìn tự do trên mọi thiết bị.
+                Hoàn toàn không cần tài khoản! Bạn chỉ cần vào mục &quot;Tour 360°&quot; trên thanh menu để xoay góc nhìn tự do trên mọi thiết bị.
               </p>
             </div>
             <div className="p-5 rounded-2xl bg-surface-container-low border border-surface-container">

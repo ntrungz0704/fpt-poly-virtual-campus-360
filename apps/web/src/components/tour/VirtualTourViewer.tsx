@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { TourSceneItem } from "@/data/campus-data";
+import { TOUR_SCENES, type TourSceneItem } from "@/data/campus-data";
 import {
   fetchPublicTourNodeBySlug,
   fetchPublicTourNodes,
@@ -31,9 +31,12 @@ export function VirtualTourViewer({ initialSceneId }: VirtualTourViewerProps) {
     () => false
   );
 
-  const [scenes, setScenes] = useState<TourSceneItem[]>([]);
-  const [currentScene, setCurrentScene] = useState<TourSceneItem | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const initialDefault =
+    (initialSceneId && TOUR_SCENES.find((s) => s.id === initialSceneId)) ||
+    TOUR_SCENES[0];
+  const [scenes, setScenes] = useState<TourSceneItem[]>(TOUR_SCENES);
+  const [currentScene, setCurrentScene] = useState<TourSceneItem | null>(initialDefault);
+  const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [drawerOpen, setDrawerOpen] = useState(false);

@@ -9,7 +9,7 @@ import type {
 import { Badge, Button, ErrorState, LoadingState } from "@/components/ui";
 import { BlurText, FadeContent } from "@/components/animations";
 import { OFFICIAL_CAMPUS_INFO } from "@/data/campus-data";
-import { fetchPublicEvents } from "@/lib/public/public-api";
+import { FALLBACK_OPEN_DAY_EVENTS, fetchPublicEvents } from "@/lib/public/public-api";
 import { OpenDayScheduleTimeline } from "./OpenDayScheduleTimeline";
 import { EventPillarGrid } from "./EventPillarGrid";
 import { TicketRegistrationModal } from "./TicketRegistrationModal";
@@ -33,8 +33,8 @@ function getInitialSavedTicket(): { hasTicket: boolean; code: string | null } {
 }
 
 export function EventsView() {
-  const [data, setData] = useState<PublicEventsResponseDto | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [data, setData] = useState<PublicEventsResponseDto | null>(FALLBACK_OPEN_DAY_EVENTS);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [savedTicket, setSavedTicket] = useState(getInitialSavedTicket);

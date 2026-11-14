@@ -12,8 +12,8 @@
     {
       "pageId": "ADMN-001",
       "file": "desktop.png",
-      "sizeBytes": 98906,
-      "sizeKB": "96.6",
+      "sizeBytes": 100670,
+      "sizeKB": "98.3",
       "width": 1440,
       "height": 900,
       "status": "PASS"
@@ -21,8 +21,8 @@
     {
       "pageId": "ADMN-001",
       "file": "mobile.png",
-      "sizeBytes": 65692,
-      "sizeKB": "64.2",
+      "sizeBytes": 14730,
+      "sizeKB": "14.4",
       "width": 390,
       "height": 844,
       "status": "PASS"
@@ -30,8 +30,8 @@
     {
       "pageId": "ADMN-002",
       "file": "desktop.png",
-      "sizeBytes": 98906,
-      "sizeKB": "96.6",
+      "sizeBytes": 93726,
+      "sizeKB": "91.5",
       "width": 1440,
       "height": 900,
       "status": "PASS"
@@ -39,8 +39,8 @@
     {
       "pageId": "ADMN-002",
       "file": "mobile.png",
-      "sizeBytes": 65692,
-      "sizeKB": "64.2",
+      "sizeBytes": 10968,
+      "sizeKB": "10.7",
       "width": 390,
       "height": 844,
       "status": "PASS"
@@ -48,8 +48,8 @@
     {
       "pageId": "ADMN-003",
       "file": "desktop.png",
-      "sizeBytes": 98906,
-      "sizeKB": "96.6",
+      "sizeBytes": 154355,
+      "sizeKB": "150.7",
       "width": 1440,
       "height": 900,
       "status": "PASS"
@@ -57,8 +57,8 @@
     {
       "pageId": "ADMN-003",
       "file": "mobile.png",
-      "sizeBytes": 65692,
-      "sizeKB": "64.2",
+      "sizeBytes": 9697,
+      "sizeKB": "9.5",
       "width": 390,
       "height": 844,
       "status": "PASS"
@@ -66,8 +66,8 @@
     {
       "pageId": "ADMN-004",
       "file": "desktop.png",
-      "sizeBytes": 98906,
-      "sizeKB": "96.6",
+      "sizeBytes": 83917,
+      "sizeKB": "82.0",
       "width": 1440,
       "height": 900,
       "status": "PASS"
@@ -75,8 +75,8 @@
     {
       "pageId": "ADMN-004",
       "file": "mobile.png",
-      "sizeBytes": 65692,
-      "sizeKB": "64.2",
+      "sizeBytes": 6927,
+      "sizeKB": "6.8",
       "width": 390,
       "height": 844,
       "status": "PASS"
@@ -84,8 +84,8 @@
     {
       "pageId": "ADMN-005",
       "file": "desktop.png",
-      "sizeBytes": 98906,
-      "sizeKB": "96.6",
+      "sizeBytes": 85466,
+      "sizeKB": "83.5",
       "width": 1440,
       "height": 900,
       "status": "PASS"
@@ -93,8 +93,8 @@
     {
       "pageId": "ADMN-005",
       "file": "mobile.png",
-      "sizeBytes": 65692,
-      "sizeKB": "64.2",
+      "sizeBytes": 8190,
+      "sizeKB": "8.0",
       "width": 390,
       "height": 844,
       "status": "PASS"
@@ -102,8 +102,8 @@
     {
       "pageId": "ADMN-006",
       "file": "desktop.png",
-      "sizeBytes": 98906,
-      "sizeKB": "96.6",
+      "sizeBytes": 268931,
+      "sizeKB": "262.6",
       "width": 1440,
       "height": 900,
       "status": "PASS"
@@ -111,8 +111,8 @@
     {
       "pageId": "ADMN-006",
       "file": "mobile.png",
-      "sizeBytes": 65692,
-      "sizeKB": "64.2",
+      "sizeBytes": 7988,
+      "sizeKB": "7.8",
       "width": 390,
       "height": 844,
       "status": "PASS"
@@ -147,8 +147,8 @@
     {
       "pageId": "AUTH-002",
       "file": "desktop.png",
-      "sizeBytes": 98840,
-      "sizeKB": "96.5",
+      "sizeBytes": 332417,
+      "sizeKB": "324.6",
       "width": 1440,
       "height": 900,
       "status": "PASS"
@@ -156,8 +156,8 @@
     {
       "pageId": "AUTH-002",
       "file": "mobile.png",
-      "sizeBytes": 65656,
-      "sizeKB": "64.1",
+      "sizeBytes": 72645,
+      "sizeKB": "70.9",
       "width": 390,
       "height": 844,
       "status": "PASS"
@@ -165,8 +165,8 @@
     {
       "pageId": "CAMP-001",
       "file": "desktop.png",
-      "sizeBytes": 33186,
-      "sizeKB": "32.4",
+      "sizeBytes": 90661,
+      "sizeKB": "88.5",
       "width": 1440,
       "height": 900,
       "status": "PASS"
@@ -174,8 +174,8 @@
     {
       "pageId": "CAMP-001",
       "file": "mobile.png",
-      "sizeBytes": 13693,
-      "sizeKB": "13.4",
+      "sizeBytes": 39565,
+      "sizeKB": "38.6",
       "width": 390,
       "height": 844,
       "status": "PASS"
@@ -201,8 +201,8 @@
     {
       "pageId": "PRNT-001",
       "file": "desktop.png",
-      "sizeBytes": 98840,
-      "sizeKB": "96.5",
+      "sizeBytes": 98543,
+      "sizeKB": "96.2",
       "width": 1440,
       "height": 900,
       "status": "PASS"
@@ -210,8 +210,8 @@
     {
       "pageId": "PRNT-001",
       "file": "mobile.png",
-      "sizeBytes": 65656,
-      "sizeKB": "64.1",
+      "sizeBytes": 31770,
+      "sizeKB": "31.0",
       "width": 390,
       "height": 844,
       "status": "PASS"
@@ -399,7 +399,7 @@
     {
       "pageId": "STUD-001",
       "file": "desktop.png",
-      "sizeBytes": 98906,
+      "sizeBytes": 98936,
       "sizeKB": "96.6",
       "width": 1440,
       "height": 900,
@@ -408,8 +408,8 @@
     {
       "pageId": "STUD-001",
       "file": "mobile.png",
-      "sizeBytes": 65692,
-      "sizeKB": "64.2",
+      "sizeBytes": 30230,
+      "sizeKB": "29.5",
       "width": 390,
       "height": 844,
       "status": "PASS"
@@ -417,8 +417,8 @@
     {
       "pageId": "STUD-002",
       "file": "desktop.png",
-      "sizeBytes": 98840,
-      "sizeKB": "96.5",
+      "sizeBytes": 42630,
+      "sizeKB": "41.6",
       "width": 1440,
       "height": 900,
       "status": "PASS"
@@ -426,8 +426,8 @@
     {
       "pageId": "STUD-002",
       "file": "mobile.png",
-      "sizeBytes": 65656,
-      "sizeKB": "64.1",
+      "sizeBytes": 17606,
+      "sizeKB": "17.2",
       "width": 390,
       "height": 844,
       "status": "PASS"
@@ -435,8 +435,8 @@
     {
       "pageId": "STUD-003",
       "file": "desktop.png",
-      "sizeBytes": 98840,
-      "sizeKB": "96.5",
+      "sizeBytes": 108251,
+      "sizeKB": "105.7",
       "width": 1440,
       "height": 900,
       "status": "PASS"
@@ -444,8 +444,8 @@
     {
       "pageId": "STUD-003",
       "file": "mobile.png",
-      "sizeBytes": 65656,
-      "sizeKB": "64.1",
+      "sizeBytes": 29771,
+      "sizeKB": "29.1",
       "width": 390,
       "height": 844,
       "status": "PASS"
@@ -453,8 +453,8 @@
     {
       "pageId": "STUD-004",
       "file": "desktop.png",
-      "sizeBytes": 98840,
-      "sizeKB": "96.5",
+      "sizeBytes": 50362,
+      "sizeKB": "49.2",
       "width": 1440,
       "height": 900,
       "status": "PASS"
@@ -462,8 +462,8 @@
     {
       "pageId": "STUD-004",
       "file": "mobile.png",
-      "sizeBytes": 65656,
-      "sizeKB": "64.1",
+      "sizeBytes": 22555,
+      "sizeKB": "22.0",
       "width": 390,
       "height": 844,
       "status": "PASS"
@@ -471,8 +471,8 @@
     {
       "pageId": "STUD-005",
       "file": "desktop.png",
-      "sizeBytes": 98840,
-      "sizeKB": "96.5",
+      "sizeBytes": 75752,
+      "sizeKB": "74.0",
       "width": 1440,
       "height": 900,
       "status": "PASS"
@@ -480,8 +480,8 @@
     {
       "pageId": "STUD-005",
       "file": "mobile.png",
-      "sizeBytes": 65656,
-      "sizeKB": "64.1",
+      "sizeBytes": 23839,
+      "sizeKB": "23.3",
       "width": 390,
       "height": 844,
       "status": "PASS"

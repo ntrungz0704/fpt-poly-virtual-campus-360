@@ -1,0 +1,604 @@
+[
+  {
+    "viewport": "desktop-1440",
+    "width": 1440,
+    "route": "/",
+    "status": 200,
+    "scrollWidth": 1425,
+    "clientWidth": 1440,
+    "overflowX": false,
+    "consoleErrorCount": 0,
+    "pageErrorCount": 0,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\desktop-1440__home.png"
+  },
+  {
+    "viewport": "desktop-1440",
+    "width": 1440,
+    "route": "/about",
+    "status": 200,
+    "scrollWidth": 1425,
+    "clientWidth": 1440,
+    "overflowX": false,
+    "consoleErrorCount": 0,
+    "pageErrorCount": 0,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\desktop-1440__about.png"
+  },
+  {
+    "viewport": "desktop-1440",
+    "width": 1440,
+    "route": "/campus",
+    "status": 200,
+    "scrollWidth": 1425,
+    "clientWidth": 1440,
+    "overflowX": false,
+    "consoleErrorCount": 1,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\desktop-1440__campus.png"
+  },
+  {
+    "viewport": "desktop-1440",
+    "width": 1440,
+    "route": "/map",
+    "status": 200,
+    "scrollWidth": 1425,
+    "clientWidth": 1440,
+    "overflowX": false,
+    "consoleErrorCount": 1,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\desktop-1440__map.png"
+  },
+  {
+    "viewport": "desktop-1440",
+    "width": 1440,
+    "route": "/locations",
+    "status": 200,
+    "scrollWidth": 1425,
+    "clientWidth": 1440,
+    "overflowX": false,
+    "consoleErrorCount": 1,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\desktop-1440__locations.png"
+  },
+  {
+    "viewport": "desktop-1440",
+    "width": 1440,
+    "route": "/locations/lab-lap-trinh-t301",
+    "status": 200,
+    "scrollWidth": 1425,
+    "clientWidth": 1440,
+    "overflowX": false,
+    "consoleErrorCount": 0,
+    "pageErrorCount": 0,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\desktop-1440__location-detail.png"
+  },
+  {
+    "viewport": "desktop-1440",
+    "width": 1440,
+    "route": "/events",
+    "status": 200,
+    "scrollWidth": 1425,
+    "clientWidth": 1440,
+    "overflowX": false,
+    "consoleErrorCount": 1,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\desktop-1440__events.png"
+  },
+  {
+    "viewport": "desktop-1440",
+    "width": 1440,
+    "route": "/news",
+    "status": 200,
+    "scrollWidth": 1425,
+    "clientWidth": 1440,
+    "overflowX": false,
+    "consoleErrorCount": 0,
+    "pageErrorCount": 0,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\desktop-1440__news.png"
+  },
+  {
+    "viewport": "desktop-1440",
+    "width": 1440,
+    "route": "/news/huong-dan-tham-quan-qtsc-360",
+    "status": 200,
+    "scrollWidth": 1425,
+    "clientWidth": 1440,
+    "overflowX": false,
+    "consoleErrorCount": 0,
+    "pageErrorCount": 0,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\desktop-1440__news-detail.png"
+  },
+  {
+    "viewport": "desktop-1440",
+    "width": 1440,
+    "route": "/contact",
+    "status": 200,
+    "scrollWidth": 1425,
+    "clientWidth": 1440,
+    "overflowX": false,
+    "consoleErrorCount": 0,
+    "pageErrorCount": 0,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\desktop-1440__contact.png"
+  },
+  {
+    "viewport": "desktop-1440",
+    "width": 1440,
+    "route": "/games",
+    "status": 200,
+    "scrollWidth": 1425,
+    "clientWidth": 1440,
+    "overflowX": false,
+    "consoleErrorCount": 3,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\desktop-1440__games.png"
+  },
+  {
+    "viewport": "desktop-1440",
+    "width": 1440,
+    "route": "/login",
+    "status": 200,
+    "scrollWidth": 1425,
+    "clientWidth": 1440,
+    "overflowX": false,
+    "consoleErrorCount": 1,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\desktop-1440__login.png"
+  },
+  {
+    "viewport": "desktop-1440",
+    "width": 1440,
+    "route": "/portal",
+    "status": 200,
+    "scrollWidth": 1425,
+    "clientWidth": 1440,
+    "overflowX": false,
+    "consoleErrorCount": 2,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\desktop-1440__portal.png"
+  },
+  {
+    "viewport": "desktop-1440",
+    "width": 1440,
+    "route": "/admin",
+    "status": 200,
+    "scrollWidth": 1425,
+    "clientWidth": 1440,
+    "overflowX": false,
+    "consoleErrorCount": 2,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\desktop-1440__admin.png"
+  },
+  {
+    "viewport": "desktop-1440",
+    "width": 1440,
+    "route": "/admin/locations",
+    "status": 200,
+    "scrollWidth": 1425,
+    "clientWidth": 1440,
+    "overflowX": false,
+    "consoleErrorCount": 2,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\desktop-1440__admin-locations.png"
+  },
+  {
+    "viewport": "desktop-1440",
+    "width": 1440,
+    "route": "/admin/virtual-tour",
+    "status": 200,
+    "scrollWidth": 1425,
+    "clientWidth": 1440,
+    "overflowX": false,
+    "consoleErrorCount": 2,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\desktop-1440__admin-virtual-tour.png"
+  },
+  {
+    "viewport": "desktop-1440",
+    "width": 1440,
+    "route": "/admin/events",
+    "status": 200,
+    "scrollWidth": 1425,
+    "clientWidth": 1440,
+    "overflowX": false,
+    "consoleErrorCount": 2,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\desktop-1440__admin-events.png"
+  },
+  {
+    "viewport": "desktop-1440",
+    "width": 1440,
+    "route": "/admin/media",
+    "status": 200,
+    "scrollWidth": 1425,
+    "clientWidth": 1440,
+    "overflowX": false,
+    "consoleErrorCount": 2,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\desktop-1440__admin-media.png"
+  },
+  {
+    "viewport": "desktop-1440",
+    "width": 1440,
+    "route": "/admin/users",
+    "status": 200,
+    "scrollWidth": 1425,
+    "clientWidth": 1440,
+    "overflowX": false,
+    "consoleErrorCount": 2,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\desktop-1440__admin-users.png"
+  },
+  {
+    "viewport": "mobile-390",
+    "width": 390,
+    "route": "/",
+    "status": 304,
+    "scrollWidth": 375,
+    "clientWidth": 390,
+    "overflowX": false,
+    "consoleErrorCount": 0,
+    "pageErrorCount": 0,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\mobile-390__home.png"
+  },
+  {
+    "viewport": "mobile-390",
+    "width": 390,
+    "route": "/about",
+    "status": 304,
+    "scrollWidth": 375,
+    "clientWidth": 390,
+    "overflowX": false,
+    "consoleErrorCount": 0,
+    "pageErrorCount": 0,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\mobile-390__about.png"
+  },
+  {
+    "viewport": "mobile-390",
+    "width": 390,
+    "route": "/campus",
+    "status": 200,
+    "scrollWidth": 375,
+    "clientWidth": 390,
+    "overflowX": false,
+    "consoleErrorCount": 1,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\mobile-390__campus.png"
+  },
+  {
+    "viewport": "mobile-390",
+    "width": 390,
+    "route": "/map",
+    "status": 200,
+    "scrollWidth": 375,
+    "clientWidth": 390,
+    "overflowX": false,
+    "consoleErrorCount": 1,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\mobile-390__map.png"
+  },
+  {
+    "viewport": "mobile-390",
+    "width": 390,
+    "route": "/locations",
+    "status": 200,
+    "scrollWidth": 375,
+    "clientWidth": 390,
+    "overflowX": false,
+    "consoleErrorCount": 1,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\mobile-390__locations.png"
+  },
+  {
+    "viewport": "mobile-390",
+    "width": 390,
+    "route": "/locations/lab-lap-trinh-t301",
+    "status": 200,
+    "scrollWidth": 375,
+    "clientWidth": 390,
+    "overflowX": false,
+    "consoleErrorCount": 0,
+    "pageErrorCount": 0,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\mobile-390__location-detail.png"
+  },
+  {
+    "viewport": "mobile-390",
+    "width": 390,
+    "route": "/events",
+    "status": 304,
+    "scrollWidth": 375,
+    "clientWidth": 390,
+    "overflowX": false,
+    "consoleErrorCount": 1,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\mobile-390__events.png"
+  },
+  {
+    "viewport": "mobile-390",
+    "width": 390,
+    "route": "/news",
+    "status": 304,
+    "scrollWidth": 375,
+    "clientWidth": 390,
+    "overflowX": false,
+    "consoleErrorCount": 0,
+    "pageErrorCount": 0,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\mobile-390__news.png"
+  },
+  {
+    "viewport": "mobile-390",
+    "width": 390,
+    "route": "/news/huong-dan-tham-quan-qtsc-360",
+    "status": 304,
+    "scrollWidth": 375,
+    "clientWidth": 390,
+    "overflowX": false,
+    "consoleErrorCount": 0,
+    "pageErrorCount": 0,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\mobile-390__news-detail.png"
+  },
+  {
+    "viewport": "mobile-390",
+    "width": 390,
+    "route": "/contact",
+    "status": 304,
+    "scrollWidth": 375,
+    "clientWidth": 390,
+    "overflowX": false,
+    "consoleErrorCount": 0,
+    "pageErrorCount": 0,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\mobile-390__contact.png"
+  },
+  {
+    "viewport": "mobile-390",
+    "width": 390,
+    "route": "/games",
+    "status": 304,
+    "scrollWidth": 375,
+    "clientWidth": 390,
+    "overflowX": false,
+    "consoleErrorCount": 3,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\mobile-390__games.png"
+  },
+  {
+    "viewport": "mobile-390",
+    "width": 390,
+    "route": "/login",
+    "status": 304,
+    "scrollWidth": 375,
+    "clientWidth": 390,
+    "overflowX": false,
+    "consoleErrorCount": 1,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\mobile-390__login.png"
+  },
+  {
+    "viewport": "mobile-390",
+    "width": 390,
+    "route": "/portal",
+    "status": 304,
+    "scrollWidth": 375,
+    "clientWidth": 390,
+    "overflowX": false,
+    "consoleErrorCount": 2,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\mobile-390__portal.png"
+  },
+  {
+    "viewport": "mobile-390",
+    "width": 390,
+    "route": "/admin",
+    "status": 304,
+    "scrollWidth": 375,
+    "clientWidth": 390,
+    "overflowX": false,
+    "consoleErrorCount": 2,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\mobile-390__admin.png"
+  },
+  {
+    "viewport": "mobile-390",
+    "width": 390,
+    "route": "/admin/locations",
+    "status": 304,
+    "scrollWidth": 375,
+    "clientWidth": 390,
+    "overflowX": false,
+    "consoleErrorCount": 2,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\mobile-390__admin-locations.png"
+  },
+  {
+    "viewport": "mobile-390",
+    "width": 390,
+    "route": "/admin/virtual-tour",
+    "status": 304,
+    "scrollWidth": 375,
+    "clientWidth": 390,
+    "overflowX": false,
+    "consoleErrorCount": 2,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\mobile-390__admin-virtual-tour.png"
+  },
+  {
+    "viewport": "mobile-390",
+    "width": 390,
+    "route": "/admin/events",
+    "status": 304,
+    "scrollWidth": 375,
+    "clientWidth": 390,
+    "overflowX": false,
+    "consoleErrorCount": 2,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\mobile-390__admin-events.png"
+  },
+  {
+    "viewport": "mobile-390",
+    "width": 390,
+    "route": "/admin/media",
+    "status": 304,
+    "scrollWidth": 375,
+    "clientWidth": 390,
+    "overflowX": false,
+    "consoleErrorCount": 2,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\mobile-390__admin-media.png"
+  },
+  {
+    "viewport": "mobile-390",
+    "width": 390,
+    "route": "/admin/users",
+    "status": 304,
+    "scrollWidth": 375,
+    "clientWidth": 390,
+    "overflowX": false,
+    "consoleErrorCount": 2,
+    "pageErrorCount": 0,
+    "consoleErrors": [
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED",
+      "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+    ],
+    "pageErrors": [],
+    "screenshot": "E:\\Virtual Campus FPT Poly\\docs\\project-redesign-audit\\screenshots\\mobile-390__admin-users.png"
+  }
+]

@@ -1,0 +1,717 @@
+{
+  "summary": {
+    "totalFolders": 25,
+    "totalImages": 53,
+    "validDesktopCount": 25,
+    "validMobileCount": 25,
+    "conceptCount": 3,
+    "designPromptsCount": 25,
+    "implPromptsCount": 25
+  },
+  "images": [
+    {
+      "pageId": "ADMN-001",
+      "file": "desktop.png",
+      "sizeBytes": 98906,
+      "sizeKB": "96.6",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "ADMN-001",
+      "file": "mobile.png",
+      "sizeBytes": 65692,
+      "sizeKB": "64.2",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "ADMN-002",
+      "file": "desktop.png",
+      "sizeBytes": 98906,
+      "sizeKB": "96.6",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "ADMN-002",
+      "file": "mobile.png",
+      "sizeBytes": 65692,
+      "sizeKB": "64.2",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "ADMN-003",
+      "file": "desktop.png",
+      "sizeBytes": 98906,
+      "sizeKB": "96.6",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "ADMN-003",
+      "file": "mobile.png",
+      "sizeBytes": 65692,
+      "sizeKB": "64.2",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "ADMN-004",
+      "file": "desktop.png",
+      "sizeBytes": 98906,
+      "sizeKB": "96.6",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "ADMN-004",
+      "file": "mobile.png",
+      "sizeBytes": 65692,
+      "sizeKB": "64.2",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "ADMN-005",
+      "file": "desktop.png",
+      "sizeBytes": 98906,
+      "sizeKB": "96.6",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "ADMN-005",
+      "file": "mobile.png",
+      "sizeBytes": 65692,
+      "sizeKB": "64.2",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "ADMN-006",
+      "file": "desktop.png",
+      "sizeBytes": 98906,
+      "sizeKB": "96.6",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "ADMN-006",
+      "file": "mobile.png",
+      "sizeBytes": 65692,
+      "sizeKB": "64.2",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "AUTH-001",
+      "file": "concept-redesign.jpg",
+      "sizeBytes": 704204,
+      "sizeKB": "687.7",
+      "width": 1376,
+      "height": 768,
+      "status": "PASS"
+    },
+    {
+      "pageId": "AUTH-001",
+      "file": "desktop.png",
+      "sizeBytes": 91850,
+      "sizeKB": "89.7",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "AUTH-001",
+      "file": "mobile.png",
+      "sizeBytes": 61799,
+      "sizeKB": "60.4",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "AUTH-002",
+      "file": "desktop.png",
+      "sizeBytes": 98840,
+      "sizeKB": "96.5",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "AUTH-002",
+      "file": "mobile.png",
+      "sizeBytes": 65656,
+      "sizeKB": "64.1",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "CAMP-001",
+      "file": "desktop.png",
+      "sizeBytes": 33186,
+      "sizeKB": "32.4",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "CAMP-001",
+      "file": "mobile.png",
+      "sizeBytes": 13693,
+      "sizeKB": "13.4",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "CAMP-002",
+      "file": "desktop.png",
+      "sizeBytes": 640954,
+      "sizeKB": "625.9",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "CAMP-002",
+      "file": "mobile.png",
+      "sizeBytes": 187336,
+      "sizeKB": "182.9",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PRNT-001",
+      "file": "desktop.png",
+      "sizeBytes": 98840,
+      "sizeKB": "96.5",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PRNT-001",
+      "file": "mobile.png",
+      "sizeBytes": 65656,
+      "sizeKB": "64.1",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-001",
+      "file": "concept-redesign.jpg",
+      "sizeBytes": 686321,
+      "sizeKB": "670.2",
+      "width": 1376,
+      "height": 768,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-001",
+      "file": "desktop.png",
+      "sizeBytes": 92192,
+      "sizeKB": "90.0",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-001",
+      "file": "mobile.png",
+      "sizeBytes": 333026,
+      "sizeKB": "325.2",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-002",
+      "file": "desktop.png",
+      "sizeBytes": 434750,
+      "sizeKB": "424.6",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-002",
+      "file": "mobile.png",
+      "sizeBytes": 182848,
+      "sizeKB": "178.6",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-003",
+      "file": "desktop.png",
+      "sizeBytes": 111162,
+      "sizeKB": "108.6",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-003",
+      "file": "mobile.png",
+      "sizeBytes": 56014,
+      "sizeKB": "54.7",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-004",
+      "file": "concept-redesign.jpg",
+      "sizeBytes": 683251,
+      "sizeKB": "667.2",
+      "width": 1376,
+      "height": 768,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-004",
+      "file": "desktop.png",
+      "sizeBytes": 95750,
+      "sizeKB": "93.5",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-004",
+      "file": "mobile.png",
+      "sizeBytes": 43458,
+      "sizeKB": "42.4",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-005",
+      "file": "desktop.png",
+      "sizeBytes": 132066,
+      "sizeKB": "129.0",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-005",
+      "file": "mobile.png",
+      "sizeBytes": 71673,
+      "sizeKB": "70.0",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-006",
+      "file": "desktop.png",
+      "sizeBytes": 531980,
+      "sizeKB": "519.5",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-006",
+      "file": "mobile.png",
+      "sizeBytes": 71316,
+      "sizeKB": "69.6",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-007",
+      "file": "desktop.png",
+      "sizeBytes": 504437,
+      "sizeKB": "492.6",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-007",
+      "file": "mobile.png",
+      "sizeBytes": 146932,
+      "sizeKB": "143.5",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-008",
+      "file": "desktop.png",
+      "sizeBytes": 662386,
+      "sizeKB": "646.9",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-008",
+      "file": "mobile.png",
+      "sizeBytes": 203438,
+      "sizeKB": "198.7",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-009",
+      "file": "desktop.png",
+      "sizeBytes": 805685,
+      "sizeKB": "786.8",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-009",
+      "file": "mobile.png",
+      "sizeBytes": 205487,
+      "sizeKB": "200.7",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "STUD-001",
+      "file": "desktop.png",
+      "sizeBytes": 98906,
+      "sizeKB": "96.6",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "STUD-001",
+      "file": "mobile.png",
+      "sizeBytes": 65692,
+      "sizeKB": "64.2",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "STUD-002",
+      "file": "desktop.png",
+      "sizeBytes": 98840,
+      "sizeKB": "96.5",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "STUD-002",
+      "file": "mobile.png",
+      "sizeBytes": 65656,
+      "sizeKB": "64.1",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "STUD-003",
+      "file": "desktop.png",
+      "sizeBytes": 98840,
+      "sizeKB": "96.5",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "STUD-003",
+      "file": "mobile.png",
+      "sizeBytes": 65656,
+      "sizeKB": "64.1",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "STUD-004",
+      "file": "desktop.png",
+      "sizeBytes": 98840,
+      "sizeKB": "96.5",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "STUD-004",
+      "file": "mobile.png",
+      "sizeBytes": 65656,
+      "sizeKB": "64.1",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    },
+    {
+      "pageId": "STUD-005",
+      "file": "desktop.png",
+      "sizeBytes": 98840,
+      "sizeKB": "96.5",
+      "width": 1440,
+      "height": 900,
+      "status": "PASS"
+    },
+    {
+      "pageId": "STUD-005",
+      "file": "mobile.png",
+      "sizeBytes": 65656,
+      "sizeKB": "64.1",
+      "width": 390,
+      "height": 844,
+      "status": "PASS"
+    }
+  ],
+  "prompts": [
+    {
+      "pageId": "ADMN-001",
+      "file": "ADMN-001.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4084,
+      "status": "PASS"
+    },
+    {
+      "pageId": "ADMN-002",
+      "file": "ADMN-002.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4165,
+      "status": "PASS"
+    },
+    {
+      "pageId": "ADMN-003",
+      "file": "ADMN-003.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4143,
+      "status": "PASS"
+    },
+    {
+      "pageId": "ADMN-004",
+      "file": "ADMN-004.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4158,
+      "status": "PASS"
+    },
+    {
+      "pageId": "ADMN-005",
+      "file": "ADMN-005.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4152,
+      "status": "PASS"
+    },
+    {
+      "pageId": "ADMN-006",
+      "file": "ADMN-006.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4230,
+      "status": "PASS"
+    },
+    {
+      "pageId": "AUTH-001",
+      "file": "AUTH-001.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4151,
+      "status": "PASS"
+    },
+    {
+      "pageId": "AUTH-002",
+      "file": "AUTH-002.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4162,
+      "status": "PASS"
+    },
+    {
+      "pageId": "CAMP-001",
+      "file": "CAMP-001.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4134,
+      "status": "PASS"
+    },
+    {
+      "pageId": "CAMP-002",
+      "file": "CAMP-002.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4109,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PRNT-001",
+      "file": "PRNT-001.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4174,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-001",
+      "file": "PUB-001.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4127,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-002",
+      "file": "PUB-002.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4075,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-003",
+      "file": "PUB-003.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4098,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-004",
+      "file": "PUB-004.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4138,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-005",
+      "file": "PUB-005.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4171,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-006",
+      "file": "PUB-006.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4101,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-007",
+      "file": "PUB-007.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4134,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-008",
+      "file": "PUB-008.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4120,
+      "status": "PASS"
+    },
+    {
+      "pageId": "PUB-009",
+      "file": "PUB-009.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4130,
+      "status": "PASS"
+    },
+    {
+      "pageId": "STUD-001",
+      "file": "STUD-001.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4165,
+      "status": "PASS"
+    },
+    {
+      "pageId": "STUD-002",
+      "file": "STUD-002.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4114,
+      "status": "PASS"
+    },
+    {
+      "pageId": "STUD-003",
+      "file": "STUD-003.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4138,
+      "status": "PASS"
+    },
+    {
+      "pageId": "STUD-004",
+      "file": "STUD-004.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4129,
+      "status": "PASS"
+    },
+    {
+      "pageId": "STUD-005",
+      "file": "STUD-005.md",
+      "hasDesktopRef": true,
+      "hasMobileRef": true,
+      "forbidsFakeHack": false,
+      "lengthChars": 4109,
+      "status": "PASS"
+    }
+  ]
+}

@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gallery Thiết Kế Toàn Bộ Trang — FPT Polytechnic Virtual Campus 360°</title>
+  <style>
+    :root {
+      --primary: #F26F21;
+      --navy: #0D47A1;
+      --dark: #0F172A;
+      --card-bg: #FFFFFF;
+      --bg: #F8FAFC;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: var(--bg); color: var(--dark); padding-bottom: 60px; }
+    header { background: linear-gradient(135deg, var(--dark), #1E293B); color: white; padding: 32px 40px; border-bottom: 4px solid var(--primary); }
+    header h1 { font-size: 26px; font-weight: 800; display: flex; align-items: center; gap: 12px; }
+    header p { color: #94A3B8; margin-top: 8px; font-size: 15px; }
+    .badge { background: var(--primary); color: white; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: bold; }
+    .container { max-width: 1600px; margin: 0 auto; padding: 30px 40px; }
+    .filter-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 30px; }
+    .btn-filter { background: white; border: 1px solid #CBD5E1; color: #475569; padding: 8px 18px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn-filter:hover, .btn-filter.active { background: var(--primary); color: white; border-color: var(--primary); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); gap: 24px; }
+    .card { background: var(--card-bg); border-radius: 16px; border: 1px solid #E2E8F0; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: transform 0.2s, box-shadow 0.2s; display: flex; flex-direction: column; }
+    .card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.08); }
+    .card-header { padding: 14px 18px; border-bottom: 1px solid #F1F5F9; display: flex; align-items: center; justify-content: space-between; }
+    .card-title { font-size: 14px; font-weight: 700; color: #1E293B; word-break: break-all; }
+    .card-tag { font-size: 11px; padding: 2px 8px; border-radius: 6px; font-weight: bold; }
+    .tag-desktop { background: #EFF6FF; color: #1D4ED8; }
+    .tag-mobile { background: #FDF2F8; color: #BE185D; }
+    .tag-redesign { background: #FEF3C7; color: #D97706; border: 1px solid #F59E0B; }
+    .img-wrapper { background: #0F172A; position: relative; width: 100%; aspect-ratio: 16/9; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .card.is-mobile .img-wrapper { aspect-ratio: 9/16; max-height: 400px; background: #1E293B; }
+    .img-wrapper img { width: 100%; height: 100%; object-fit: contain; cursor: pointer; transition: transform 0.3s; }
+    .img-wrapper:hover img { transform: scale(1.02); }
+    .card-footer { padding: 12px 18px; background: #FAFAFA; border-top: 1px solid #F1F5F9; display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #64748B; }
+    .btn-view { color: var(--primary); text-decoration: none; font-weight: 700; }
+    .btn-view:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>
+    <span>🎨 Thư Viện Giao Diện Toàn Bộ Trang (All Pages Gallery)</span>
+    <span class="badge">53 Tệp Ảnh</span>
+  </h1>
+  <p>FPT Polytechnic Virtual Campus 360° — Tổng hợp đầy đủ 25 màn hình (Desktop 1440, Mobile 390 và Bản Thiết Kế Đồ Họa Mới)</p>
+</header>
+
+<div class="container">
+  <div class="filter-bar">
+    <button class="btn-filter active" onclick="filterGallery('all')">Tất cả (53)</button>
+    <button class="btn-filter" onclick="filterGallery('REDESIGN')">✨ Bản Thiết Kế Mới</button>
+    <button class="btn-filter" onclick="filterGallery('PUB')">Public Website (01-09)</button>
+    <button class="btn-filter" onclick="filterGallery('AUTH')">Authentication (10-11)</button>
+    <button class="btn-filter" onclick="filterGallery('CAMPUS')">Virtual Campus 360 & Map (12-13)</button>
+    <button class="btn-filter" onclick="filterGallery('STUDENT')">Student Portal (14-18)</button>
+    <button class="btn-filter" onclick="filterGallery('PARENT')">Parent Portal (19)</button>
+    <button class="btn-filter" onclick="filterGallery('ADMIN')">Admin CMS (20-25)</button>
+    <button class="btn-filter" onclick="filterGallery('desktop-1440')">Desktop 1440</button>
+    <button class="btn-filter" onclick="filterGallery('mobile-390')">Mobile 390</button>
+  </div>
+
+  <div class="grid" id="galleryGrid">
+    
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+      <div class="card ${isMobile ? "is-mobile" : ""}" data-filename="${f}">
+        <div class="card-header">
+          <span class="card-title">${f.replace(/__[a-zA-Z0-9_-]+\.(png|jpg)/, "")}</span>
+          <span class="card-tag ${tagClass}">${tagLabel}</span>
+        </div>
+        <div class="img-wrapper">
+          <a href="${f}" target="_blank">
+            <img src="${f}" alt="${f}" loading="lazy" />
+          </a>
+        </div>
+        <div class="card-footer">
+          <span>${f}</span>
+          <a class="btn-view" href="${f}" target="_blank">Xem ảnh gốc ↗</a>
+        </div>
+      </div>
+  </div>
+</div>
+
+<script>
+  function filterGallery(category) {
+    document.querySelectorAll('.btn-filter').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+
+    const cards = document.querySelectorAll('.card');
+    cards.forEach(c => {
+      const fn = c.getAttribute('data-filename');
+      if (category === 'all' || fn.includes(category)) {
+        c.style.display = 'flex';
+      } else {
+        c.style.display = 'none';
+      }
+    });
+  }
+</script>
+
+</body>
+</html>

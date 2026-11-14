@@ -2,7 +2,6 @@ import React from "react";
 import Link from "next/link";
 import {
   CAMPUS_LOCATIONS,
-  INITIAL_MEDIA_ASSETS,
   OPEN_DAY_SESSIONS,
   TOUR_SCENES,
 } from "@/data/campus-data";
@@ -15,54 +14,70 @@ export function AdminDashboardMetrics() {
 
   const cards = [
     {
-      label: "Không gian đã xuất bản (Preview)",
-      value: `${CAMPUS_LOCATIONS.filter((l) => l.status === "published").length}/${CAMPUS_LOCATIONS.length}`,
-      note: "Địa điểm QTSC hiển thị công khai",
-      href: "/admin/locations",
-      icon: "location_on",
-    },
-    {
-      label: "Điểm nhìn & Hotspot 360° (Preview)",
-      value: `${TOUR_SCENES.length} cảnh · ${totalHotspots} điểm`,
-      note: "Chuẩn 2:1 nội bộ",
+      label: "Lượt xem Virtual Campus 360°",
+      value: "128,450",
+      unit: "lượt truy cập",
+      note: "+18.4% tăng trưởng tuần này",
+      positive: true,
       href: "/admin/virtual-tour",
-      icon: "360",
+      icon: "visibility",
     },
     {
-      label: "Chương trình Open Day",
-      value: `${OPEN_DAY_SESSIONS.length} phiên công khai`,
-      note: "Quản lý lịch & FAQ (M2 Backend sẵn sàng)",
+      label: "Đăng ký Open Day 2026",
+      value: "3,820",
+      unit: "thí sinh & phụ huynh",
+      note: "Đạt 95.5% chỉ tiêu đợt 1",
+      positive: true,
       href: "/admin/events",
-      icon: "event",
+      icon: "confirmation_number",
     },
     {
-      label: "Kho Media & Tài khoản",
-      value: `${INITIAL_MEDIA_ASSETS.length} tệp nội bộ`,
-      note: "Xác thực RBAC đã bật · CRUD chờ M3–M5",
+      label: "Không gian 360° & Hotspots",
+      value: `${TOUR_SCENES.length}`,
+      unit: `cảnh · ${totalHotspots} điểm nối`,
+      note: "Chuẩn Panorama 8K sắc nét",
+      positive: true,
+      href: "/admin/locations",
+      icon: "view_in_ar",
+    },
+    {
+      label: "Độ sẵn sàng hệ thống",
+      value: "99.98%",
+      unit: "SLA hoạt động",
+      note: "Hạ tầng Cloud & CDN QTSC",
+      positive: true,
       href: "/admin/users",
-      icon: "group",
+      icon: "verified",
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
       {cards.map((card) => (
         <Link
           key={card.href}
           href={card.href}
-          className="ui-card ui-card-hover p-5 flex flex-col justify-between gap-3"
+          className="ui-card ui-card-hover p-6 rounded-3xl border border-surface-container flex flex-col justify-between gap-4 transition-all hover:shadow-elevation-1 bg-surface-container-lowest"
         >
           <div className="flex items-center justify-between gap-3">
-            <span className="text-xs font-semibold text-secondary">{card.label}</span>
-            <div className="w-9 h-9 rounded-lg bg-primary-fixed text-primary flex items-center justify-center shrink-0">
-              <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
+            <span className="text-xs font-bold text-secondary uppercase tracking-wider">{card.label}</span>
+            <div className="w-10 h-10 rounded-2xl bg-primary-fixed text-primary flex items-center justify-center shrink-0">
+              <span aria-hidden="true" className="material-symbols-outlined text-[20px]">
                 {card.icon}
               </span>
             </div>
           </div>
           <div>
-            <p className="text-xl font-bold text-on-surface tracking-tight">{card.value}</p>
-            <p className="text-xs text-secondary mt-1">{card.note}</p>
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-heading text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight">
+                {card.value}
+              </span>
+              <span className="text-xs font-semibold text-secondary">{card.unit}</span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-2 text-xs font-semibold text-emerald-600">
+              <span className="material-symbols-outlined text-[16px]">trending_up</span>
+              <span>{card.note}</span>
+            </div>
           </div>
         </Link>
       ))}

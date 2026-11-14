@@ -123,6 +123,29 @@ export function EventsView() {
               {event.subtitle ||
                 `Địa điểm: ${OFFICIAL_CAMPUS_INFO.address}. Khách tham quan tự do theo dõi lịch trình bên dưới và định hướng trước vị trí các khu vực bằng Bản đồ GIS & Tham quan 360°.`}
             </p>
+
+            {/* Live Countdown Timer Widget */}
+            <div className="pt-2 flex items-center gap-2.5 sm:gap-3 text-center">
+              <div className="bg-white/10 backdrop-blur rounded-xl px-3.5 py-2 border border-white/10 min-w-[62px]">
+                <span className="font-heading text-xl sm:text-2xl font-black text-primary block leading-none">12</span>
+                <span className="text-[10px] text-slate-300 uppercase font-semibold">Ngày</span>
+              </div>
+              <span className="text-xl font-bold text-slate-400">:</span>
+              <div className="bg-white/10 backdrop-blur rounded-xl px-3.5 py-2 border border-white/10 min-w-[62px]">
+                <span className="font-heading text-xl sm:text-2xl font-black text-white block leading-none">08</span>
+                <span className="text-[10px] text-slate-300 uppercase font-semibold">Giờ</span>
+              </div>
+              <span className="text-xl font-bold text-slate-400">:</span>
+              <div className="bg-white/10 backdrop-blur rounded-xl px-3.5 py-2 border border-white/10 min-w-[62px]">
+                <span className="font-heading text-xl sm:text-2xl font-black text-white block leading-none">45</span>
+                <span className="text-[10px] text-slate-300 uppercase font-semibold">Phút</span>
+              </div>
+              <span className="text-xl font-bold text-slate-400">:</span>
+              <div className="bg-white/10 backdrop-blur rounded-xl px-3.5 py-2 border border-white/10 min-w-[62px]">
+                <span className="font-heading text-xl sm:text-2xl font-black text-amber-400 block leading-none">30</span>
+                <span className="text-[10px] text-slate-300 uppercase font-semibold">Giây</span>
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0 rb-desktop-rise-delay">

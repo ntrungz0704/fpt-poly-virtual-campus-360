@@ -12,6 +12,9 @@ const NAV_ITEMS = [
   { href: "/locations", label: "Địa điểm", icon: "apartment" },
   { href: "/events", label: "Open Day", icon: "event" },
   { href: "/games", label: "Thử thách & Quà", icon: "casino" },
+  { href: "/news", label: "Tin tức", icon: "newspaper" },
+  { href: "/about", label: "Giới thiệu", icon: "info" },
+  { href: "/contact", label: "Liên hệ", icon: "support_agent" },
 ];
 
 export function PublicHeader() {

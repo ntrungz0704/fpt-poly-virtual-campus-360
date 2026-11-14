@@ -192,9 +192,18 @@ function ChangePasswordInner() {
         </Button>
       </div>
 
-      <div className="ui-card p-6 sm:p-8 shadow-sm space-y-6">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
+      <div className="bg-surface-container-lowest rounded-3xl p-6 sm:p-9 border border-surface-container shadow-elevation-2 relative overflow-hidden space-y-6">
+        {/* Top Brand Accent Line */}
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary via-primary-container to-secondary" />
+
+        {/* Brand Header with Preserved Logo */}
+        <div className="text-center pt-2">
+          <img
+            src="/images/fpt-logo-official.png"
+            alt="FPT Polytechnic"
+            className="h-8 w-auto mx-auto object-contain mb-3"
+          />
+          <div className="flex flex-wrap items-center justify-center gap-2 mb-2">
             <Badge variant="brand">{getPrimaryRoleLabel(user)}</Badge>
             <span className="text-xs font-mono text-secondary">
               {user.username || user.email || user.phone}
@@ -202,13 +211,13 @@ function ChangePasswordInner() {
           </div>
           <h1 className="type-h2 text-on-surface">
             {user.mustChangePassword
-              ? "Đổi mật khẩu khởi tạo bắt buộc"
-              : "Cập nhật mật khẩu tài khoản"}
+              ? "Đổi Mật Khẩu Khởi Tạo Bắt Buộc"
+              : "Cập Nhật Mật Khẩu Mới"}
           </h1>
-          <p className="type-body-sm text-secondary leading-relaxed">
+          <p className="type-body-sm text-secondary mt-1 max-w-sm mx-auto leading-relaxed">
             {user.mustChangePassword
-              ? `Xin chào ${user.fullName}. Để đảm bảo an toàn, bạn cần thiết lập mật khẩu mới (tối thiểu 12 ký tự) trước khi truy cập hệ thống.`
-              : `Cập nhật mật khẩu cho tài khoản ${user.fullName}. Sau khi đổi mật khẩu, các phiên đăng nhập trên thiết bị khác sẽ tự động được thu hồi.`}
+              ? `Xin chào ${user.fullName}. Để đảm bảo an toàn, bạn cần thiết lập mật khẩu mới trước khi truy cập hệ thống.`
+              : `Cập nhật mật khẩu cho tài khoản ${user.fullName}.`}
           </p>
         </div>
 

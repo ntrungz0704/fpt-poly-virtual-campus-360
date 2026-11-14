@@ -5,65 +5,55 @@ import {
   CAMPUS_BUILDINGS,
   CAMPUS_LOCATIONS,
   OFFICIAL_CAMPUS_INFO,
-  OPEN_DAY_SESSIONS,
   TOUR_SCENES,
 } from "@/data/campus-data";
 import { Badge } from "@/components/ui";
-import {
-  AnimatedContent,
-  BlurText,
-  CountUp,
-  SpotlightCard,
-} from "@/components/animations";
 
 export const metadata = {
-  title: "Giới thiệu Khuôn viên QTSC Quận 12 | FPT Polytechnic Virtual Campus",
+  title: "Giới thiệu FPT Polytechnic TP.HCM | Virtual Campus 360°",
   description:
-    "Tổng quan về không gian đào tạo thực hành FPT Polytechnic cơ sở Công viên Phần mềm Quang Trung (Quận 12) và hai chế độ trải nghiệm Virtual Campus.",
+    "Tìm hiểu lịch sử, triết lý đào tạo Thực học - Thực nghiệp, cơ sở vật chất công nghệ cao tại CVPM Quang Trung Quận 12 và hệ sinh thái số Virtual Campus 360°.",
 };
 
 export default function AboutPage() {
   return (
-    <div className="bg-surface min-h-screen py-10 sm:py-12">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-        {/* Header */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-          <div className="lg:col-span-6 space-y-4 rb-desktop-rise">
-            <Badge variant="brand">{OFFICIAL_CAMPUS_INFO.campusLabel}</Badge>
-            <h1 className="type-h1 text-on-surface">
-              Không gian trải nghiệm số tại CVPM Quang Trung
+    <div className="bg-surface min-h-screen py-10 sm:py-16">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+        {/* Hero Section */}
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+          <div className="lg:col-span-6 space-y-5">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-fixed text-primary text-xs font-bold">
+              <span className="material-symbols-outlined text-[16px]">school</span>
+              <span>{OFFICIAL_CAMPUS_INFO.campusLabel}</span>
+            </div>
+            <h1 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-extrabold text-on-surface tracking-tight leading-tight">
+              Thực học — Thực nghiệp: <span className="text-primary">Định nghĩa lại</span> Giáo dục Nghề nghiệp
             </h1>
             <p className="type-body text-secondary leading-relaxed">
-              Virtual Campus là nền tảng giúp học sinh, phụ huynh và khách mời quan sát trực quan
-              kiến trúc, phòng thực hành và đường đi nội khu của cơ sở {OFFICIAL_CAMPUS_INFO.shortName} trước khi đến trực tiếp.
+              Trường Cao đẳng FPT Polytechnic cơ sở TP.HCM đặt tại Công viên Phần mềm Quang Trung (Quận 12).
+              Chúng tôi tiên phong kiến tạo môi trường học tập chuẩn doanh nghiệp kết hợp nền tảng số hóa Virtual Campus 360° toàn diện.
             </p>
 
-            <div className="pt-2 flex flex-wrap gap-3">
+            <div className="pt-2 flex flex-wrap gap-3.5">
               <Link
                 href="/campus"
-                className="ui-btn ui-btn-primary min-h-[44px] px-5 py-2 text-sm font-bold"
+                className="ui-btn ui-btn-primary min-h-[46px] px-6 text-sm font-bold shadow-md shadow-orange-500/20"
               >
-                <span aria-hidden="true" className="material-symbols-outlined text-[18px]">
-                  360
-                </span>
-                <span>Mở Tour 360° ngay</span>
+                <span className="material-symbols-outlined text-[19px]">360</span>
+                <span>Khám phá Tour 360°</span>
               </Link>
-              <a
-                href={OFFICIAL_CAMPUS_INFO.officialMajorsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="ui-btn ui-btn-outline min-h-[44px] px-5 py-2 text-sm font-semibold"
+              <Link
+                href="/contact"
+                className="ui-btn ui-btn-outline min-h-[46px] px-5 text-sm font-semibold"
               >
-                <span>Ngành học tại caodang.fpt.edu.vn</span>
-                <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
-                  open_in_new
-                </span>
-              </a>
+                <span className="material-symbols-outlined text-[19px]">call</span>
+                <span>Tư vấn xét tuyển</span>
+              </Link>
             </div>
           </div>
 
-          <div className="lg:col-span-6 rb-desktop-rise-delay">
-            <div className="relative aspect-video rounded-2xl overflow-hidden border border-surface-container bg-surface-container shadow-elevation-1">
+          <div className="lg:col-span-6">
+            <div className="relative aspect-video rounded-3xl overflow-hidden border border-surface-container bg-surface-container shadow-elevation-2">
               <Image
                 src="/images/locations/building-innovation.jpg"
                 alt="Khuôn viên FPT Polytechnic tại CVPM Quang Trung"
@@ -72,129 +62,133 @@ export default function AboutPage() {
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 className="object-cover"
               />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent flex items-end p-6">
+                <div className="text-white">
+                  <span className="text-xs font-bold text-primary-fixed uppercase tracking-wider block mb-1">Tòa nhà Innovation — Tòa T</span>
+                  <p className="text-sm font-semibold text-slate-200">Trung tâm nghiên cứu AI, Robotics và Lab thực hành đa phương tiện</p>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Campus Scale Quick Stats (Desktop CountUp via React Bits) */}
-        <section aria-label="Quy mô không gian số QTSC">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              { label: "Tòa nhà & Khu vực GIS", value: CAMPUS_BUILDINGS.length, icon: "domain" },
-              { label: "Không gian học tập số hóa", value: CAMPUS_LOCATIONS.length, icon: "meeting_room" },
-              { label: "Điểm nhìn Panorama 360°", value: TOUR_SCENES.length, icon: "360" },
-              { label: "Khung giờ Open Day", value: OPEN_DAY_SESSIONS.length, icon: "event_available" },
-            ].map((stat, idx) => (
-              <AnimatedContent key={stat.label} delay={idx * 0.06} distance={20}>
-                <SpotlightCard className="ui-card ui-card-hover p-5 flex items-center gap-4">
-                  <div className="w-11 h-11 rounded-xl bg-primary-fixed text-primary flex items-center justify-center shrink-0 relative z-20">
-                    <span aria-hidden="true" className="material-symbols-outlined text-[22px]">
-                      {stat.icon}
-                    </span>
-                  </div>
-                  <div className="min-w-0 relative z-20">
-                    <div className="font-display text-2xl font-extrabold text-on-surface leading-none">
-                      <CountUp to={stat.value} duration={1.1} delay={idx * 0.08} />
-                    </div>
-                    <p className="text-xs font-medium text-secondary mt-1 truncate">{stat.label}</p>
-                  </div>
-                </SpotlightCard>
-              </AnimatedContent>
-            ))}
+        {/* 3 Pillars of Practical Training */}
+        <section className="space-y-6">
+          <div className="text-center max-w-2xl mx-auto space-y-2">
+            <Badge variant="brand">Phương pháp đào tạo</Badge>
+            <h2 className="type-h1 text-on-surface">Ba Trụ Cột Đào Tạo Thực Chiến</h2>
+            <p className="type-body-sm text-secondary">
+              Mô hình học tập theo dự án thực tế (Project-based Learning) chuẩn bị hành trang vững chắc cho sinh viên.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="ui-card p-7 space-y-4 rounded-3xl border border-surface-container hover:shadow-elevation-2 transition-all">
+              <div className="w-12 h-12 rounded-2xl bg-orange-100 text-primary flex items-center justify-center font-bold">
+                <span className="material-symbols-outlined text-2xl">precision_manufacturing</span>
+              </div>
+              <h3 className="type-h3 text-on-surface">Thực hành chiếm 70%</h3>
+              <p className="type-body-sm text-secondary leading-relaxed">
+                Sinh viên học thông qua làm đồ án thực tế cùng giảng viên và doanh nghiệp. Nói không với lý thuyết hàn lâm, rèn luyện kỹ năng thực chiến ngay từ kỳ 1.
+              </p>
+            </div>
+
+            <div className="ui-card p-7 space-y-4 rounded-3xl border border-surface-container hover:shadow-elevation-2 transition-all">
+              <div className="w-12 h-12 rounded-2xl bg-blue-100 text-secondary flex items-center justify-center font-bold">
+                <span className="material-symbols-outlined text-2xl">hub</span>
+              </div>
+              <h3 className="type-h3 text-on-surface">Kết nối 2,000+ Doanh nghiệp</h3>
+              <p className="type-body-sm text-secondary leading-relaxed">
+                Mạng lưới đối tác công nghệ chiến lược trong và ngoài nước (FPT Software, Viettel, VNPT, Samsung) mở rộng cơ hội thực tập và tuyển dụng trực tiếp.
+              </p>
+            </div>
+
+            <div className="ui-card p-7 space-y-4 rounded-3xl border border-surface-container hover:shadow-elevation-2 transition-all">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                <span className="material-symbols-outlined text-2xl">verified</span>
+              </div>
+              <h3 className="type-h3 text-on-surface">97.7% Có việc làm</h3>
+              <p className="type-body-sm text-secondary leading-relaxed">
+                Tỷ lệ sinh viên có việc làm ngay trong năm đầu tiên sau khi tốt nghiệp. Mức thu nhập cạnh tranh tại các công ty công nghệ và agency hàng đầu.
+              </p>
+            </div>
           </div>
         </section>
 
-        {/* Two Experience Modes */}
-        <section aria-labelledby="modes-heading" className="space-y-5">
-          <BlurText
-            as="h2"
-            id="modes-heading"
-            text="Hai chế độ tham quan rõ ràng"
-            className="type-h2 text-on-surface"
-          />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <AnimatedContent distance={24} className="h-full">
-              <SpotlightCard className="ui-card ui-card-hover p-6 h-full space-y-3">
-                <div className="w-10 h-10 rounded-xl bg-primary-fixed text-primary flex items-center justify-center relative z-20">
-                  <span aria-hidden="true" className="material-symbols-outlined text-[20px]">
-                    public
-                  </span>
-                </div>
-                <h3 className="type-h3 text-on-surface relative z-20">1. Tham quan Tự do (Công khai)</h3>
-                <p className="type-body-sm text-secondary leading-relaxed relative z-20">
-                  Không yêu cầu đăng ký hay đăng nhập. Bất kỳ ai đều có thể xoay toàn cảnh 360°,
-                  mở Bản đồ GIS khuôn viên và xem thông tin các phòng Lab, Studio, Hội trường.
-                </p>
-                <Link
-                  href="/map"
-                  className="ui-cta-link text-xs min-h-[36px] relative z-20"
-                >
-                  <span>Mở Bản đồ GIS Khuôn viên</span>
-                  <span aria-hidden="true" className="material-symbols-outlined text-[15px]">
-                    arrow_forward
-                  </span>
-                </Link>
-              </SpotlightCard>
-            </AnimatedContent>
+        {/* Impressive Stats */}
+        <section className="bg-gradient-to-r from-slate-900 via-[#0A2540] to-slate-900 rounded-3xl p-8 sm:p-12 text-white shadow-xl relative overflow-hidden">
+          <div className="text-center max-w-xl mx-auto mb-10 space-y-2">
+            <span className="text-xs font-bold text-primary uppercase tracking-wider">Hành trình khẳng định vị thế</span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold font-heading">Những Con Số Ấn Tượng</h2>
+          </div>
 
-            <AnimatedContent delay={0.1} distance={24} className="h-full">
-              <SpotlightCard className="ui-card ui-card-hover p-6 h-full space-y-3">
-                <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center relative z-20">
-                  <span aria-hidden="true" className="material-symbols-outlined text-[20px]">
-                    passkey
-                  </span>
-                </div>
-                <h3 className="type-h3 text-on-surface relative z-20">2. Trải nghiệm Open Day công khai</h3>
-                <p className="type-body-sm text-secondary leading-relaxed relative z-20">
-                  Lịch sự kiện chung, hướng dẫn di chuyển khuôn viên và thử thách định hướng 360° hiển thị công khai tại mục Open Day.
-                  Quy trình kích hoạt tài khoản mời cho các chương trình chuyên biệt sẽ được mở khi Backend Auth hoàn tất.
-                </p>
-                <Link
-                  href="/events"
-                  className="ui-cta-link text-xs min-h-[36px] relative z-20"
-                >
-                  <span>Xem thông tin Open Day</span>
-                  <span aria-hidden="true" className="material-symbols-outlined text-[15px]">
-                    arrow_forward
-                  </span>
-                </Link>
-              </SpotlightCard>
-            </AnimatedContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+              <span className="font-heading text-3xl sm:text-4xl font-extrabold text-primary block mb-1">200K+</span>
+              <span className="text-xs text-slate-300">Sinh viên &amp; Cựu sinh viên</span>
+            </div>
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+              <span className="font-heading text-3xl sm:text-4xl font-extrabold text-amber-400 block mb-1">14</span>
+              <span className="text-xs text-slate-300">Cơ sở đào tạo toàn quốc</span>
+            </div>
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+              <span className="font-heading text-3xl sm:text-4xl font-extrabold text-emerald-400 block mb-1">97.7%</span>
+              <span className="text-xs text-slate-300">Sinh viên có việc làm</span>
+            </div>
+            <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+              <span className="font-heading text-3xl sm:text-4xl font-extrabold text-blue-400 block mb-1">42+</span>
+              <span className="text-xs text-slate-300">Điểm nhìn VR 360° số hóa</span>
+            </div>
           </div>
         </section>
 
         {/* Campus Buildings Overview */}
-        <section aria-labelledby="buildings-heading" className="space-y-5">
-          <div className="flex items-center justify-between gap-4">
-            <BlurText
-              as="h2"
-              id="buildings-heading"
-              text="Các khu vực chính tại CVPM Quang Trung"
-              className="type-h2 text-on-surface"
-            />
-            <Link
-              href="/locations"
-              className="ui-cta-link text-sm"
-            >
-              <span>Xem danh sách phòng</span>
-              <span aria-hidden="true" className="material-symbols-outlined text-[16px]">
-                arrow_forward
-              </span>
+        <section className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <Badge variant="brand">Khuôn viên QTSC Quận 12</Badge>
+              <h2 className="type-h1 text-on-surface mt-1">Cơ Sở Vật Chất &amp; Không Gian Học Tập</h2>
+            </div>
+            <Link href="/locations" className="ui-cta-link text-sm font-bold flex items-center gap-1">
+              <span>Xem toàn bộ phòng thực hành</span>
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
             </Link>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {CAMPUS_BUILDINGS.map((b, idx) => (
-              <AnimatedContent key={b.code} delay={idx * 0.06} distance={22} className="h-full">
-                <SpotlightCard className="ui-card ui-card-hover p-5 h-full space-y-2.5">
-                  <div className="flex items-center justify-between gap-2 relative z-20">
-                    <Badge variant="brand">{b.categoryLabel}</Badge>
-                    <span className="text-xs font-mono font-semibold text-secondary">{b.code}</span>
-                  </div>
-                  <h3 className="type-h3 text-on-surface relative z-20">{b.name}</h3>
-                  <p className="type-body-sm text-secondary relative z-20">{b.summary}</p>
-                </SpotlightCard>
-              </AnimatedContent>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {CAMPUS_BUILDINGS.map((b) => (
+              <div key={b.code} className="ui-card p-6 space-y-3 rounded-3xl border border-surface-container hover:shadow-elevation-1 transition">
+                <div className="flex items-center justify-between gap-2">
+                  <Badge variant="brand">{b.categoryLabel}</Badge>
+                  <span className="text-xs font-mono font-semibold text-secondary">{b.code}</span>
+                </div>
+                <h3 className="type-h3 text-on-surface">{b.name}</h3>
+                <p className="type-body-sm text-secondary leading-relaxed">{b.summary}</p>
+                <div className="pt-2">
+                  <Link href={`/locations`} className="text-xs font-bold text-primary hover:underline inline-flex items-center gap-1">
+                    <span>Xem vị trí và ảnh phòng</span>
+                    <span className="material-symbols-outlined text-xs">chevron_right</span>
+                  </Link>
+                </div>
+              </div>
             ))}
+          </div>
+        </section>
+
+        {/* 360 Call-To-Action Banner */}
+        <section className="bg-gradient-to-tr from-primary/10 via-surface-container to-primary/5 rounded-3xl p-8 sm:p-12 border border-primary/20 text-center space-y-4">
+          <span className="material-symbols-outlined text-4xl text-primary animate-pulse">view_in_ar</span>
+          <h2 className="text-2xl sm:text-3xl font-extrabold font-heading text-on-surface">
+            Trải Nghiệm Toàn Cảnh Campus Trong Không Gian 360°
+          </h2>
+          <p className="text-sm text-secondary max-w-xl mx-auto leading-relaxed">
+            Quan sát giảng đường, xưởng phần mềm và phòng lab hiện đại tại CVPM Quang Trung trước khi đến trực tiếp.
+          </p>
+          <div className="pt-2 flex justify-center gap-3">
+            <Link href="/campus" className="ui-btn ui-btn-primary min-h-[46px] px-6 text-sm font-bold">
+              <span>Bật Tour 360° Ngay</span>
+              <span className="material-symbols-outlined text-base">arrow_forward</span>
+            </Link>
           </div>
         </section>
       </div>

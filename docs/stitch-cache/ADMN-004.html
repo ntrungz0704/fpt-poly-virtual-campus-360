@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"surface-container-low":"#eff4ff","surface-container-high":"#dce9ff","on-tertiary":"#ffffff","error-container":"#ffdad6","surface-tint":"#a04100","surface-dim":"#cbdbf5","on-primary-container":"#531e00","secondary":"#2b5bb5","error":"#ba1a1a","inverse-surface":"#213145","surface-bright":"#f8f9ff","primary-fixed":"#ffdbcc","on-primary-fixed":"#351000","inverse-on-surface":"#eaf1ff","on-tertiary-container":"#262e42","inverse-primary":"#ffb693","tertiary-fixed":"#dae2fd","tertiary-fixed-dim":"#bec6e0","tertiary-container":"#8e95ae","on-primary":"#ffffff","on-error":"#ffffff","primary-fixed-dim":"#ffb693","primary":"#a04100","on-tertiary-fixed-variant":"#3f465c","surface-container":"#e5eeff","on-surface":"#0b1c30","on-error-container":"#93000a","on-primary-fixed-variant":"#7a3000","primary-container":"#f26f21","surface-variant":"#d3e4fe","surface-container-lowest":"#ffffff","outline":"#8c7166","on-surface-variant":"#584238","outline-variant":"#e0c0b2","secondary-container":"#759efd","surface":"#f8f9ff","on-tertiary-fixed":"#131b2e","secondary-fixed":"#d9e2ff","on-background":"#0b1c30","background":"#f8f9ff","secondary-fixed-dim":"#b0c6ff","on-secondary":"#ffffff","on-secondary-fixed":"#001945","on-secondary-container":"#00337c","surface-container-highest":"#d3e4fe","on-secondary-fixed-variant":"#00429c","tertiary":"#565e74"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"space-sm":"0.5rem","space-lg":"1.5rem","margin":"2rem","margin-lg":"3rem","gutter-lg":"2rem","space-xs":"0.25rem","gutter":"1.5rem","space-md":"1rem","space-xl":"2rem","margin-sm":"1rem","gutter-sm":"1rem"},"fontFamily":{"label-sm":["Inter"],"body-lg":["Inter"],"label-md":["Inter"],"headline-lg-mobile":["Plus Jakarta Sans"],"body-sm":["Inter"],"headline-sm":["Plus Jakarta Sans"],"display-hero-mobile":["Plus Jakarta Sans"],"headline-lg":["Plus Jakarta Sans"],"body-md":["Inter"],"spatial-hud":["Plus Jakarta Sans"],"headline-md":["Plus Jakarta Sans"],"display-hero":["Plus Jakarta Sans"]},"fontSize":{"label-sm":["11px",{"lineHeight":"16px","letterSpacing":"0.04em","fontWeight":"600"}],"body-lg":["16px",{"lineHeight":"26px","letterSpacing":"0","fontWeight":"400"}],"label-md":["13px",{"lineHeight":"18px","letterSpacing":"0.02em","fontWeight":"600"}],"headline-lg-mobile":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"700"}],"body-sm":["12px",{"lineHeight":"18px","letterSpacing":"0.01em","fontWeight":"400"}],"headline-sm":["18px",{"lineHeight":"26px","letterSpacing":"0","fontWeight":"600"}],"display-hero-mobile":["32px",{"lineHeight":"40px","letterSpacing":"-0.01em","fontWeight":"800"}],"headline-lg":["32px",{"lineHeight":"40px","letterSpacing":"-0.015em","fontWeight":"700"}],"body-md":["14px",{"lineHeight":"22px","letterSpacing":"0","fontWeight":"400"}],"spatial-hud":["12px",{"lineHeight":"16px","letterSpacing":"0.06em","fontWeight":"700"}],"headline-md":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}],"display-hero":["48px",{"lineHeight":"58px","letterSpacing":"-0.02em","fontWeight":"800"}]}}}}</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-low z-50 flex flex-col justify-between py-space-lg shadow-[1px_0_12px_rgba(11,28,48,0.05)]"><div class="flex flex-col"><div class="px-space-lg pb-space-lg flex items-center gap-space-sm"><div class="h-10 w-10 rounded-xl bg-primary-container flex items-center justify-center text-on-primary font-bold shadow-[0_2px_8px_rgba(242,111,33,0.35)]"><span class="material-symbols-outlined text-[24px]">view_in_ar</span></div><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-on-surface font-bold leading-tight">Campus 360°</span><span class="font-label-sm text-label-sm text-primary font-semibold">Studio &amp; CMS Admin</span></div></div><div class="px-space-lg pb-space-sm font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-semibold">Menu Quản trị</div><nav class="px-space-md space-y-space-xs" data-active-classes="bg-primary-container text-on-primary font-semibold shadow-sm"><a class="flex items-center px-space-md py-space-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-label-md text-label-md" data-path="dashboard-tong-quan" href="#">Dashboard tổng quan</a><a aria-current="page" class="flex items-center px-space-md py-space-sm rounded-lg transition-all bg-primary-container text-on-primary font-semibold shadow-sm" data-path="quan-ly-media-assets-360" href="#">Quản lý Media Assets 360°</a><a class="flex items-center px-space-md py-space-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-label-md text-label-md" data-path="360-tour-studio" href="#">360 Tour Studio</a><a class="flex items-center px-space-md py-space-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-label-md text-label-md" data-path="cau-hinh-ban-do-gis-nodes" href="#">Cấu hình Bản đồ GIS Nodes</a><a class="flex items-center px-space-md py-space-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-label-md text-label-md" data-path="quan-tri-tin-tuc-su-kien" href="#">Quản trị Tin tức &amp; Sự kiện</a><a class="flex items-center px-space-md py-space-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-label-md text-label-md" data-path="phan-quyen-tai-khoan" href="#">Phân quyền &amp; Tài khoản</a><a class="flex items-center px-space-md py-space-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all font-label-md text-label-md" data-path="cai-dat-he-thong" href="#">Cài đặt Hệ thống</a></nav></div><div class="px-space-lg pt-space-md border-t border-outline-variant/30 flex items-center justify-between"><div class="flex items-center gap-space-sm"><img alt="Avatar Quản trị viên" class="w-9 h-9 rounded-full object-cover ring-2 ring-primary-container/30" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfo_CskBkrZQRAqYe6Ax7WPdt6ilEJ5bl8QY96p9D7YyciLYeWn2_i0TCSCIl2NAL6s1LVFd78FsDUQYbZU6diCGH3ryw3-jY5L9rWCgnDx-TPvbkKLxiHX48S1eFDqwQiolxi1TCSU-QEPp1pZydTRuGiFZ4_6SKcZUUAHTbo-c0rvUoCIU8laFVWsu3VK88d6TEEcfCy-zOQC9WmqaltZYWkP7AN63VsWa3oW4U"/><div class="flex flex-col"><span class="font-label-md text-label-md font-semibold text-on-surface">Nguyễn Văn An</span><span class="font-label-sm text-label-sm text-on-surface-variant">Super Admin</span></div></div><a class="text-on-surface-variant hover:text-primary transition-colors" data-path="trang-chu" href="#"><span class="material-symbols-outlined text-[20px]">logout</span></a></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-20 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] z-40 px-margin-lg flex items-center justify-between"><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-xs px-space-sm py-space-xs rounded-lg bg-surface-container"><span class="material-symbols-outlined text-primary text-[18px]">corporate_fare</span><span class="font-label-sm text-label-sm font-semibold text-on-surface">Cơ sở CVPM Quang Trung TP.HCM</span></div><div class="h-4 w-[1px] bg-outline-variant/50"></div><div class="flex items-center gap-space-xs font-body-sm text-body-sm text-on-surface-variant"><span class="material-symbols-outlined text-[16px] text-secondary">cloud_done</span><span>Cloud CDN: <strong class="font-semibold text-on-surface">68.4 / 100 GB</strong></span><div class="w-16 h-1.5 rounded-full bg-surface-container-high overflow-hidden ml-space-xs"><div class="h-full bg-primary-container rounded-full" style="width: 68.4%"></div></div></div></div><div class="flex items-center gap-space-md"><button class="relative p-space-xs rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary-container ring-2 ring-surface"></span></button><a class="bg-secondary-fixed text-on-secondary-fixed hover:bg-secondary hover:text-on-secondary font-label-md text-label-md px-space-md py-space-xs rounded-lg transition-colors flex items-center gap-space-xs" data-path="kham-pha-360" href="#"><span class="material-symbols-outlined text-[18px]">open_in_new</span><span>Xem Tour Live</span></a><div class="flex items-center gap-space-xs pl-space-xs"><img alt="Quản trị viên" class="w-8 h-8 rounded-full object-cover ring-2 ring-primary-container/30" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfo_CskBkrZQRAqYe6Ax7WPdt6ilEJ5bl8QY96p9D7YyciLYeWn2_i0TCSCIl2NAL6s1LVFd78FsDUQYbZU6diCGH3ryw3-jY5L9rWCgnDx-TPvbkKLxiHX48S1eFDqwQiolxi1TCSU-QEPp1pZydTRuGiFZ4_6SKcZUUAHTbo-c0rvUoCIU8laFVWsu3VK88d6TEEcfCy-zOQC9WmqaltZYWkP7AN63VsWa3oW4U"/></div></div></header><main class="relative pt-20 bg-surface w-full px-margin-lg py-margin"><div class="flex flex-col w-full space-y-space-lg">
+<!-- PAGE HEADER & PRIMARY ACTION CONTROLS -->
+<section class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-space-md">
+<div class="flex flex-col space-y-space-xs max-w-3xl">
+<div class="flex flex-wrap items-center gap-space-sm">
+<h1 class="font-headline-lg text-headline-lg text-on-surface font-extrabold tracking-tight">
+          Quản lý Media Assets 360° &amp; Thư viện Panorama
+        </h1>
+<div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-fixed text-on-primary-fixed text-label-sm font-label-sm font-semibold shadow-sm">
+<span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+<span>184 Media Assets • 1.42 TB / 5 TB Cloud CDN</span>
+</div>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">
+        Quản lý kho dữ liệu thực tế ảo, cấu hình nén đa tầng Tile Pyramid 6 cấp độ (DeepZoom Cubemap), gắn thẻ không gian GIS và kiểm duyệt chuẩn độ phân giải 16K Master cho toàn hệ thống Virtual Campus FPT Polytechnic.
+      </p>
+</div>
+<!-- Quick action buttons -->
+<div class="flex flex-wrap items-center gap-space-sm shrink-0">
+<button class="inline-flex items-center gap-2 px-space-md py-2.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-all shadow-sm group">
+<span class="material-symbols-outlined text-[18px] text-secondary group-hover:rotate-180 transition-transform duration-500">sync</span>
+<div class="flex flex-col items-start leading-none">
+<span class="font-semibold text-on-surface">Đồng bộ S3 &amp; CDN</span>
+<span class="text-[10px] text-secondary font-medium mt-0.5">3 phút trước • Live</span>
+</div>
+</button>
+<button class="inline-flex items-center gap-2 px-space-md py-2.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md transition-all shadow-sm">
+<span class="material-symbols-outlined text-[18px] text-tertiary">compress</span>
+<span class="font-semibold">Batch Compress</span>
+</button>
+<button class="inline-flex items-center gap-2 px-space-lg py-2.5 rounded-lg bg-primary-container hover:opacity-95 text-on-primary font-label-md text-label-md shadow-md transition-transform active:scale-95" id="open-upload-modal">
+<span class="material-symbols-outlined text-[20px]">add_photo_alternate</span>
+<span class="font-bold">+ Tải lên Panorama / Media 360°</span>
+</button>
+</div>
+</section>
+<!-- KPI SUMMARY CARDS (4 TILES) -->
+<section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-space-md">
+<!-- Card 1 -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container-lowest p-space-md shadow-sm flex flex-col justify-between">
+<div class="absolute top-0 left-0 w-1.5 h-full bg-primary-container"></div>
+<div class="flex items-start justify-between">
+<div>
+<span class="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">Tổng Panorama 360°</span>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-headline-lg text-headline-lg text-on-surface font-black">142</span>
+<span class="font-label-sm text-label-sm text-primary font-semibold">Equirectangular</span>
+</div>
+</div>
+<div class="w-10 h-10 rounded-lg bg-primary-fixed/40 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[22px]">panorama</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-xs flex items-center justify-between text-body-sm font-body-sm text-on-surface-variant">
+<span><strong class="text-on-surface font-semibold">88</strong> 8K UHD</span>
+<span class="text-outline-variant/60">•</span>
+<span><strong class="text-on-surface font-semibold">32</strong> 16K Master</span>
+<span class="text-outline-variant/60">•</span>
+<span><strong class="text-on-surface font-semibold">22</strong> Web 4K</span>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container-lowest p-space-md shadow-sm flex flex-col justify-between">
+<div class="absolute top-0 left-0 w-1.5 h-full bg-secondary"></div>
+<div class="flex items-start justify-between">
+<div>
+<span class="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">Video 360° &amp; Spatial Audio</span>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-headline-lg text-headline-lg text-on-surface font-black">28</span>
+<span class="font-label-sm text-label-sm text-secondary font-semibold">Tương tác VR</span>
+</div>
+</div>
+<div class="w-10 h-10 rounded-lg bg-secondary-fixed/40 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[22px]">spatial_audio</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-xs flex items-center justify-between text-body-sm font-body-sm text-on-surface-variant">
+<span>Độ phân giải <strong class="text-on-surface font-semibold">5.7K 60fps</strong></span>
+<span class="text-outline-variant/60">•</span>
+<span>Mã hóa <strong class="text-on-surface font-semibold">H.265 / ProRes</strong></span>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container-lowest p-space-md shadow-sm flex flex-col justify-between">
+<div class="absolute top-0 left-0 w-1.5 h-full bg-tertiary"></div>
+<div class="flex items-start justify-between">
+<div>
+<span class="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">Hotspot &amp; 3D Assets</span>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-headline-lg text-headline-lg text-on-surface font-black">476</span>
+<span class="font-label-sm text-label-sm text-tertiary font-semibold">Đã neo GIS</span>
+</div>
+</div>
+<div class="w-10 h-10 rounded-lg bg-tertiary-fixed/50 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-[22px]">view_in_ar</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-xs flex items-center justify-between text-body-sm font-body-sm text-on-surface-variant">
+<span><strong class="text-on-surface font-semibold">64</strong> Mô hình 3D (.GLB)</span>
+<span class="text-outline-variant/60">•</span>
+<span><strong class="text-on-surface font-semibold">412</strong> Thẻ điểm POI</span>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container-lowest p-space-md shadow-sm flex flex-col justify-between">
+<div class="absolute top-0 left-0 w-1.5 h-full bg-primary-container"></div>
+<div class="flex items-start justify-between">
+<div>
+<span class="font-label-sm text-label-sm font-semibold uppercase tracking-wider text-on-surface-variant">Dung lượng CDN &amp; Tốc độ TB</span>
+<div class="flex items-baseline gap-2 mt-1">
+<span class="font-headline-lg text-headline-lg text-on-surface font-black">1.42</span>
+<span class="font-label-sm text-label-sm text-on-surface font-semibold">TB / 5.0 TB</span>
+</div>
+</div>
+<!-- Progress donut badge -->
+<div class="relative w-11 h-11 flex items-center justify-center">
+<svg class="w-11 h-11 -rotate-90 transform" viewbox="0 0 36 36">
+<path class="text-surface-container-high" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3.5"></path>
+<path class="text-primary-container" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="28.4, 100" stroke-linecap="round" stroke-width="3.5"></path>
+</svg>
+<span class="absolute text-[11px] font-bold text-on-surface font-label-sm">28%</span>
+</div>
+</div>
+<div class="mt-space-md pt-space-xs flex items-center justify-between text-body-sm font-body-sm text-on-surface-variant">
+<span>Tốc độ tải CDN: <strong class="text-on-surface font-semibold">420ms</strong></span>
+<span class="text-outline-variant/60">•</span>
+<span class="text-secondary font-semibold">Edge VN Fast</span>
+</div>
+</div>
+</section>
+<!-- SMART UPLOAD DROPZONE & QUEUE STATUS -->
+<section class="rounded-xl bg-surface-container-lowest p-space-md shadow-sm flex flex-col gap-space-md">
+<div class="flex flex-col md:flex-row items-center justify-between gap-space-sm">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-lg bg-primary-fixed/50 flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined text-[20px]">cloud_upload</span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-bold">Khu vực Tải lên &amp; Tự động xử lý Tile Pyramid</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Tự động sinh 6 cấp độ phân giải Cubemap (LOD 0-5) phục vụ WebGL rendering mượt mà</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-body-sm font-body-sm text-on-surface-variant">Chuẩn nén kích hoạt:</span>
+<span class="px-2 py-0.5 rounded bg-surface-container text-on-surface font-label-sm text-label-sm font-semibold">WebP + KTX2 Basis</span>
+</div>
+</div>
+<!-- Drop Area -->
+<div class="relative group cursor-pointer rounded-xl bg-surface-container-low/50 hover:bg-surface-container-low transition-all p-space-lg flex flex-col items-center justify-center text-center">
+<div class="w-14 h-14 rounded-full bg-surface-container-lowest shadow-sm flex items-center justify-center text-primary-container group-hover:scale-110 transition-transform mb-space-sm">
+<span class="material-symbols-outlined text-[28px]">upload_file</span>
+</div>
+<p class="font-headline-sm text-headline-sm text-on-surface font-bold">
+        Kéo thả ảnh toàn cảnh 360° (Equirectangular) hoặc video 360° vào đây
+      </p>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1 max-w-xl">
+        Hỗ trợ định dạng: <span class="font-semibold text-on-surface">.JPG, .PNG (tỷ lệ 2:1 lên đến 16,384 x 8,192px), .EXR 32-bit HDR, .MP4 H.265</span>. Tự động tính toán toạ độ Yaw / Pitch đường chân trời.
+      </p>
+<div class="mt-space-md flex flex-wrap items-center justify-center gap-space-sm">
+<span class="px-space-sm py-1 rounded-md bg-surface-container text-on-surface-variant font-label-sm text-label-sm font-medium">Equirectangular 2:1</span>
+<span class="px-space-sm py-1 rounded-md bg-surface-container text-on-surface-variant font-label-sm text-label-sm font-medium">HDR Cubemap</span>
+<span class="px-space-sm py-1 rounded-md bg-surface-container text-on-surface-variant font-label-sm text-label-sm font-medium">Spatial Audio AAC</span>
+<button class="text-primary font-label-md text-label-md font-bold hover:underline ml-2">Hoặc duyệt tập tin từ máy tính</button>
+</div>
+</div>
+<!-- Active Upload Processing Row (Live simulation) -->
+<div class="rounded-lg bg-surface-container-low p-space-sm flex flex-col md:flex-row items-center justify-between gap-space-md">
+<div class="flex items-center gap-space-sm w-full md:w-auto">
+<div class="w-9 h-9 rounded bg-surface-container-lowest flex items-center justify-center text-primary-container shadow-xs">
+<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-2">
+<span class="font-label-md text-label-md font-bold text-on-surface truncate">Sanh_Tong_Hop_Toa_T_16K_Master.exr</span>
+<span class="text-label-sm font-label-sm px-1.5 py-0.5 rounded bg-primary-fixed text-on-primary-fixed font-semibold">184 MB</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Đang cắt lát Tile Pyramid 6 cấp độ (DeepZoom 85%) • 18 giây còn lại</span>
+</div>
+</div>
+<div class="flex items-center gap-space-md w-full md:w-72 shrink-0">
+<div class="w-full bg-surface-container-highest rounded-full h-2 overflow-hidden">
+<div class="bg-primary-container h-full rounded-full transition-all duration-300" style="width: 85%"></div>
+</div>
+<button class="text-on-surface-variant hover:text-error transition-colors p-1" title="Hủy tải lên">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+</div>
+</section>
+<!-- FILTER & SEARCH TOOLBAR -->
+<section class="rounded-xl bg-surface-container-lowest p-space-md shadow-sm flex flex-col space-y-space-md">
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-space-sm items-center">
+<!-- Search Input -->
+<div class="xl:col-span-2 relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+<input class="w-full pl-10 pr-12 py-2.5 rounded-lg bg-surface-container-low text-on-surface placeholder:text-on-surface-variant/70 font-body-md text-body-md focus:bg-surface-container-lowest focus:outline-none focus:ring-2 focus:ring-primary-container/40 transition-all" placeholder="Tìm theo tên tệp, phòng, mã POI (Ctrl + K)..." type="text"/>
+<kbd class="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant font-label-sm text-[10px] font-semibold">⌘K</kbd>
+</div>
+<!-- Facility Dropdown -->
+<div>
+<label class="sr-only">Cơ sở</label>
+<div class="relative">
+<select class="w-full appearance-none pl-3 pr-8 py-2.5 rounded-lg bg-surface-container-low text-on-surface font-label-md text-label-md focus:outline-none focus:ring-2 focus:ring-primary-container/40 cursor-pointer">
+<option selected="">Tất cả cơ sở</option>
+<option>CVPM Quang Trung TP.HCM</option>
+<option>Hà Nội - Trịnh Văn Bô</option>
+<option>Đà Nẵng - Hòa Hải</option>
+<option>Cần Thơ - Nam Cần Thơ</option>
+<option>Tây Nguyên - Buôn Ma Thuột</option>
+</select>
+<span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-[18px]">expand_more</span>
+</div>
+</div>
+<!-- Area / Building Dropdown -->
+<div>
+<label class="sr-only">Khu vực</label>
+<div class="relative">
+<select class="w-full appearance-none pl-3 pr-8 py-2.5 rounded-lg bg-surface-container-low text-on-surface font-label-md text-label-md focus:outline-none focus:ring-2 focus:ring-primary-container/40 cursor-pointer">
+<option selected="">Tất cả khu vực</option>
+<option>Tòa T - Innovation Hall</option>
+<option>Tòa P - Creative Complex</option>
+<option>Khuôn viên ngoài trời &amp; Cổng</option>
+<option>Khu liên hợp thể thao</option>
+<option>Hội trường Trống Đồng</option>
+</select>
+<span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-[18px]">expand_more</span>
+</div>
+</div>
+<!-- Media Type Dropdown -->
+<div>
+<label class="sr-only">Loại Media</label>
+<div class="relative">
+<select class="w-full appearance-none pl-3 pr-8 py-2.5 rounded-lg bg-surface-container-low text-on-surface font-label-md text-label-md focus:outline-none focus:ring-2 focus:ring-primary-container/40 cursor-pointer">
+<option selected="">Tất cả Media 360°</option>
+<option>Panorama ảnh Equirectangular</option>
+<option>Video 360° VR</option>
+<option>Âm thanh vòm Ambisonic</option>
+<option>Mô hình 3D (.GLB/.USDZ)</option>
+</select>
+<span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-[18px]">expand_more</span>
+</div>
+</div>
+<!-- Status Dropdown & View Mode Switcher -->
+<div class="flex items-center gap-space-sm justify-between">
+<div class="relative flex-1">
+<select class="w-full appearance-none pl-3 pr-7 py-2.5 rounded-lg bg-surface-container-low text-on-surface font-label-md text-label-md focus:outline-none focus:ring-2 focus:ring-primary-container/40 cursor-pointer">
+<option selected="">Trạng thái: Tất cả</option>
+<option>Đã xuất bản (Live)</option>
+<option>Đang nén Tiles</option>
+<option>Bản nháp (Draft)</option>
+<option>Cần tối ưu dung lượng</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-[18px]">expand_more</span>
+</div>
+<!-- View Switcher -->
+<div class="flex items-center rounded-lg bg-surface-container-low p-1 shrink-0">
+<button class="p-1.5 rounded-md bg-surface-container-lowest text-primary shadow-xs" title="Lưới thẻ (Grid View)">
+<span class="material-symbols-outlined text-[18px]">grid_view</span>
+</button>
+<button class="p-1.5 rounded-md text-on-surface-variant hover:text-on-surface transition-colors" title="Danh sách chi tiết (Table View)">
+<span class="material-symbols-outlined text-[18px]">format_list_bulleted</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Active Filter Chips Bar -->
+<div class="flex flex-wrap items-center gap-space-xs pt-space-xs text-body-sm font-body-sm">
+<span class="text-on-surface-variant mr-1">Bộ lọc đang chọn:</span>
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-fixed/40 text-on-primary-fixed text-label-sm font-label-sm font-semibold">
+        Cơ sở CVPM Quang Trung
+        <button class="hover:text-primary transition-colors leading-none"><span class="material-symbols-outlined text-[14px]">close</span></button>
+</span>
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface text-label-sm font-label-sm font-semibold">
+        Độ phân giải: 8K &amp; 16K Master
+        <button class="hover:text-primary transition-colors leading-none"><span class="material-symbols-outlined text-[14px]">close</span></button>
+</span>
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container text-on-surface text-label-sm font-label-sm font-semibold">
+        Trạng thái: Đã xuất bản
+        <button class="hover:text-primary transition-colors leading-none"><span class="material-symbols-outlined text-[14px]">close</span></button>
+</span>
+<button class="text-primary font-label-sm text-label-sm font-semibold hover:underline ml-2">Xóa tất cả bộ lọc</button>
+</div>
+</section>
+<!-- PANORAMA MEDIA GRID (6 COMPREHENSIVE CARDS) -->
+<section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-lg">
+<!-- Card 1: Sảnh Hội Trường Trống Đồng -->
+<article class="group rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-all flex flex-col overflow-hidden">
+<!-- Panorama 2:1 Wide Thumbnail Area -->
+<div class="relative w-full aspect-[2/1] overflow-hidden bg-surface-container-high">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="An expansive 360-degree ultra-wide equirectangular architectural panorama of FPT Polytechnic modern Grand Lobby with traditional Dong Son bronze drum motifs on high ceilings, pristine polished marble floors reflecting ambient orange and white LED lights, large digital interactive video walls, university reception area, clean architectural light." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCe-IFSxVxRJzk_XNmJc-6MF3ph4OjHzKciwQLnPPgCUBZV067u6Ir5lHjUMWSJ15kp3IJ5QZNaNixksdYtQb052pDK-bl4PVwEzGjUNIlP2U0lzsMFWy3PUiVKXpjzmDaj0B5Zki1PL5Y7zvrLYX0fnvJvQLno44a5GyJTKc4TuJUz_fGxwuHqnvtrlsofZVBIkAqQuTrOUoPQQiWjdKlXM27nmEaIbpwHvV6t3zU"/>
+<!-- Top Overlay Badges -->
+<div class="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+<span class="px-2 py-1 rounded-md bg-inverse-surface/85 backdrop-blur-md text-inverse-on-surface font-label-sm text-[11px] font-bold tracking-wide">
+            16K HDR • 24.8 MB
+          </span>
+<span class="px-2 py-1 rounded-md bg-secondary text-on-secondary font-label-sm text-[11px] font-semibold">
+            Tòa T • Tầng 1
+          </span>
+</div>
+<!-- Status indicator -->
+<div class="absolute top-2.5 right-2.5 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface-container-lowest/90 backdrop-blur-md text-on-surface font-label-sm text-[11px] font-semibold shadow-xs">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span>12 Hotspots • Live</span>
+</div>
+<!-- Spatial Compass Indicator in Viewport -->
+<div class="absolute bottom-2.5 left-2.5 flex items-center gap-1 px-2 py-0.5 rounded bg-inverse-surface/75 backdrop-blur-sm text-inverse-on-surface font-label-sm text-[10px]">
+<span class="material-symbols-outlined text-[13px] text-primary-fixed">explore</span>
+<span>Heading: 042° (Bắc)</span>
+</div>
+<!-- Quick Preview Trigger -->
+<button class="absolute inset-0 m-auto w-12 h-12 rounded-full bg-inverse-surface/80 hover:bg-primary-container text-on-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100 shadow-lg backdrop-blur-sm">
+<span class="material-symbols-outlined text-[26px]">360</span>
+</button>
+</div>
+<!-- Card Metadata & Actions -->
+<div class="p-space-md flex flex-col flex-1 justify-between gap-space-sm">
+<div>
+<div class="flex items-start justify-between gap-space-xs">
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold line-clamp-1 group-hover:text-primary transition-colors">
+              Sảnh Hội Trường Trống Đồng - Tòa T (Master)
+            </h3>
+<button class="text-on-surface-variant hover:text-on-surface p-1 rounded-md hover:bg-surface-container transition-colors shrink-0">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+            Không gian sảnh chính đón tiếp sinh viên, tổ chức sự kiện khai giảng và lễ tốt nghiệp. Điểm bắt đầu mặc định của Virtual Tour.
+          </p>
+</div>
+<div class="pt-space-xs flex items-center justify-between border-t border-surface-container-high/40 text-label-sm font-label-sm text-on-surface-variant">
+<span>Kích thước: 16,384 × 8,192 px</span>
+<span>DeepZoom: 6 Cấp LOD</span>
+</div>
+<div class="grid grid-cols-2 gap-space-xs pt-1">
+<button class="inline-flex items-center justify-center gap-1.5 py-2 px-space-sm rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md font-semibold transition-colors">
+<span class="material-symbols-outlined text-[16px] text-secondary">visibility</span>
+<span>Xem trước 360°</span>
+</button>
+<a class="inline-flex items-center justify-center gap-1.5 py-2 px-space-sm rounded-lg bg-primary-fixed/50 hover:bg-primary-container hover:text-on-primary text-on-primary-fixed font-label-md text-label-md font-bold transition-all" data-path="360-tour-studio" href="#">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+<span>Mở Studio</span>
+</a>
+</div>
+</div>
+</article>
+<!-- Card 2: Phòng Lab AI & Big Data -->
+<article class="group rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-all flex flex-col overflow-hidden">
+<div class="relative w-full aspect-[2/1] overflow-hidden bg-surface-container-high">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="Wide panoramic equirectangular 360 view of a state of the art Artificial Intelligence and Big Data computer laboratory at FPT Polytechnic, rows of dual monitor developer workstations, ambient blue and neon orange glowing server racks in glass enclosure, bright modern educational environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAgWgJ5ZWsdZutzd0uybmgJ2BZcz9ZzExpPhVvwYmYbh76Xs0g7qSGulAOKhsJPvPYbTuAyDXndM_FhcsqI1pBPdXN5nCpSilZGTGL3AJ0KuKORcEJluDlpbLnHWx9V0RqLC1r6UPW9A0LyrAL6W2AuRL2fvIplI1Db4zyy0O1GF43W4ISX61MTfX9m3s-z_TwVOlbCUYocJA1EYJ-ppTEJjejXBAlPyYEVOkNbtFI"/>
+<div class="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+<span class="px-2 py-1 rounded-md bg-inverse-surface/85 backdrop-blur-md text-inverse-on-surface font-label-sm text-[11px] font-bold">
+            8K UHD • 11.2 MB
+          </span>
+<span class="px-2 py-1 rounded-md bg-secondary text-on-secondary font-label-sm text-[11px] font-semibold">
+            Tòa T • Tầng 3
+          </span>
+</div>
+<div class="absolute top-2.5 right-2.5 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface-container-lowest/90 backdrop-blur-md text-on-surface font-label-sm text-[11px] font-semibold shadow-xs">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span>6 Hotspots • Live</span>
+</div>
+<div class="absolute bottom-2.5 left-2.5 flex items-center gap-1 px-2 py-0.5 rounded bg-inverse-surface/75 backdrop-blur-sm text-inverse-on-surface font-label-sm text-[10px]">
+<span class="material-symbols-outlined text-[13px] text-primary-fixed">explore</span>
+<span>Heading: 180° (Nam)</span>
+</div>
+<button class="absolute inset-0 m-auto w-12 h-12 rounded-full bg-inverse-surface/80 hover:bg-primary-container text-on-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100 shadow-lg backdrop-blur-sm">
+<span class="material-symbols-outlined text-[26px]">360</span>
+</button>
+</div>
+<div class="p-space-md flex flex-col flex-1 justify-between gap-space-sm">
+<div>
+<div class="flex items-start justify-between gap-space-xs">
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold line-clamp-1 group-hover:text-primary transition-colors">
+              Phòng Lab AI &amp; Big Data (T301)
+            </h3>
+<button class="text-on-surface-variant hover:text-on-surface p-1 rounded-md hover:bg-surface-container transition-colors shrink-0">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+            Không gian thực hành máy tính cấu hình cao chuyên sâu Trí tuệ Nhân tạo, trang bị hạ tầng GPU đám mây phục vụ đồ án sinh viên.
+          </p>
+</div>
+<div class="pt-space-xs flex items-center justify-between border-t border-surface-container-high/40 text-label-sm font-label-sm text-on-surface-variant">
+<span>Kích thước: 8,192 × 4,096 px</span>
+<span>DeepZoom: 5 Cấp LOD</span>
+</div>
+<div class="grid grid-cols-2 gap-space-xs pt-1">
+<button class="inline-flex items-center justify-center gap-1.5 py-2 px-space-sm rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md font-semibold transition-colors">
+<span class="material-symbols-outlined text-[16px] text-secondary">visibility</span>
+<span>Xem trước 360°</span>
+</button>
+<a class="inline-flex items-center justify-center gap-1.5 py-2 px-space-sm rounded-lg bg-primary-fixed/50 hover:bg-primary-container hover:text-on-primary text-on-primary-fixed font-label-md text-label-md font-bold transition-all" data-path="360-tour-studio" href="#">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+<span>Mở Studio</span>
+</a>
+</div>
+</div>
+</article>
+<!-- Card 3: Studio Đồ Họa Số -->
+<article class="group rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-all flex flex-col overflow-hidden">
+<div class="relative w-full aspect-[2/1] overflow-hidden bg-surface-container-high">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="Wide equirectangular 360-degree panorama of modern Digital Arts and Multimedia Production Studio with curved cyclorama green screen, cinematic studio lighting rigs, high-end 27 inch iMac workstations, soundproof acoustic wall paneling in FPT orange and charcoal tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAEroJ8hZoYzTQjFaaNPzaHuoea2FzzleX8okN71sPmhFKCtfhoilWYngSW1ZbnogionawQkAa5haDPIRiOfwDlYnG0liPyUxp5nbKuty7mVBLNkMJBFnBTh2JwfyQthMWy1Chi3fFda2OtIfQYLEhfBz2DztejjO7-5VneBfanB5VPQHKCfcrQ2DDiweunu-d_8RQh1YR6dit_ztmKszerb84oukZrWCktAUoVjzg"/>
+<div class="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+<span class="px-2 py-1 rounded-md bg-inverse-surface/85 backdrop-blur-md text-inverse-on-surface font-label-sm text-[11px] font-bold">
+            8K UHD • 13.5 MB
+          </span>
+<span class="px-2 py-1 rounded-md bg-secondary text-on-secondary font-label-sm text-[11px] font-semibold">
+            Tòa P • Tầng 2
+          </span>
+</div>
+<div class="absolute top-2.5 right-2.5 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface-container-lowest/90 backdrop-blur-md text-on-surface font-label-sm text-[11px] font-semibold shadow-xs">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span>5 Hotspots • Live</span>
+</div>
+<div class="absolute bottom-2.5 left-2.5 flex items-center gap-1 px-2 py-0.5 rounded bg-inverse-surface/75 backdrop-blur-sm text-inverse-on-surface font-label-sm text-[10px]">
+<span class="material-symbols-outlined text-[13px] text-primary-fixed">explore</span>
+<span>Heading: 275° (Tây)</span>
+</div>
+<button class="absolute inset-0 m-auto w-12 h-12 rounded-full bg-inverse-surface/80 hover:bg-primary-container text-on-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100 shadow-lg backdrop-blur-sm">
+<span class="material-symbols-outlined text-[26px]">360</span>
+</button>
+</div>
+<div class="p-space-md flex flex-col flex-1 justify-between gap-space-sm">
+<div>
+<div class="flex items-start justify-between gap-space-xs">
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold line-clamp-1 group-hover:text-primary transition-colors">
+              Studio Đồ Họa Số &amp; Đa Phương Tiện (P204)
+            </h3>
+<button class="text-on-surface-variant hover:text-on-surface p-1 rounded-md hover:bg-surface-container transition-colors shrink-0">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+            Studio chuyên dụng cho sinh viên Thiết kế Đồ họa và Làm phim kỹ xảo, tích hợp phòng thu thanh Ambisonic chuyên biệt.
+          </p>
+</div>
+<div class="pt-space-xs flex items-center justify-between border-t border-surface-container-high/40 text-label-sm font-label-sm text-on-surface-variant">
+<span>Kích thước: 8,192 × 4,096 px</span>
+<span>DeepZoom: 5 Cấp LOD</span>
+</div>
+<div class="grid grid-cols-2 gap-space-xs pt-1">
+<button class="inline-flex items-center justify-center gap-1.5 py-2 px-space-sm rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md font-semibold transition-colors">
+<span class="material-symbols-outlined text-[16px] text-secondary">visibility</span>
+<span>Xem trước 360°</span>
+</button>
+<a class="inline-flex items-center justify-center gap-1.5 py-2 px-space-sm rounded-lg bg-primary-fixed/50 hover:bg-primary-container hover:text-on-primary text-on-primary-fixed font-label-md text-label-md font-bold transition-all" data-path="360-tour-studio" href="#">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+<span>Mở Studio</span>
+</a>
+</div>
+</div>
+</article>
+<!-- Card 4: Thư Viện Số & Không Gian Tự Học -->
+<article class="group rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-all flex flex-col overflow-hidden">
+<div class="relative w-full aspect-[2/1] overflow-hidden bg-surface-container-high">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="Equirectangular 360 panorama of contemporary university smart digital library with floor-to-ceiling bookshelves, glass study pods, ergonomic modular reading desks, warm daylight streaming through expansive curtain glass facades overlooking green campus trees." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3ov8kZ22UI_Udk4sZAXMVup8ubMHr8JvgzCmgnPTrHHwhT6BAjRSyeCWkfp3fIJsgqLHQqKfV7HD8VOiMEiQv4KmbVsSHRYfw-fT9407jC2bV-oKygkvx20I66aCuCegBoIihR_yzVgKH-BdF1ugjlZENNnRNb7a-WUhidzmSYhz0UReZjzOz1FL2H81ZBYuibkHWfC2LHoDLzjUhSSXjmnxsyjrSbsC737Fc8nw"/>
+<div class="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+<span class="px-2 py-1 rounded-md bg-inverse-surface/85 backdrop-blur-md text-inverse-on-surface font-label-sm text-[11px] font-bold">
+            8K UHD • 9.8 MB
+          </span>
+<span class="px-2 py-1 rounded-md bg-secondary text-on-secondary font-label-sm text-[11px] font-semibold">
+            Tòa T • Tầng 4
+          </span>
+</div>
+<div class="absolute top-2.5 right-2.5 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface-container-lowest/90 backdrop-blur-md text-on-surface font-label-sm text-[11px] font-semibold shadow-xs">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span>8 Hotspots • Live</span>
+</div>
+<div class="absolute bottom-2.5 left-2.5 flex items-center gap-1 px-2 py-0.5 rounded bg-inverse-surface/75 backdrop-blur-sm text-inverse-on-surface font-label-sm text-[10px]">
+<span class="material-symbols-outlined text-[13px] text-primary-fixed">explore</span>
+<span>Heading: 090° (Đông)</span>
+</div>
+<button class="absolute inset-0 m-auto w-12 h-12 rounded-full bg-inverse-surface/80 hover:bg-primary-container text-on-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100 shadow-lg backdrop-blur-sm">
+<span class="material-symbols-outlined text-[26px]">360</span>
+</button>
+</div>
+<div class="p-space-md flex flex-col flex-1 justify-between gap-space-sm">
+<div>
+<div class="flex items-start justify-between gap-space-xs">
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold line-clamp-1 group-hover:text-primary transition-colors">
+              Thư Viện Số &amp; Không Gian Tự Học (T402)
+            </h3>
+<button class="text-on-surface-variant hover:text-on-surface p-1 rounded-md hover:bg-surface-container transition-colors shrink-0">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+            Không gian tự học yên tĩnh kết hợp khu vực tra cứu sách điện tử, kho tài liệu học tập chuẩn quốc tế dành cho sinh viên.
+          </p>
+</div>
+<div class="pt-space-xs flex items-center justify-between border-t border-surface-container-high/40 text-label-sm font-label-sm text-on-surface-variant">
+<span>Kích thước: 8,192 × 4,096 px</span>
+<span>DeepZoom: 5 Cấp LOD</span>
+</div>
+<div class="grid grid-cols-2 gap-space-xs pt-1">
+<button class="inline-flex items-center justify-center gap-1.5 py-2 px-space-sm rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md font-semibold transition-colors">
+<span class="material-symbols-outlined text-[16px] text-secondary">visibility</span>
+<span>Xem trước 360°</span>
+</button>
+<a class="inline-flex items-center justify-center gap-1.5 py-2 px-space-sm rounded-lg bg-primary-fixed/50 hover:bg-primary-container hover:text-on-primary text-on-primary-fixed font-label-md text-label-md font-bold transition-all" data-path="360-tour-studio" href="#">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+<span>Mở Studio</span>
+</a>
+</div>
+</div>
+</article>
+<!-- Card 5: Cổng Chính CVPM Quang Trung & Drone 360° -->
+<article class="group rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-all flex flex-col overflow-hidden">
+<div class="relative w-full aspect-[2/1] overflow-hidden bg-surface-container-high">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="Spectacular aerial drone 360-degree panorama high above FPT Polytechnic campus at Quang Trung Software City TP HCM, modern glass buildings, lush tropical landscaping, football pitch, wide boulevards and clear blue tropical sky in equirectangular projection." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBllwDR-mcLF2_oOEp6RpOciWeKht5vt3WnaMePlEJk_n-4zxYi7jABq2cJKN2NeTg7zB8Q_RZl1H6e_VbDfBjWe5nfGS-y7nUO3HFtRmWAU0LCgSqJe7Q4c1kFIHuza18v-JuJKofaFjGuP7wfhYq21no_s5JJ2t-k14q80tYGGIMzpXG2Hb665wWuD5p99Ah76nKsvzyTWzt2wI31tFGmQvlAq8-A1VQf0VDgFZU"/>
+<div class="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+<span class="px-2 py-1 rounded-md bg-inverse-surface/85 backdrop-blur-md text-inverse-on-surface font-label-sm text-[11px] font-bold">
+            16K Aerial • 38.2 MB
+          </span>
+<span class="px-2 py-1 rounded-md bg-secondary text-on-secondary font-label-sm text-[11px] font-semibold">
+            Khuôn viên ngoài trời
+          </span>
+</div>
+<div class="absolute top-2.5 right-2.5 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface-container-lowest/90 backdrop-blur-md text-on-surface font-label-sm text-[11px] font-semibold shadow-xs">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span>14 Hotspots • Live</span>
+</div>
+<div class="absolute bottom-2.5 left-2.5 flex items-center gap-1 px-2 py-0.5 rounded bg-inverse-surface/75 backdrop-blur-sm text-inverse-on-surface font-label-sm text-[10px]">
+<span class="material-symbols-outlined text-[13px] text-primary-fixed">flight</span>
+<span>Độ cao: 120m AGL</span>
+</div>
+<button class="absolute inset-0 m-auto w-12 h-12 rounded-full bg-inverse-surface/80 hover:bg-primary-container text-on-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100 shadow-lg backdrop-blur-sm">
+<span class="material-symbols-outlined text-[26px]">360</span>
+</button>
+</div>
+<div class="p-space-md flex flex-col flex-1 justify-between gap-space-sm">
+<div>
+<div class="flex items-start justify-between gap-space-xs">
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold line-clamp-1 group-hover:text-primary transition-colors">
+              Cổng Chính CVPM Quang Trung &amp; Drone 360°
+            </h3>
+<button class="text-on-surface-variant hover:text-on-surface p-1 rounded-md hover:bg-surface-container transition-colors shrink-0">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+            Góc nhìn toàn cảnh trên không chụp từ Flycam chuyên nghiệp, định vị các khối nhà học tập, sân bóng đá và khu dịch vụ sinh viên.
+          </p>
+</div>
+<div class="pt-space-xs flex items-center justify-between border-t border-surface-container-high/40 text-label-sm font-label-sm text-on-surface-variant">
+<span>Kích thước: 16,384 × 8,192 px</span>
+<span>DeepZoom: 6 Cấp LOD</span>
+</div>
+<div class="grid grid-cols-2 gap-space-xs pt-1">
+<button class="inline-flex items-center justify-center gap-1.5 py-2 px-space-sm rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md font-semibold transition-colors">
+<span class="material-symbols-outlined text-[16px] text-secondary">visibility</span>
+<span>Xem trước 360°</span>
+</button>
+<a class="inline-flex items-center justify-center gap-1.5 py-2 px-space-sm rounded-lg bg-primary-fixed/50 hover:bg-primary-container hover:text-on-primary text-on-primary-fixed font-label-md text-label-md font-bold transition-all" data-path="360-tour-studio" href="#">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+<span>Mở Studio</span>
+</a>
+</div>
+</div>
+</article>
+<!-- Card 6: Video 360 Tour Giới Thiệu Ngành Lập Trình -->
+<article class="group rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-all flex flex-col overflow-hidden">
+<div class="relative w-full aspect-[2/1] overflow-hidden bg-surface-container-high">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="Cinematic 360 equirectangular scene of dynamic lecture hall at FPT Polytechnic with passionate lecturer and engaged students working on software engineering projects, ambient stage lighting, smart projection screens in panoramic distortion." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDatJdTJyW_Y8x-IqN84BaJeW9C-Qe98E_WqhkLA30oh4c1uwAXkR74RxIo0gPLQvVh8URU2OTbxJkl49KDFcUE0Dzilwit0JQlr82Rmyf8rDn1WmAwtjPEeQ9dgAidtGq9XYauOLRtADod_-A_OCzh2LP1YYsnMUGzw51JSxCfYyd9_eqAzgWjkvKJ46-7gZkvAReTSH846GCtZTYwXegS8YpskxUS3hVAeiLgep0"/>
+<div class="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+<span class="px-2 py-1 rounded-md bg-inverse-surface/85 backdrop-blur-md text-inverse-on-surface font-label-sm text-[11px] font-bold flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>
+            Video 5.7K 60fps • 410 MB
+          </span>
+<span class="px-2 py-1 rounded-md bg-secondary text-on-secondary font-label-sm text-[11px] font-semibold">
+            Video Tour 360°
+          </span>
+</div>
+<div class="absolute top-2.5 right-2.5 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface-container-lowest/90 backdrop-blur-md text-on-surface font-label-sm text-[11px] font-semibold shadow-xs">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span>Đang xuất bản</span>
+</div>
+<div class="absolute bottom-2.5 left-2.5 flex items-center gap-1 px-2 py-0.5 rounded bg-inverse-surface/75 backdrop-blur-sm text-inverse-on-surface font-label-sm text-[10px]">
+<span class="material-symbols-outlined text-[13px] text-secondary-fixed">spatial_audio</span>
+<span>Ambisonic B-format 4Ch</span>
+</div>
+<button class="absolute inset-0 m-auto w-12 h-12 rounded-full bg-inverse-surface/80 hover:bg-primary-container text-on-primary flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100 shadow-lg backdrop-blur-sm">
+<span class="material-symbols-outlined text-[26px]">play_arrow</span>
+</button>
+</div>
+<div class="p-space-md flex flex-col flex-1 justify-between gap-space-sm">
+<div>
+<div class="flex items-start justify-between gap-space-xs">
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold line-clamp-1 group-hover:text-primary transition-colors">
+              Video 360 Tour Giới Thiệu Ngành Lập Trình Web
+            </h3>
+<button class="text-on-surface-variant hover:text-on-surface p-1 rounded-md hover:bg-surface-container transition-colors shrink-0">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+            Trải nghiệm video nhập vai 360 độ kèm âm thanh vòm tương tác, dẫn dắt tân sinh viên khám phá hành trình đào tạo lập trình.
+          </p>
+</div>
+<div class="pt-space-xs flex items-center justify-between border-t border-surface-container-high/40 text-label-sm font-label-sm text-on-surface-variant">
+<span>Thời lượng: 03:45</span>
+<span>Codec: H.265 / Spatial AAC</span>
+</div>
+<div class="grid grid-cols-2 gap-space-xs pt-1">
+<button class="inline-flex items-center justify-center gap-1.5 py-2 px-space-sm rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md font-semibold transition-colors">
+<span class="material-symbols-outlined text-[16px] text-secondary">play_circle</span>
+<span>Xem Video 360°</span>
+</button>
+<a class="inline-flex items-center justify-center gap-1.5 py-2 px-space-sm rounded-lg bg-primary-fixed/50 hover:bg-primary-container hover:text-on-primary text-on-primary-fixed font-label-md text-label-md font-bold transition-all" data-path="360-tour-studio" href="#">
+<span class="material-symbols-outlined text-[16px]">tune</span>
+<span>Chỉnh sửa POI</span>
+</a>
+</div>
+</div>
+</article>
+</section>
+<!-- PAGINATION & METRICS FOOTER -->
+<section class="rounded-xl bg-surface-container-lowest p-space-md shadow-sm flex flex-col sm:flex-row items-center justify-between gap-space-md">
+<!-- Left: Display count -->
+<div class="flex items-center gap-space-md text-body-sm font-body-sm text-on-surface-variant">
+<span>Hiển thị <strong class="text-on-surface font-semibold">1 - 6</strong> của <strong class="text-on-surface font-semibold">184</strong> media assets</span>
+<div class="hidden sm:flex items-center gap-2">
+<span>Hiển thị mỗi trang:</span>
+<select class="px-2 py-1 rounded bg-surface-container text-on-surface font-label-sm text-label-sm focus:outline-none cursor-pointer">
+<option>6 thẻ</option>
+<option selected="">12 thẻ</option>
+<option>24 thẻ</option>
+<option>48 thẻ</option>
+</select>
+</div>
+</div>
+<!-- Right: Page Navigator -->
+<div class="flex items-center gap-1">
+<button class="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container disabled:opacity-40 transition-colors" disabled="">
+<span class="material-symbols-outlined text-[18px]">chevron_left</span>
+</button>
+<button class="w-8 h-8 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md font-bold shadow-xs">1</button>
+<button class="w-8 h-8 rounded-lg text-on-surface hover:bg-surface-container font-label-md text-label-md font-semibold transition-colors">2</button>
+<button class="w-8 h-8 rounded-lg text-on-surface hover:bg-surface-container font-label-md text-label-md font-semibold transition-colors">3</button>
+<span class="px-1 text-on-surface-variant font-label-sm">...</span>
+<button class="w-8 h-8 rounded-lg text-on-surface hover:bg-surface-container font-label-md text-label-md font-semibold transition-colors">31</button>
+<button class="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</section>
+</div>
+<!-- CLIENT INTERACTIONS SCRIPTS -->
+<script>
+  // Simple toast / trigger notifications for preview interactions
+  document.addEventListener('DOMContentLoaded', () => {
+    const uploadBtn = document.getElementById('open-upload-modal');
+    if (uploadBtn) {
+      uploadBtn.addEventListener('click', () => {
+        alert('Trình duyệt tải lên Panorama 360° Master: Hỗ trợ tệp lên đến 500MB (.exr, .jpg 16K, .mp4 H.265)');
+      });
+    }
+
+    // Keyboard shortcut Ctrl+K focus search
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[type="text"]');
+        if (searchInput) searchInput.focus();
+      }
+    });
+  });
+</script></main></div></body></html>

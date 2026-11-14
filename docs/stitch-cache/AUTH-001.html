@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_standard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"primary-fixed-dim":"#ffb693","inverse-primary":"#ffb693","primary-container":"#f26f21","on-surface-variant":"#584238","on-secondary-container":"#00337c","on-error-container":"#93000a","on-secondary":"#ffffff","secondary-fixed-dim":"#b0c6ff","on-primary":"#ffffff","surface-container-lowest":"#ffffff","primary":"#a04100","surface-bright":"#f8f9ff","on-error":"#ffffff","inverse-surface":"#213145","error":"#ba1a1a","on-secondary-fixed-variant":"#00429c","on-tertiary-fixed":"#131b2e","primary-fixed":"#ffdbcc","secondary-container":"#759efd","on-tertiary-container":"#262e42","on-surface":"#0b1c30","on-tertiary":"#ffffff","tertiary-container":"#8e95ae","error-container":"#ffdad6","surface-dim":"#cbdbf5","secondary-fixed":"#d9e2ff","surface-tint":"#a04100","on-primary-fixed":"#351000","surface-container-low":"#eff4ff","surface-variant":"#d3e4fe","on-background":"#0b1c30","tertiary-fixed":"#dae2fd","on-primary-container":"#531e00","background":"#f8f9ff","tertiary":"#565e74","outline":"#8c7166","outline-variant":"#e0c0b2","inverse-on-surface":"#eaf1ff","secondary":"#2b5bb5","surface-container-highest":"#d3e4fe","on-secondary-fixed":"#001945","surface-container-high":"#dce9ff","on-primary-fixed-variant":"#7a3000","tertiary-fixed-dim":"#bec6e0","surface-container":"#e5eeff","on-tertiary-fixed-variant":"#3f465c","surface":"#f8f9ff"},borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},spacing:{"margin-sm":"1rem","space-sm":"0.5rem","gutter":"1.5rem","gutter-lg":"2rem","space-xs":"0.25rem","gutter-sm":"1rem","space-md":"1rem","space-xl":"2rem","margin":"2rem","margin-lg":"3rem","space-lg":"1.5rem"},fontFamily:{"body-md":["Inter"],"display-hero-mobile":["Plus Jakarta Sans"],"label-md":["Inter"],"spatial-hud":["Plus Jakarta Sans"],"label-sm":["Inter"],"display-hero":["Plus Jakarta Sans"],"headline-lg-mobile":["Plus Jakarta Sans"],"body-sm":["Inter"],"body-lg":["Inter"],"headline-sm":["Plus Jakarta Sans"],"headline-lg":["Plus Jakarta Sans"],"headline-md":["Plus Jakarta Sans"]},fontSize:{"body-md":["14px",{"lineHeight":"22px","letterSpacing":"0","fontWeight":"400"}],"display-hero-mobile":["32px",{"lineHeight":"40px","letterSpacing":"-0.01em","fontWeight":"800"}],"label-md":["13px",{"lineHeight":"18px","letterSpacing":"0.02em","fontWeight":"600"}],"spatial-hud":["12px",{"lineHeight":"16px","letterSpacing":"0.06em","fontWeight":"700"}],"label-sm":["11px",{"lineHeight":"16px","letterSpacing":"0.04em","fontWeight":"600"}],"display-hero":["48px",{"lineHeight":"58px","letterSpacing":"-0.02em","fontWeight":"800"}],"headline-lg-mobile":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"700"}],"body-sm":["12px",{"lineHeight":"18px","letterSpacing":"0.01em","fontWeight":"400"}],"body-lg":["16px",{"lineHeight":"26px","letterSpacing":"0","fontWeight":"400"}],"headline-sm":["18px",{"lineHeight":"26px","letterSpacing":"0","fontWeight":"600"}],"headline-lg":["32px",{"lineHeight":"40px","letterSpacing":"-0.015em","fontWeight":"700"}],"headline-md":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}]}}}}</script></head><body class="bg-surface font-body-md text-body-md text-on-surface min-h-screen flex flex-col justify-between selection:bg-primary-fixed selection:text-on-primary-fixed"><header class="fixed top-0 left-0 right-0 w-full z-50 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-16 max-w-7xl mx-auto px-margin-sm lg:px-margin flex items-center justify-between"><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-xs"><div class="w-9 h-9 rounded-lg bg-primary-container flex items-center justify-center text-on-primary font-headline-md text-headline-md tracking-tight font-extrabold">F</div><div class="flex flex-col"><span class="font-headline-sm text-headline-sm tracking-tight text-on-surface font-bold leading-tight">FPT Polytechnic</span><span class="font-spatial-hud text-spatial-hud text-primary tracking-wider uppercase leading-none">Virtual Campus 360°</span></div></div><div class="hidden sm:flex items-center gap-space-xs px-space-sm py-space-xs rounded-full bg-surface-container-low text-secondary"><span class="material-symbols-outlined text-[16px]">verified_user</span><span class="font-label-sm text-label-sm text-on-surface-variant font-semibold tracking-wide uppercase">SSO Security Portal</span></div></div><div class="flex items-center gap-space-md sm:gap-space-lg"><nav class="hidden md:flex items-center gap-space-sm" data-active-classes="bg-surface-container-high text-primary font-bold rounded-lg"><a aria-current="page" class="px-space-sm py-space-xs transition-colors bg-surface-container-high text-primary font-bold rounded-lg" data-path="sso-login" href="#">Cổng Đăng Nhập</a><a class="px-space-sm py-space-xs text-on-surface-variant hover:text-on-surface transition-colors font-label-md text-label-md" data-path="huong-dan-truy-cap" href="#">Hướng Dẫn</a><a class="px-space-sm py-space-xs text-on-surface-variant hover:text-on-surface transition-colors font-label-md text-label-md" data-path="hotro-sinhvien" href="#">Hỗ Trợ Kỹ Thuật</a></nav><div class="flex items-center gap-space-sm pl-space-sm border-l border-outline-variant/40"><div class="flex items-center bg-surface-container-low rounded-lg p-space-xs text-on-surface-variant"><button class="px-space-sm py-space-xs rounded bg-surface-container-lowest text-primary font-label-sm text-label-sm shadow-[0_1px_4px_rgba(0,0,0,0.04)] font-bold" type="button">VN</button><button class="px-space-sm py-space-xs rounded text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm transition-colors" type="button">EN</button></div><a class="hidden xl:flex items-center gap-space-xs text-secondary hover:text-secondary/80 transition-colors" href="tel:02873001955"><span class="material-symbols-outlined text-[18px]">call</span><span class="font-label-sm text-label-sm font-semibold">028 7300 1955</span></a><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></div></header><main class="w-full pt-16 flex-1 flex flex-col items-center justify-center bg-surface relative"><div class="flex flex-col w-full">
+<!-- Dynamic Ambient Backing Glow (Layered FPT Orange & Deep Navy) -->
+<div class="relative w-full max-w-7xl mx-auto px-margin-sm lg:px-margin py-space-md lg:py-space-xl">
+<!-- Background subtle spatial elements -->
+<div class="absolute -top-12 -left-16 w-96 h-96 rounded-full bg-primary-container/10 blur-3xl pointer-events-none -z-10"></div>
+<div class="absolute top-1/3 -right-20 w-[450px] h-[450px] rounded-full bg-secondary-container/20 blur-3xl pointer-events-none -z-10"></div>
+<div class="absolute -bottom-10 left-1/4 w-80 h-80 rounded-full bg-surface-variant/40 blur-2xl pointer-events-none -z-10"></div>
+<!-- MAIN GRID CONTAINER: Balanced Asymmetric Split Screen -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg lg:gap-space-xl items-stretch">
+<!-- ================= LEFT COLUMN: HERO BRANDING & 360 SPATIAL SHOWCASE ================= -->
+<div class="lg:col-span-5 flex flex-col justify-between space-y-space-lg">
+<!-- Brand Narrative & Header Area -->
+<div class="space-y-space-md">
+<div class="inline-flex items-center gap-space-xs px-space-md py-space-xs rounded-full bg-surface-container-high text-primary shadow-sm">
+<span class="material-symbols-outlined text-[18px]">hub</span>
+<span class="font-spatial-hud text-spatial-hud uppercase tracking-wider text-primary">Cổng Định Danh Số FEID • AUTH-001</span>
+</div>
+<div class="space-y-space-sm">
+<h1 class="font-headline-lg text-headline-lg text-on-surface font-extrabold tracking-tight">
+              Cổng Đăng Nhập Tập Trung
+              <span class="block text-primary-container">FPT Polytechnic 360°</span>
+</h1>
+<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">
+              Một tài khoản số duy nhất kết nối liền mạch Cổng Sinh viên, Cổng Phụ huynh, Lớp học Thực tế ảo VR 360°, Bản đồ định vị không gian GIS và Hệ thống Quản trị Học tập LMS.
+            </p>
+</div>
+<!-- Feature Quick Pills -->
+<div class="grid grid-cols-2 gap-space-sm pt-space-xs">
+<div class="flex items-center gap-space-xs p-space-sm bg-surface-container-lowest rounded-xl shadow-sm">
+<span class="material-symbols-outlined text-primary-container text-[20px]">school</span>
+<div class="min-w-0">
+<p class="font-label-md text-label-md font-bold text-on-surface truncate">Học tập LMS</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Đồng bộ lịch &amp; bài giảng</p>
+</div>
+</div>
+<div class="flex items-center gap-space-xs p-space-sm bg-surface-container-lowest rounded-xl shadow-sm">
+<span class="material-symbols-outlined text-secondary text-[20px]">family_restroom</span>
+<div class="min-w-0">
+<p class="font-label-md text-label-md font-bold text-on-surface truncate">Cổng Phụ Huynh</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Giám sát lộ trình PRNT-001</p>
+</div>
+</div>
+<div class="flex items-center gap-space-xs p-space-sm bg-surface-container-lowest rounded-xl shadow-sm">
+<span class="material-symbols-outlined text-primary text-[20px]">view_in_ar</span>
+<div class="min-w-0">
+<p class="font-label-md text-label-md font-bold text-on-surface truncate">Lớp Học VR 360°</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Giảng đường ảo tương tác</p>
+</div>
+</div>
+<div class="flex items-center gap-space-xs p-space-sm bg-surface-container-lowest rounded-xl shadow-sm">
+<span class="material-symbols-outlined text-secondary text-[20px]">confirmation_number</span>
+<div class="min-w-0">
+<p class="font-label-md text-label-md font-bold text-on-surface truncate">Open Day 360°</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Check-in sự kiện &amp; Tour</p>
+</div>
+</div>
+</div>
+</div>
+<!-- 360° Virtual Campus Interactive Showcase Card -->
+<div class="relative overflow-hidden rounded-xl bg-inverse-surface text-inverse-on-surface p-space-md shadow-xl group">
+<!-- Background Campus Tour Preview Image -->
+<div class="absolute inset-0 bg-cover bg-center opacity-40 group-hover:scale-105 transition-transform duration-700 ease-out" data-alt="Photorealistic 360-degree virtual reality tour of high-tech FPT Polytechnic university campus, showing sleek glass lecture halls, students with digital tablets, futuristic navigation waypoints in vibrant orange #F26F21, modern architectural interior, warm ambient sunlight." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuB1fzJFhglR_HlmpfvasXFEkpyFRhTigVwtQjh5Hq6R1nTlkulsvRRLKyZ-Fwwd_dN9y92G9MnSAtV7_2upUXj3HPXSfYuE9LT2kF6kGZkOxVEkPZORYl9n0Ng9NSB7YMdIpwH5h2nnIbukC7289gOpaj127SH1jF5Dexo-ugStRG7HRVFGKxTK6oknwyOOikXLxCsZKe1lhYwdQkO3FK7d4MYrTa3vjBg6Plt0Pr0')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-inverse-surface via-inverse-surface/60 to-transparent"></div>
+<div class="relative z-10 flex flex-col justify-between h-48 sm:h-52">
+<div class="flex items-start justify-between">
+<span class="inline-flex items-center gap-space-xs px-space-sm py-space-xs rounded-full bg-primary-container text-on-primary font-spatial-hud text-spatial-hud uppercase tracking-wider shadow-md">
+<span class="material-symbols-outlined text-[16px] animate-pulse">360</span>
+                Trải nghiệm thực tế ảo
+              </span>
+<span class="w-8 h-8 rounded-full bg-inverse-surface/80 backdrop-blur-md flex items-center justify-center text-primary-fixed-dim">
+<span class="material-symbols-outlined text-[18px]">explore</span>
+</span>
+</div>
+<div class="space-y-space-xs">
+<p class="font-headline-sm text-headline-sm text-surface-bright font-bold">Khám phá khuôn viên 5 Cơ sở toàn quốc</p>
+<p class="font-body-sm text-body-sm text-surface-container-highest line-clamp-2">
+                Dạo bước qua xưởng thực hành công nghệ, studio đồ họa số, thư viện thông minh và hội trường đa năng trước khi hoàn tất đăng nhập.
+              </p>
+<div class="pt-space-xs flex items-center gap-space-sm">
+<a class="inline-flex items-center gap-space-xs font-label-md text-label-md font-bold text-primary-fixed hover:text-surface-bright transition-colors" href="#">
+<span>Khám phá ngay (Không cần mật khẩu)</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+<!-- Trust Indicators & Multi-Factor Security Highlights -->
+<div class="p-space-md rounded-xl bg-surface-container-low shadow-sm space-y-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-spatial-hud text-spatial-hud uppercase tracking-wider text-secondary font-bold">Tiêu Chuẩn Định Danh FEID</span>
+<span class="inline-flex items-center gap-space-xs text-primary font-label-sm text-label-sm font-semibold">
+<span class="material-symbols-outlined text-[15px]">verified</span>
+              ISO/IEC 27001
+            </span>
+</div>
+<div class="grid grid-cols-3 gap-space-sm pt-space-xs text-center">
+<div class="p-space-xs bg-surface-container-lowest rounded-lg">
+<p class="font-headline-sm text-headline-sm font-extrabold text-primary-container">50,000+</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant truncate">Giảng viên &amp; SV</p>
+</div>
+<div class="p-space-xs bg-surface-container-lowest rounded-lg">
+<p class="font-headline-sm text-headline-sm font-extrabold text-secondary">FIDO2</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant truncate">Passkey Sinh trắc</p>
+</div>
+<div class="p-space-xs bg-surface-container-lowest rounded-lg">
+<p class="font-headline-sm text-headline-sm font-extrabold text-on-surface">eKYC</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant truncate">Bảo vệ định danh</p>
+</div>
+</div>
+</div>
+</div>
+<!-- ================= RIGHT COLUMN: AUTHENTICATION CARD ================= -->
+<div class="lg:col-span-7 flex flex-col justify-center">
+<div class="w-full bg-surface-container-lowest rounded-xl shadow-xl p-space-md sm:p-space-xl relative overflow-hidden">
+<!-- Subtle Accent Line Top Edge (FPT Brand Signature) -->
+<div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary-container via-primary to-secondary"></div>
+<!-- Card Header & Role Selection Tabs -->
+<div class="space-y-space-md mb-space-lg">
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-space-xs">
+<div>
+<h2 class="font-headline-md text-headline-md font-bold text-on-surface tracking-tight">Xác Thực Tập Trung SSO</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Lựa chọn phân hệ tài khoản để tiếp tục đăng nhập</p>
+</div>
+<div class="flex items-center gap-space-xs px-space-sm py-1 rounded-full bg-primary-fixed/40 text-on-primary-fixed self-start sm:self-auto">
+<span class="w-2 h-2 rounded-full bg-primary-container animate-ping"></span>
+<span class="font-label-sm text-label-sm font-bold uppercase tracking-wider">Cổng Mở 24/7</span>
+</div>
+</div>
+<!-- Role Tabs Selector -->
+<div class="grid grid-cols-3 p-space-xs bg-surface-container-low rounded-lg text-center" role="tablist">
+<button class="py-space-xs px-space-sm rounded-lg font-label-md text-label-md font-bold bg-surface-container-lowest text-primary shadow-sm transition-all flex items-center justify-center gap-1" id="tab-role-student" onclick="switchAuthTab('student')" type="button">
+<span class="material-symbols-outlined text-[16px]">school</span>
+<span>Sinh viên / GV</span>
+</button>
+<button class="py-space-xs px-space-sm rounded-lg font-label-md text-label-md font-medium text-on-surface-variant hover:text-on-surface transition-all flex items-center justify-center gap-1" id="tab-role-parent" onclick="switchAuthTab('parent')" type="button">
+<span class="material-symbols-outlined text-[16px]">supervisor_account</span>
+<span>Phụ huynh</span>
+</button>
+<button class="py-space-xs px-space-sm rounded-lg font-label-md text-label-md font-medium text-on-surface-variant hover:text-on-surface transition-all flex items-center justify-center gap-1" id="tab-role-guest" onclick="switchAuthTab('guest')" type="button">
+<span class="material-symbols-outlined text-[16px]">admin_panel_settings</span>
+<span>Quản trị / Khách</span>
+</button>
+</div>
+</div>
+<!-- PRIMARY 1-CLICK SSO ACTIONS (Highest Conversion / Priority) -->
+<div class="space-y-space-sm" id="sso-primary-actions">
+<!-- Google Workspace SSO Button (@fpt.edu.vn) -->
+<button class="w-full flex items-center justify-center gap-space-md py-3 px-space-md rounded-lg bg-surface-container-lowest hover:bg-surface-container-low text-on-surface shadow-sm hover:shadow-md transition-all group active:scale-[0.99]" type="button">
+<!-- Official Clean SVG Google Icon -->
+<svg class="w-5 h-5 flex-shrink-0" viewbox="0 0 24 24">
+<path d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.15z" fill="#4285F4"></path>
+<path d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.26 21.36 7.33 24 12 24z" fill="#34A853"></path>
+<path d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.94 0 12s.46 3.84 1.26 5.42l4.02-3.15z" fill="#FBBC05"></path>
+<path d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z" fill="#EA4335"></path>
+</svg>
+<div class="text-left">
+<span class="block font-label-md text-label-md font-bold text-on-surface group-hover:text-primary transition-colors">
+                  Đăng nhập bằng FPT Edu Google Workspace
+                </span>
+<span class="block font-body-sm text-body-sm text-on-surface-variant text-[11px] leading-tight">
+                  Dành cho tài khoản email chính thức @fpt.edu.vn
+                </span>
+</div>
+</button>
+<!-- Microsoft 365 SSO Button (Staff & Educators) -->
+<button class="w-full flex items-center justify-center gap-space-md py-3 px-space-md rounded-lg bg-surface-container-lowest hover:bg-surface-container-low text-on-surface shadow-sm hover:shadow-md transition-all group active:scale-[0.99]" type="button">
+<!-- Official Microsoft Logo SVG -->
+<svg class="w-5 h-5 flex-shrink-0" viewbox="0 0 23 23">
+<path d="M1 1h10v10H1z" fill="#f35325"></path>
+<path d="M12 1h10v10H12z" fill="#81bc06"></path>
+<path d="M1 12h10v10H1z" fill="#05a6f0"></path>
+<path d="M12 12h10v10H12z" fill="#ffba08"></path>
+</svg>
+<div class="text-left">
+<span class="block font-label-md text-label-md font-bold text-on-surface group-hover:text-secondary transition-colors">
+                  Đăng nhập bằng Microsoft Office 365
+                </span>
+<span class="block font-body-sm text-body-sm text-on-surface-variant text-[11px] leading-tight">
+                  Tài khoản Cán bộ Giảng viên &amp; Ban Đào tạo
+                </span>
+</div>
+</button>
+</div>
+<!-- Divider with subtle badge -->
+<div class="relative my-space-lg text-center">
+<div class="absolute inset-0 flex items-center">
+<div class="w-full bg-surface-container-high h-[1px]"></div>
+</div>
+<span class="relative px-space-md py-0.5 bg-surface-container-lowest text-on-surface-variant font-label-sm text-label-sm font-semibold rounded-full uppercase tracking-wider" id="divider-text">
+              Hoặc nhập mã số FEID / MSSV
+            </span>
+</div>
+<!-- CREDENTIAL INPUT FORM -->
+<form class="space-y-space-md" onsubmit="event.preventDefault(); simulateLogin();">
+<!-- Dynamic Identifier Input Field -->
+<div class="space-y-space-xs">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md font-bold text-on-surface flex items-center gap-space-xs" for="auth-identifier" id="input-label-id">
+<span class="material-symbols-outlined text-[16px] text-primary">badge</span>
+<span>Email @fpt.edu.vn hoặc Mã sinh viên</span>
+</label>
+<span class="font-label-sm text-label-sm text-on-surface-variant" id="identifier-hint">VD: PS28914</span>
+</div>
+<div class="relative flex items-center">
+<span class="absolute left-3 text-on-surface-variant pointer-events-none flex items-center">
+<span class="material-symbols-outlined text-[20px]" id="input-icon-left">person</span>
+</span>
+<input class="w-full pl-10 pr-space-md py-2.5 rounded-lg bg-surface-container-low text-on-surface placeholder:text-outline/70 focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container transition-all font-body-md text-body-md" id="auth-identifier" placeholder="ps28914@fpt.edu.vn hoặc PS28914" required="" type="text"/>
+</div>
+</div>
+<!-- Password Field -->
+<div class="space-y-space-xs">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md font-bold text-on-surface flex items-center gap-space-xs" for="auth-password">
+<span class="material-symbols-outlined text-[16px] text-primary">key</span>
+<span>Mật khẩu bảo mật</span>
+</label>
+<a class="font-label-sm text-label-sm font-semibold text-secondary hover:text-primary transition-colors" href="#">
+                  Quên mật khẩu?
+                </a>
+</div>
+<div class="relative flex items-center">
+<span class="absolute left-3 text-on-surface-variant pointer-events-none flex items-center">
+<span class="material-symbols-outlined text-[20px]">lock</span>
+</span>
+<input class="w-full pl-10 pr-10 py-2.5 rounded-lg bg-surface-container-low text-on-surface placeholder:text-outline/70 focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container transition-all font-body-md text-body-md" id="auth-password" placeholder="Nhập mật khẩu FEID hoặc mã PIN" required="" type="password"/>
+<button aria-label="Ẩn hoặc hiện mật khẩu" class="absolute right-3 text-on-surface-variant hover:text-on-surface transition-colors focus:outline-none" onclick="togglePasswordVisibility()" type="button">
+<span class="material-symbols-outlined text-[20px]" id="eye-icon">visibility</span>
+</button>
+</div>
+</div>
+<!-- Remember me & Device Trust -->
+<div class="flex items-center justify-between pt-space-xs">
+<label class="flex items-center gap-space-xs cursor-pointer select-none">
+<input checked="" class="w-4 h-4 rounded text-primary-container focus:ring-primary-container bg-surface-container-low accent-primary-container" type="checkbox"/>
+<span class="font-label-md text-label-md text-on-surface-variant">Ghi nhớ đăng nhập trên thiết bị này</span>
+</label>
+<span class="hidden sm:inline-flex items-center gap-1 font-label-sm text-label-sm text-secondary">
+<span class="material-symbols-outlined text-[14px]">format_image_left</span>
+                2FA Kích hoạt
+              </span>
+</div>
+<!-- MAIN SUBMIT CTA BUTTON (Prominent FPT Orange #F26F21) -->
+<button class="w-full py-3 px-space-lg rounded-lg bg-primary-container hover:bg-primary text-on-primary font-headline-sm text-headline-sm font-bold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-space-sm group active:scale-[0.98]" id="submit-cta" type="submit">
+<span>Đăng nhập vào Hệ Sinh Thái 360°</span>
+<span class="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">login</span>
+</button>
+</form>
+<!-- MODERN PASSWORDLESS & BIOMETRIC AUTH DOCK -->
+<div class="mt-space-md pt-space-md bg-surface-container-low/60 rounded-xl p-space-md space-y-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-spatial-hud text-spatial-hud uppercase tracking-wider text-on-surface-variant font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-primary">fingerprint</span>
+                Đăng nhập thế hệ mới (Không mật khẩu)
+              </span>
+<span class="px-space-xs py-0.5 rounded bg-surface-container-lowest text-primary font-label-sm text-label-sm font-extrabold shadow-sm">
+                FIDO2 Passkey
+              </span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-sm">
+<!-- Passkey FaceID/TouchID -->
+<button class="flex items-center gap-space-sm p-space-sm rounded-lg bg-surface-container-lowest hover:bg-surface-container-high transition-colors shadow-sm text-left group" onclick="simulatePasskey()" type="button">
+<div class="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[18px]">face</span>
+</div>
+<div class="min-w-0">
+<p class="font-label-md text-label-md font-bold text-on-surface truncate">FaceID / Vân Tay</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Xác thực 1 giây</p>
+</div>
+</button>
+<!-- QR Code Mobile App Poly Scanner -->
+<button class="flex items-center gap-space-sm p-space-sm rounded-lg bg-surface-container-lowest hover:bg-surface-container-high transition-colors shadow-sm text-left group" onclick="simulateQrScan()" type="button">
+<div class="w-8 h-8 rounded-full bg-secondary-fixed flex items-center justify-center text-secondary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[18px]">qr_code_scanner</span>
+</div>
+<div class="min-w-0">
+<p class="font-label-md text-label-md font-bold text-on-surface truncate">Quét mã QR Poly App</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Đăng nhập không chạm</p>
+</div>
+</button>
+</div>
+</div>
+<!-- Bottom Micro Security Assurance Footer -->
+<div class="mt-space-md pt-space-xs flex flex-wrap items-center justify-between text-on-surface-variant font-body-sm text-body-sm">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-primary">lock_clock</span>
+              Mã hóa dữ liệu đầu cuối SSL 256-Bit
+            </span>
+<a class="text-secondary hover:text-primary font-label-md text-label-md font-semibold transition-colors" href="#">
+              Chính sách quyền riêng tư
+            </a>
+</div>
+</div>
+</div>
+</div>
+<!-- ================= BOTTOM HELPDESK & ONBOARDING STRIP ================= -->
+<div class="mt-space-xl grid grid-cols-1 md:grid-cols-3 gap-space-md">
+<!-- Card 1: Freshmen First-Time Access -->
+<div class="p-space-md bg-surface-container-lowest rounded-xl shadow-sm flex items-start gap-space-md">
+<div class="w-10 h-10 rounded-lg bg-primary-fixed flex items-center justify-center text-primary flex-shrink-0">
+<span class="material-symbols-outlined text-[22px]">waving_hand</span>
+</div>
+<div class="space-y-1">
+<p class="font-label-md text-label-md font-bold text-on-surface">Bạn là Tân sinh viên K21?</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Tài khoản FEID được kích hoạt theo thông báo nhập học. Xem quy trình đổi mật khẩu lần đầu và nhận email trường.
+          </p>
+<a class="inline-flex items-center gap-1 font-label-sm text-label-sm font-bold text-primary hover:underline pt-1" href="#">
+<span>Hướng dẫn kích hoạt tài khoản</span>
+<span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+</a>
+</div>
+</div>
+<!-- Card 2: 24/7 IT Help Desk & Multi-channel Support -->
+<div class="p-space-md bg-surface-container-lowest rounded-xl shadow-sm flex items-start gap-space-md">
+<div class="w-10 h-10 rounded-lg bg-secondary-fixed flex items-center justify-center text-secondary flex-shrink-0">
+<span class="material-symbols-outlined text-[22px]">contact_support</span>
+</div>
+<div class="space-y-1">
+<p class="font-label-md text-label-md font-bold text-on-surface">Hỗ trợ Kỹ thuật IT Service Desk</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Hotline: <strong class="text-on-surface">028 7300 1955</strong> (Nhấn Phím 2). Email tiếp nhận: <code class="text-primary font-mono text-[11px]">it.poly@fpt.edu.vn</code>.
+          </p>
+<div class="flex items-center gap-space-md pt-1">
+<a class="font-label-sm text-label-sm font-bold text-secondary hover:underline" href="tel:02873001955">Gọi tổng đài</a>
+<span class="text-outline-variant">•</span>
+<a class="font-label-sm text-label-sm font-bold text-secondary hover:underline" href="#">Zalo OA Kỹ thuật</a>
+</div>
+</div>
+</div>
+<!-- Card 3: Security & Anti-Phishing Alert -->
+<div class="p-space-md bg-surface-container-lowest rounded-xl shadow-sm flex items-start gap-space-md">
+<div class="w-10 h-10 rounded-lg bg-error-container flex items-center justify-center text-error flex-shrink-0">
+<span class="material-symbols-outlined text-[22px]">gpp_maybe</span>
+</div>
+<div class="space-y-1">
+<p class="font-label-md text-label-md font-bold text-on-surface">Cảnh báo An toàn Định danh</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            Nhà trường và Quản trị viên <strong class="text-error font-medium">không bao giờ</strong> yêu cầu bạn cung cấp mật khẩu hoặc mã OTP qua điện thoại hay tin nhắn lạ.
+          </p>
+<a class="inline-flex items-center gap-1 font-label-sm text-label-sm font-bold text-on-surface-variant hover:text-on-surface pt-1" href="#">
+<span>Báo cáo nghi vấn lừa đảo</span>
+<span class="material-symbols-outlined text-[14px]">flag</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+<!-- INLINE VANILLA JAVASCRIPT FOR AUTHENTICATION TABS & MICRO-INTERACTIONS -->
+<script>
+    function switchAuthTab(role) {
+      const tabStudent = document.getElementById('tab-role-student');
+      const tabParent = document.getElementById('tab-role-parent');
+      const tabGuest = document.getElementById('tab-role-guest');
+      
+      const ssoActions = document.getElementById('sso-primary-actions');
+      const dividerText = document.getElementById('divider-text');
+      const inputLabelId = document.getElementById('input-label-id');
+      const authIdentifier = document.getElementById('auth-identifier');
+      const hintId = document.getElementById('identifier-hint');
+      const submitCta = document.getElementById('submit-cta');
+      const inputIcon = document.getElementById('input-icon-left');
+
+      // Reset base tab styling
+      [tabStudent, tabParent, tabGuest].forEach(btn => {
+        btn.className = "py-space-xs px-space-sm rounded-lg font-label-md text-label-md font-medium text-on-surface-variant hover:text-on-surface transition-all flex items-center justify-center gap-1";
+      });
+
+      if (role === 'student') {
+        tabStudent.className = "py-space-xs px-space-sm rounded-lg font-label-md text-label-md font-bold bg-surface-container-lowest text-primary shadow-sm transition-all flex items-center justify-center gap-1";
+        ssoActions.classList.remove('hidden');
+        dividerText.textContent = "Hoặc nhập mã số FEID / MSSV";
+        inputLabelId.innerHTML = '<span class="material-symbols-outlined text-[16px] text-primary">badge</span><span>Email @fpt.edu.vn hoặc Mã sinh viên</span>';
+        hintId.textContent = "VD: PS28914";
+        authIdentifier.placeholder = "ps28914@fpt.edu.vn hoặc PS28914";
+        inputIcon.textContent = "person";
+        submitCta.innerHTML = '<span>Đăng nhập vào Hệ Sinh Thái 360°</span><span class="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">login</span>';
+      } else if (role === 'parent') {
+        tabParent.className = "py-space-xs px-space-sm rounded-lg font-label-md text-label-md font-bold bg-surface-container-lowest text-primary shadow-sm transition-all flex items-center justify-center gap-1";
+        ssoActions.classList.add('hidden');
+        dividerText.textContent = "Cổng Giám Sát Phụ Huynh (PRNT-001)";
+        inputLabelId.innerHTML = '<span class="material-symbols-outlined text-[16px] text-secondary">phone_iphone</span><span>Số điện thoại hoặc Mã định danh eKYC Phụ huynh</span>';
+        hintId.textContent = "VD: 0988xxxxxx hoặc PAR-PS28914";
+        authIdentifier.placeholder = "Nhập SĐT đã đăng ký với trường";
+        inputIcon.textContent = "family_restroom";
+        submitCta.innerHTML = '<span>Tra cứu Kết Quả & Điểm Danh</span><span class="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">insights</span>';
+      } else if (role === 'guest') {
+        tabGuest.className = "py-space-xs px-space-sm rounded-lg font-label-md text-label-md font-bold bg-surface-container-lowest text-primary shadow-sm transition-all flex items-center justify-center gap-1";
+        ssoActions.classList.remove('hidden');
+        dividerText.textContent = "Tài khoản Ban Quản Trị / Khách Tham Quan";
+        inputLabelId.innerHTML = '<span class="material-symbols-outlined text-[16px] text-primary">admin_panel_settings</span><span>Tài khoản Quản trị / Mã vé Open Day</span>';
+        hintId.textContent = "VD: adm.hcm hoặc TICKET-2025";
+        authIdentifier.placeholder = "Tài khoản CMS hoặc Mã vé tham quan";
+        inputIcon.textContent = "manage_accounts";
+        submitCta.innerHTML = '<span>Xác Thực Quản Trị / Check-in</span><span class="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">verified_user</span>';
+      }
+    }
+
+    function togglePasswordVisibility() {
+      const passwordInput = document.getElementById('auth-password');
+      const eyeIcon = document.getElementById('eye-icon');
+      if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        eyeIcon.textContent = 'visibility_off';
+      } else {
+        passwordInput.type = 'password';
+        eyeIcon.textContent = 'visibility';
+      }
+    }
+
+    function simulateLogin() {
+      const submitCta = document.getElementById('submit-cta');
+      const originalHtml = submitCta.innerHTML;
+      submitCta.disabled = true;
+      submitCta.innerHTML = '<span class="material-symbols-outlined text-[20px] animate-spin">progress_activity</span><span>Đang xác thực SSO 360°...</span>';
+      
+      setTimeout(() => {
+        submitCta.innerHTML = '<span class="material-symbols-outlined text-[20px]">check_circle</span><span>Đăng nhập thành công!</span>';
+        submitCta.classList.remove('bg-primary-container');
+        submitCta.classList.add('bg-secondary');
+        setTimeout(() => {
+          submitCta.innerHTML = originalHtml;
+          submitCta.disabled = false;
+          submitCta.classList.remove('bg-secondary');
+          submitCta.classList.add('bg-primary-container');
+        }, 2000);
+      }, 1000);
+    }
+
+    function simulatePasskey() {
+      alert("Đang kích hoạt module FIDO2 WebAuthn: Hãy chạm ngón tay hoặc nhìn vào camera để xác thực vân tay/FaceID trên thiết bị của bạn.");
+    }
+
+    function simulateQrScan() {
+      alert("Mở ứng dụng FPT Polytechnic trên điện thoại của bạn, chọn biểu tượng Quét mã QR để tự động đăng nhập vào cổng 360° mà không cần nhập mật khẩu.");
+    }
+  </script>
+</div></main><footer class="w-full bg-surface-container-low/70 py-space-lg"><div class="max-w-7xl mx-auto px-margin-sm lg:px-margin flex flex-col md:flex-row items-center justify-between gap-space-md text-on-surface-variant font-body-sm text-body-sm"><div class="flex flex-wrap items-center justify-center md:justify-start gap-space-sm md:gap-space-md"><span class="font-label-sm text-label-sm font-semibold text-secondary uppercase">FPT Education SSO Hub</span><span class="hidden sm:inline text-outline-variant">•</span><span>Bản quyền © 2025 FPT Polytechnic Virtual Campus</span><span class="hidden sm:inline text-outline-variant">•</span><span class="flex items-center gap-space-xs"><span class="material-symbols-outlined text-[16px] text-primary">lock</span>Xác thực tập trung ISO/IEC 27001</span></div><div class="flex flex-wrap items-center justify-center gap-space-md font-label-sm text-label-sm"><a class="text-on-surface-variant hover:text-primary transition-colors" data-path="chinh-sach-bao-mat" href="#">Chính Sách Bảo Mật</a><a class="text-on-surface-variant hover:text-primary transition-colors" data-path="dieu-khoan-su-dung" href="#">Điều Khoản Dịch Vụ</a><a class="flex items-center gap-space-xs text-primary font-semibold hover:text-primary-container transition-colors" href="tel:02873001955"><span class="material-symbols-outlined text-[15px]">support_agent</span>Hotline: 028 7300 1955</a></div></div></footer></body></html>

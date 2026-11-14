@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="vi" class="scroll-smooth">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phòng Thực Hành AI & Robotics Innovation Lab — Tòa T | FPT Polytechnic Virtual Campus 360°</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              orange: '#F26F21',
+              'orange-dark': '#D9580F',
+              'orange-light': '#FFF5EE',
+              navy: '#0D47A1',
+              'navy-dark': '#0A2540',
+              slate: '#0F172A',
+              muted: '#64748B',
+              bg: '#F8FAFC'
+            }
+          },
+          fontFamily: {
+            heading: ['"Plus Jakarta Sans"', 'sans-serif'],
+            sans: ['Inter', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #F8FAFC; color: #0F172A; }
+    h1, h2, h3, h4, h5, h6, .font-heading { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .glass-nav { background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(16px); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-50 text-slate-900 antialiased">
+  <!-- Public Global Header -->
+  <header class="sticky top-0 z-50 glass-nav border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-[#D9580F] to-[#F26F21] flex items-center justify-center text-white font-heading font-black text-2xl shadow-lg shadow-orange-500/25">P</div>
+        <div>
+          <span class="font-heading font-black text-xl text-slate-900 tracking-tight block">FPT POLYTECHNIC</span>
+          <span class="text-xs font-semibold text-[#F26F21] uppercase tracking-wider">Virtual Campus 360°</span>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600">
+        <a href="/" class="hover:text-[#F26F21] transition">Trang chủ</a>
+        <a href="/about" class="hover:text-[#F26F21] transition">Giới thiệu</a>
+        <a href="/virtual-campus" class="hover:text-[#F26F21] transition flex items-center gap-1.5 text-[#F26F21]">
+          <span class="material-symbols-outlined text-[18px]">view_in_ar</span> Tour 360°
+        </a>
+        <a href="/map" class="hover:text-[#F26F21] transition">Bản đồ GIS</a>
+        <a href="/locations" class="hover:text-[#F26F21] transition">Cơ sở vật chất</a>
+        <a href="/events" class="hover:text-[#F26F21] transition">Sự kiện Open Day</a>
+        <a href="/games" class="hover:text-[#F26F21] transition">Minigame</a>
+        <a href="/news" class="hover:text-[#F26F21] transition">Tin tức</a>
+        <a href="/contact" class="hover:text-[#F26F21] transition">Tuyển sinh</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <a href="/login" class="px-5 py-2.5 rounded-xl border border-slate-300 text-sm font-bold text-slate-700 hover:bg-slate-100 transition">Đăng nhập</a>
+        <a href="/events" class="px-5 py-2.5 rounded-xl bg-[#F26F21] text-white text-sm font-bold shadow-md shadow-orange-500/20 hover:bg-[#D9580F] transition flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[18px]">confirmation_number</span> Nhận vé Open Day
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
+    <!-- Breadcrumb -->
+    <div class="flex items-center gap-2 text-xs font-semibold text-slate-500 mb-6">
+      <a href="/" class="hover:text-[#F26F21]">Trang chủ</a>
+      <span class="material-symbols-outlined text-xs">chevron_right</span>
+      <a href="/locations" class="hover:text-[#F26F21]">Cơ sở vật chất</a>
+      <span class="material-symbols-outlined text-xs">chevron_right</span>
+      <span class="text-slate-900 font-bold">AI & Robotics Innovation Lab (Phòng T302)</span>
+    </div>
+
+    <!-- Location Header Banner -->
+    <div class="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm mb-10">
+      <div class="flex flex-wrap items-start justify-between gap-6 pb-6 border-b border-slate-100">
+        <div>
+          <div class="flex items-center gap-2 mb-3">
+            <span class="px-3 py-1 rounded-full bg-orange-100 text-[#F26F21] text-xs font-bold">Tòa nhà T — Tầng 3</span>
+            <span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">Đang mở cửa học tập</span>
+            <span class="px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">Mã phòng: T302</span>
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-extrabold font-heading text-slate-900">
+            Phòng Thực Hành AI, Robotics & Studio Đồ Họa 3D
+          </h1>
+          <p class="text-xs sm:text-sm text-slate-500 mt-2">
+            Không gian nghiên cứu ứng dụng Trí tuệ nhân tạo, vi xử lý IoT và kỹ thuật dựng hình đồ họa cao cấp của sinh viên ngành CNTT.
+          </p>
+        </div>
+        <div class="flex items-center gap-3">
+          <a href="/virtual-campus?node=t302" class="px-6 py-3 rounded-2xl bg-gradient-to-r from-[#D9580F] to-[#F26F21] text-white font-heading font-bold text-sm shadow-lg shadow-orange-500/25 hover:opacity-95 transition flex items-center gap-2">
+            <span class="material-symbols-outlined text-xl">360</span> Bật Tour 360° Phòng Này
+          </a>
+          <a href="/map?pin=t302" class="px-5 py-3 rounded-2xl border border-slate-300 text-slate-700 font-bold text-sm hover:bg-slate-50 transition flex items-center gap-2">
+            <span class="material-symbols-outlined text-xl">map</span> Xem vị trí trên GIS
+          </a>
+        </div>
+      </div>
+
+      <!-- Quick Metrics Grid -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-6 text-center sm:text-left">
+        <div>
+          <span class="text-xs text-slate-400 font-semibold block">Sức chứa tối đa</span>
+          <span class="text-xl font-heading font-black text-slate-900 mt-1 block">60 Sinh viên</span>
+        </div>
+        <div>
+          <span class="text-xs text-slate-400 font-semibold block">Hệ thống máy trạm</span>
+          <span class="text-xl font-heading font-black text-slate-900 mt-1 block">60 RTX 4080</span>
+        </div>
+        <div>
+          <span class="text-xs text-slate-400 font-semibold block">Diện tích sàn</span>
+          <span class="text-xl font-heading font-black text-slate-900 mt-1 block">180 m²</span>
+        </div>
+        <div>
+          <span class="text-xs text-slate-400 font-semibold block">Thời lượng mở cửa</span>
+          <span class="text-xl font-heading font-black text-[#F26F21] mt-1 block">07:00 - 21:30</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Media Gallery & Panorama Viewport -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
+      <!-- 360 Panorama Interactive Simulation Preview (8 Cols) -->
+      <div class="lg:col-span-8 bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-xl relative group">
+        <div class="h-96 sm:h-[480px] bg-slate-950 flex items-center justify-center relative overflow-hidden">
+          <!-- Background Visual Simulator -->
+          <div class="absolute inset-0 bg-cover bg-center opacity-70" style="background-image: radial-gradient(#1E293B 2px, transparent 2px), radial-gradient(#0F172A 2px, #020617 2px); background-size: 40px 40px;"></div>
+          <!-- 360 HUD Overlay -->
+          <div class="relative z-10 text-center px-6">
+            <div class="w-20 h-20 rounded-full bg-[#F26F21]/20 border-2 border-[#F26F21] text-[#F26F21] flex items-center justify-center mx-auto mb-4 backdrop-blur shadow-2xl animate-pulse">
+              <span class="material-symbols-outlined text-4xl">view_in_ar</span>
+            </div>
+            <h3 class="font-heading font-bold text-xl text-white">Toàn Cảnh 360° Ultra HD — T302 Innovation Lab</h3>
+            <p class="text-xs text-slate-400 max-w-md mx-auto mt-2 leading-relaxed">Khám phá góc nhìn tự do 360 độ, kiểm tra thông số máy trạm đồ họa, bảng điện tử và dàn cánh tay robot thực tế.</p>
+            <a href="/virtual-campus?node=t302" class="inline-flex items-center gap-2 mt-6 px-6 py-3 rounded-xl bg-[#F26F21] text-white font-bold text-xs shadow-lg shadow-orange-500/30 hover:bg-[#D9580F] transition">
+              <span class="material-symbols-outlined text-base">fullscreen</span> Tương tác góc nhìn 360° ngay
+            </a>
+          </div>
+          <!-- Compass Badge -->
+          <div class="absolute top-4 left-4 z-20 bg-slate-900/80 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-700 text-white text-xs font-semibold flex items-center gap-2">
+            <span class="material-symbols-outlined text-sm text-[#F26F21]">explore</span> Hướng Bắc 45°
+          </div>
+        </div>
+      </div>
+
+      <!-- Facility Specs & Lab Schedule (4 Cols) -->
+      <div class="lg:col-span-4 space-y-6">
+        <!-- Specs List -->
+        <div class="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm">
+          <h3 class="font-heading font-bold text-base text-slate-900 mb-4 pb-3 border-b border-slate-100">Trang Thiết Bị Kỹ Thuật</h3>
+          <ul class="space-y-3.5 text-xs">
+            <li class="flex items-start gap-2.5">
+              <span class="material-symbols-outlined text-[#F26F21] text-base shrink-0">memory</span>
+              <div>
+                <span class="font-bold text-slate-800 block">60 Bộ Máy Trạm AI Workstation</span>
+                <span class="text-slate-500">Core i9-14900K, 64GB RAM DDR5, GPU NVIDIA RTX 4080 16GB</span>
+              </div>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <span class="material-symbols-outlined text-[#F26F21] text-base shrink-0">vrpano</span>
+              <div>
+                <span class="font-bold text-slate-800 block">Hệ Thống Kính VR Meta Quest 3</span>
+                <span class="text-slate-500">10 bộ kính trải nghiệm thực tế ảo chuyên dụng</span>
+              </div>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <span class="material-symbols-outlined text-[#F26F21] text-base shrink-0">tv</span>
+              <div>
+                <span class="font-bold text-slate-800 block">Màn Hình Tương Tác 86 Inch</span>
+                <span class="text-slate-500">Độ phân giải 4K cảm ứng đa điểm hỗ trợ giảng dạy trực tiếp</span>
+              </div>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <span class="material-symbols-outlined text-[#F26F21] text-base shrink-0">wifi</span>
+              <div>
+                <span class="font-bold text-slate-800 block">Hạ Tầng Mạng Wifi 6E Mesh</span>
+                <span class="text-slate-500">Tốc độ truyền tải 2.5 Gbps riêng biệt cho phòng thực hành</span>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Today Timetable -->
+        <div class="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm">
+          <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+            <h4 class="font-heading font-bold text-sm text-slate-900">Lịch Học & Thực Hành Hôm Nay</h4>
+            <span class="text-[11px] font-bold text-emerald-600">Thứ Bảy</span>
+          </div>
+          <div class="space-y-2.5 text-xs">
+            <div class="p-3 rounded-xl bg-orange-50/70 border border-orange-200">
+              <div class="flex justify-between font-bold text-slate-900">
+                <span>Ca 1 (07:30 - 09:30)</span>
+                <span class="text-[#F26F21]">Đang diễn ra</span>
+              </div>
+              <span class="text-slate-600 block mt-1">Lập trình Nhập môn AI (GV. ThS. Trần Minh Đức)</span>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <div class="flex justify-between font-bold text-slate-900">
+                <span>Ca 2 (09:45 - 11:45)</span>
+                <span class="text-slate-500">Sắp tới</span>
+              </div>
+              <span class="text-slate-600 block mt-1">Xử lý Ngôn ngữ Tự nhiên & Thị giác Máy tính</span>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <div class="flex justify-between font-bold text-slate-900">
+                <span>Ca Chiều (13:30 - 17:30)</span>
+                <span class="text-emerald-600 font-semibold">Tự học mở (Open Access)</span>
+              </div>
+              <span class="text-slate-600 block mt-1">Dành riêng cho đồ án tốt nghiệp sinh viên K20 & K21</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Public Global Footer -->
+  <footer class="bg-slate-900 text-slate-400 py-16 border-t border-slate-800 mt-auto">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-10">
+      <div>
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-xl bg-[#F26F21] flex items-center justify-center text-white font-heading font-black text-xl">P</div>
+          <span class="font-heading font-bold text-lg text-white">FPT POLYTECHNIC</span>
+        </div>
+        <p class="text-xs leading-relaxed text-slate-400 mb-4">Trường Cao đẳng FPT Polytechnic cơ sở TP.HCM. Triết lý Thực học - Thực nghiệp, tiên phong ứng dụng công nghệ thực tế ảo 360° trong giáo dục số.</p>
+        <p class="text-xs text-slate-500">© 2026 FPT Polytechnic. All rights reserved.</p>
+      </div>
+      <div>
+        <h4 class="font-heading font-bold text-sm text-white uppercase tracking-wider mb-4">Khám phá Campus</h4>
+        <ul class="space-y-2.5 text-xs">
+          <li><a href="/virtual-campus" class="hover:text-[#F26F21] transition">Không gian 360° Toàn cảnh</a></li>
+          <li><a href="/map" class="hover:text-[#F26F21] transition">Bản đồ số GIS & Phân tầng</a></li>
+          <li><a href="/locations" class="hover:text-[#F26F21] transition">Xưởng thực hành & Phòng Lab</a></li>
+          <li><a href="/events" class="hover:text-[#F26F21] transition">Ngày hội trải nghiệm Open Day</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-heading font-bold text-sm text-white uppercase tracking-wider mb-4">Hệ thống Cổng thông tin</h4>
+        <ul class="space-y-2.5 text-xs">
+          <li><a href="/portal/student" class="hover:text-[#F26F21] transition">Cổng Sinh viên & Thẻ điện tử</a></li>
+          <li><a href="/portal/parent" class="hover:text-[#F26F21] transition">Cổng Phụ huynh theo dõi</a></li>
+          <li><a href="/admin" class="hover:text-[#F26F21] transition">Hệ thống Quản trị CMS 360°</a></li>
+          <li><a href="/games" class="hover:text-[#F26F21] transition">Minigame & Tích lũy XP</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-heading font-bold text-sm text-white uppercase tracking-wider mb-4">Liên hệ & Tuyển sinh</h4>
+        <p class="text-xs leading-relaxed text-slate-400 mb-2">Tòa nhà T, Công viên phần mềm Quang Trung, Phường Tân Chánh Hiệp, Quận 12, TP.HCM</p>
+        <p class="text-xs text-slate-300 font-semibold mb-1">Hotline: 1900 633 540 - 0981 725 836</p>
+        <p class="text-xs text-slate-300">Email: tuyensinhpoly@fpt.edu.vn</p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

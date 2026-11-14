@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_standard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"surface-container-low":"#eff4ff","surface-container-high":"#dce9ff","on-tertiary":"#ffffff","error-container":"#ffdad6","surface-tint":"#a04100","surface-dim":"#cbdbf5","on-primary-container":"#531e00","secondary":"#2b5bb5","error":"#ba1a1a","inverse-surface":"#213145","surface-bright":"#f8f9ff","primary-fixed":"#ffdbcc","on-primary-fixed":"#351000","inverse-on-surface":"#eaf1ff","on-tertiary-container":"#262e42","inverse-primary":"#ffb693","tertiary-fixed":"#dae2fd","tertiary-fixed-dim":"#bec6e0","tertiary-container":"#8e95ae","on-primary":"#ffffff","on-error":"#ffffff","primary-fixed-dim":"#ffb693","primary":"#a04100","on-tertiary-fixed-variant":"#3f465c","surface-container":"#e5eeff","on-surface":"#0b1c30","on-error-container":"#93000a","on-primary-fixed-variant":"#7a3000","primary-container":"#f26f21","surface-variant":"#d3e4fe","surface-container-lowest":"#ffffff","outline":"#8c7166","on-surface-variant":"#584238","outline-variant":"#e0c0b2","secondary-container":"#759efd","surface":"#f8f9ff","on-tertiary-fixed":"#131b2e","secondary-fixed":"#d9e2ff","on-background":"#0b1c30","background":"#f8f9ff","secondary-fixed-dim":"#b0c6ff","on-secondary":"#ffffff","on-secondary-fixed":"#001945","on-secondary-container":"#00337c","surface-container-highest":"#d3e4fe","on-secondary-fixed-variant":"#00429c","tertiary":"#565e74"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"space-sm":"0.5rem","space-lg":"1.5rem","margin":"2rem","margin-lg":"3rem","gutter-lg":"2rem","space-xs":"0.25rem","gutter":"1.5rem","space-md":"1rem","space-xl":"2rem","margin-sm":"1rem","gutter-sm":"1rem"},"fontFamily":{"label-sm":["Inter"],"body-lg":["Inter"],"label-md":["Inter"],"headline-lg-mobile":["Plus Jakarta Sans"],"body-sm":["Inter"],"headline-sm":["Plus Jakarta Sans"],"display-hero-mobile":["Plus Jakarta Sans"],"headline-lg":["Plus Jakarta Sans"],"body-md":["Inter"],"spatial-hud":["Plus Jakarta Sans"],"headline-md":["Plus Jakarta Sans"],"display-hero":["Plus Jakarta Sans"]},"fontSize":{"label-sm":["11px",{"lineHeight":"16px","letterSpacing":"0.04em","fontWeight":"600"}],"body-lg":["16px",{"lineHeight":"26px","letterSpacing":"0","fontWeight":"400"}],"label-md":["13px",{"lineHeight":"18px","letterSpacing":"0.02em","fontWeight":"600"}],"headline-lg-mobile":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"700"}],"body-sm":["12px",{"lineHeight":"18px","letterSpacing":"0.01em","fontWeight":"400"}],"headline-sm":["18px",{"lineHeight":"26px","letterSpacing":"0","fontWeight":"600"}],"display-hero-mobile":["32px",{"lineHeight":"40px","letterSpacing":"-0.01em","fontWeight":"800"}],"headline-lg":["32px",{"lineHeight":"40px","letterSpacing":"-0.015em","fontWeight":"700"}],"body-md":["14px",{"lineHeight":"22px","letterSpacing":"0","fontWeight":"400"}],"spatial-hud":["12px",{"lineHeight":"16px","letterSpacing":"0.06em","fontWeight":"700"}],"headline-md":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}],"display-hero":["48px",{"lineHeight":"58px","letterSpacing":"-0.02em","fontWeight":"800"}]}}}}</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><header class="fixed top-0 left-0 right-0 w-full z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-20 w-full px-margin-lg flex items-center justify-between gap-gutter"><div class="flex items-center gap-space-md shrink-0"><img alt="FPT Polytechnic 360 Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBYc7DHLf_qlXMZc216mDaYU9EJaPzZjFdM7HNxfsMmddIQo25LGZyXzJgzZVkDGRxeNSgtu1hwhaYW6v8c3ow9OXnLJvlV7gXqjb0er-grsvwnfQLbroi9GcOskk70nDV5NdA7sFfyOJzrUEmtBP2KrmcBfvF9eUj5OqV9h1HBqsSjwjQkQkgC82SatrBxkPKpBMrzlT6iOACT1Ylq5VQBZIuTqs9bLUC9NmVJXRQ"/><span class="font-headline-sm text-headline-sm text-primary font-bold tracking-tight hidden sm:inline-block">Polytechnic 360°</span></div><nav class="hidden xl:flex items-center gap-space-xs" data-active-classes="bg-primary-container text-on-primary font-semibold rounded-lg px-space-md py-space-xs shadow-sm"><a class="px-space-md py-space-xs font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-colors" data-path="trang-chu" href="#">Trang chủ</a><a class="px-space-md py-space-xs font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-colors" data-path="kham-pha-360" href="#">Khám phá 360°</a><a class="px-space-md py-space-xs font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-colors" data-path="ban-do-gis" href="#">Bản đồ GIS</a><a class="px-space-md py-space-xs font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-colors" data-path="co-so-vat-chat" href="#">Cơ sở vật chất</a><a class="px-space-md py-space-xs font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-colors" data-path="su-kien-open-day" href="#">Sự kiện Open Day</a><a class="px-space-md py-space-xs font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-colors" data-path="cong-sinh-vien" href="#">Cổng sinh viên</a><a class="px-space-md py-space-xs font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-colors" data-path="cong-phu-huynh" href="#">Cổng phụ huynh</a><a class="px-space-md py-space-xs font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded-lg transition-colors" data-path="quan-tri-cms" href="#">Quản trị CMS</a></nav><div class="flex items-center gap-space-md shrink-0"><button class="bg-primary-container text-on-primary font-label-md text-label-md px-space-lg py-space-sm rounded-lg hover:bg-primary transition-all shadow-[0_2px_8px_rgba(242,111,33,0.3)] active:scale-95">Đăng ký tư vấn</button><div class="relative pl-space-xs"><img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-2 ring-primary/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfo_CskBkrZQRAqYe6Ax7WPdt6ilEJ5bl8QY96p9D7YyciLYeWn2_i0TCSCIl2NAL6s1LVFd78FsDUQYbZU6diCGH3ryw3-jY5L9rWCgnDx-TPvbkKLxiHX48S1eFDqwQiolxi1TCSU-QEPp1pZydTRuGiFZ4_6SKcZUUAHTbo-c0rvUoCIU8laFVWsu3VK88d6TEEcfCy-zOQC9WmqaltZYWkP7AN63VsWa3oW4U"/></div></div></div></header><main class="w-full pt-20 bg-surface"><div class="flex flex-col w-full">
+<!-- Interactive Viewport Wrapper: Full-bleed spatial experience with embedded controls -->
+<section class="relative w-full h-[calc(100vh-5rem)] min-h-[700px] overflow-hidden bg-surface select-none">
+<!-- 2D / 3D Canvas Mockup (Vector & Spatial Campus Map) -->
+<div class="absolute inset-0 w-full h-full bg-surface-container overflow-hidden" id="campusMapViewport">
+<!-- Simulated Interactive GIS Vector Layer -->
+<svg class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 ease-out" id="gisSvgMap" style="transform: scale(1) translate(0px, 0px);" viewbox="0 0 1600 900">
+<defs>
+<radialgradient cx="50%" cy="50%" id="grid-glow" r="60%">
+<stop offset="0%" stop-color="#2b5bb5" stop-opacity="0.08"></stop>
+<stop offset="100%" stop-color="#2b5bb5" stop-opacity="0"></stop>
+</radialgradient>
+<pattern height="40" id="gis-grid" patternunits="userSpaceOnUse" width="40">
+<path d="M 40 0 L 0 0 0 40" fill="none" stroke="#2b5bb5" stroke-opacity="0.08" stroke-width="1"></path>
+</pattern>
+<lineargradient id="building-t-grad" x1="0" x2="1" y1="0" y2="1">
+<stop offset="0%" stop-color="#f26f21" stop-opacity="0.95"></stop>
+<stop offset="100%" stop-color="#a04100" stop-opacity="0.95"></stop>
+</lineargradient>
+<lineargradient id="building-a-grad" x1="0" x2="1" y1="0" y2="1">
+<stop offset="0%" stop-color="#2b5bb5" stop-opacity="0.9"></stop>
+<stop offset="100%" stop-color="#131b2e" stop-opacity="0.9"></stop>
+</lineargradient>
+<lineargradient id="building-p-grad" x1="0" x2="1" y1="0" y2="1">
+<stop offset="0%" stop-color="#759efd" stop-opacity="0.85"></stop>
+<stop offset="100%" stop-color="#2b5bb5" stop-opacity="0.85"></stop>
+</lineargradient>
+<filter height="150%" id="shadow-3d" width="150%" x="-20%" y="-20%">
+<fedropshadow dx="8" dy="16" flood-color="#0b1c30" flood-opacity="0.18" stddeviation="12"></fedropshadow>
+</filter>
+</defs>
+<!-- Campus Land and Grid Base -->
+<rect fill="#eff4ff" height="900" width="1600"></rect>
+<rect fill="url(#grid-glow)" height="900" width="1600"></rect>
+<rect fill="url(#gis-grid)" height="900" width="1600"></rect>
+<!-- External Street Context (Tô Ký & CVPM Quang Trung) -->
+<path d="M -50 250 L 1650 380" fill="none" stroke="#d3e4fe" stroke-linecap="round" stroke-width="36"></path>
+<path d="M 420 -50 L 520 950" fill="none" stroke="#d3e4fe" stroke-linecap="round" stroke-width="28"></path>
+<path d="M 1200 -50 L 1100 950" fill="none" stroke="#d3e4fe" stroke-linecap="round" stroke-width="24"></path>
+<text fill="#584238" font-family="Inter" font-size="12" font-weight="600" letter-spacing="2" x="140" y="295">TRỤC ĐƯỜNG NỘI KHU CVPM QUANG TRUNG (Q.12)</text>
+<!-- Walkways / Plazas -->
+<path d="M 450 370 Q 750 480 1150 400" fill="none" opacity="0.9" stroke="#ffffff" stroke-linecap="round" stroke-width="24"></path>
+<circle cx="820" cy="520" fill="#e5eeff" opacity="0.85" r="140"></circle>
+<circle cx="820" cy="520" fill="#ffffff" opacity="0.95" r="70"></circle>
+<text fill="#2b5bb5" font-family="Plus Jakarta Sans" font-size="13" font-weight="700" x="765" y="525">Quảng Trường FPT</text>
+<!-- Sân Thể Thao Phức Hợp -->
+<g class="cursor-pointer transition-all duration-300 hover:opacity-95" id="zoneSports" onclick="selectPOI('sports')">
+<rect fill="#dae2fd" filter="url(#shadow-3d)" height="150" rx="16" width="240" x="180" y="580"></rect>
+<rect fill="#759efd" height="120" opacity="0.6" rx="8" width="100" x="195" y="595"></rect>
+<line stroke="#ffffff" stroke-width="2" x1="245" x2="245" y1="595" y2="715"></line>
+<rect fill="#bec6e0" height="120" opacity="0.5" rx="8" width="95" x="310" y="595"></rect>
+<text fill="#001945" font-family="Plus Jakarta Sans" font-size="13" font-weight="700" x="220" y="660">Sân Bóng Mini &amp; Pickleball</text>
+</g>
+<!-- Căng Tin Sinh Viên Poly Food Central -->
+<g class="cursor-pointer transition-all duration-300 hover:opacity-95" id="zoneCanteen" onclick="selectPOI('canteen')">
+<polygon fill="#dce9ff" filter="url(#shadow-3d)" points="1220,560 1380,520 1440,660 1280,700"></polygon>
+<text fill="#2b5bb5" font-family="Plus Jakarta Sans" font-size="13" font-weight="700" x="1270" y="620">Căng Tin Poly Food</text>
+<text fill="#584238" font-family="Inter" font-size="11" x="1285" y="640">Sức chứa 800 chỗ</text>
+</g>
+<!-- TÒA A (Hành Chính & Hội Trường Trống Đồng) -->
+<g class="cursor-pointer transition-all duration-300 group" id="buildingA" onclick="selectPOI('toaA')">
+<!-- Isometric Footprint Shadow -->
+<polygon fill="#cbdbf5" points="560,420 730,390 790,520 620,550"></polygon>
+<!-- 3D Extrusion -->
+<polygon fill="#00337c" points="560,320 730,290 730,390 560,420"></polygon>
+<polygon fill="#001945" points="730,290 790,420 790,520 730,390"></polygon>
+<!-- Roof Plan -->
+<polygon class="group-hover:brightness-110 transition-all" fill="url(#building-a-grad)" points="560,320 730,290 790,420 620,450"></polygon>
+<!-- Roof Details & Heli/Deck Badge -->
+<rect fill="#ffffff" height="40" opacity="0.3" rx="6" width="70" x="635" y="340"></rect>
+<text fill="#ffffff" font-family="Plus Jakarta Sans" font-size="16" font-weight="800" x="630" y="375">TÒA A</text>
+<text fill="#001945" font-family="Inter" font-size="12" font-weight="600" x="590" y="475">Trụ sở Viện &amp; Tuyển sinh</text>
+</g>
+<!-- TÒA P (Phân viện Đào tạo Thực hành) -->
+<g class="cursor-pointer transition-all duration-300 group" id="buildingP" onclick="selectPOI('toaP')">
+<polygon fill="#cbdbf5" points="940,320 1120,300 1160,460 980,480"></polygon>
+<polygon fill="#2b5bb5" points="940,240 1120,220 1120,300 940,320"></polygon>
+<polygon fill="#00337c" points="1120,220 1160,380 1160,460 1120,300"></polygon>
+<polygon class="group-hover:brightness-110 transition-all" fill="url(#building-p-grad)" points="940,240 1120,220 1160,380 980,400"></polygon>
+<text fill="#ffffff" font-family="Plus Jakarta Sans" font-size="16" font-weight="800" x="1015" y="315">TÒA P</text>
+<text fill="#00337c" font-family="Inter" font-size="12" font-weight="600" x="975" y="430">Thiết kế đồ họa &amp; Digital</text>
+</g>
+<!-- TÒA T - TÒA TRUNG TÂM (Innovation Hall, AI Lab, Smart Studios) -->
+<g class="cursor-pointer transition-all duration-300 group" id="buildingT" onclick="selectPOI('toaT')">
+<!-- Deep drop shadow -->
+<polygon fill="#cbdbf5" points="710,590 940,540 1020,730 790,780"></polygon>
+<!-- Isometric side walls with windows -->
+<polygon fill="#a04100" points="710,430 940,380 940,540 710,590"></polygon>
+<polygon fill="#7a3000" points="940,380 1020,570 1020,730 940,540"></polygon>
+<!-- Active Rooftop & Solar Panel accents -->
+<polygon class="group-hover:brightness-110 transition-all" fill="url(#building-t-grad)" filter="url(#shadow-3d)" points="710,430 940,380 1020,570 790,620"></polygon>
+<rect fill="#ffffff" height="60" opacity="0.25" rx="8" width="130" x="760" y="480"></rect>
+<text fill="#ffffff" font-family="Plus Jakarta Sans" font-size="22" font-weight="800" letter-spacing="1" x="790" y="520">TÒA T</text>
+<text fill="#ffffff" font-family="Inter" font-size="12" font-weight="600" x="740" y="555">INNOVATION HALL &amp; LABS</text>
+<!-- Selected Pulsing Node Indicator on T-Building -->
+<g transform="translate(860, 470)">
+<circle class="animate-ping" cx="0" cy="0" fill="#f26f21" opacity="0.3" r="28"></circle>
+<circle class="shadow-lg" cx="0" cy="0" fill="#f26f21" r="14"></circle>
+<circle cx="0" cy="0" fill="#ffffff" r="6"></circle>
+</g>
+</g>
+<!-- Active 360 Waypoint Markers -->
+<g class="cursor-pointer" onclick="selectPOI('toaT')">
+<g transform="translate(680, 260)">
+<rect class="shadow-md hover:scale-110 transition-transform" fill="#0b1c30" height="36" rx="18" stroke="#f26f21" stroke-width="2" width="36" x="-18" y="-18"></rect>
+<text fill="#ffffff" font-family="Inter" font-size="11" font-weight="700" x="-10" y="5">360°</text>
+</g>
+<g transform="translate(1080, 210)">
+<rect class="shadow-md hover:scale-110 transition-transform" fill="#0b1c30" height="36" rx="18" stroke="#f26f21" stroke-width="2" width="36" x="-18" y="-18"></rect>
+<text fill="#ffffff" font-family="Inter" font-size="11" font-weight="700" x="-10" y="5">360°</text>
+</g>
+<g transform="translate(820, 520)">
+<rect class="shadow-md hover:scale-110 transition-transform" fill="#f26f21" height="36" rx="18" width="36" x="-18" y="-18"></rect>
+<text fill="#ffffff" font-family="Inter" font-size="10" font-weight="800" x="-11" y="5">HUB</text>
+</g>
+</g>
+<!-- Main Campus Entrance & Gate (Cổng Tô Ký) -->
+<g transform="translate(480, 270)">
+<rect fill="#0b1c30" height="28" opacity="0.9" rx="6" width="80" x="-40" y="-14"></rect>
+<text fill="#ffffff" font-family="Inter" font-size="11" font-weight="600" x="-32" y="4">CỔNG CHÍNH</text>
+<line stroke="#f26f21" stroke-dasharray="4 3" stroke-width="3" x1="0" x2="0" y1="14" y2="40"></line>
+</g>
+</svg>
+<!-- 3D Spatial Hologram Ambient Overlay (Shown when 3D mode is toggled) -->
+<div class="absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-500 bg-gradient-to-t from-inverse-surface/40 via-transparent to-primary/10" id="spatialLayerEffect">
+<div class="absolute inset-0 bg-[radial-gradient(#2b5bb5_1px,transparent_1px)] [background-size:24px_24px] opacity-25"></div>
+</div>
+</div>
+<!-- TOP HUD: View Switcher (2D GIS / 3D Spatial) & Real-time Metrics -->
+<div class="absolute top-space-md left-space-md right-space-md z-20 flex flex-wrap items-center justify-between gap-gutter pointer-events-none">
+<!-- Spatial Mode Switcher Pill -->
+<div class="pointer-events-auto flex items-center p-1.5 rounded-full bg-surface-container-lowest/90 backdrop-blur-md shadow-md">
+<button class="flex items-center gap-space-xs px-space-md py-space-xs rounded-full font-label-md text-label-md transition-all duration-200 bg-primary-container text-on-primary shadow-sm" id="btnMode2D" onclick="setMode('2D')">
+<span class="material-symbols-outlined text-[18px]">map</span>
+<span>Bản đồ số GIS 2D</span>
+</button>
+<button class="flex items-center gap-space-xs px-space-md py-space-xs rounded-full font-label-md text-label-md transition-all duration-200 text-on-surface-variant hover:text-on-surface hover:bg-surface-container" id="btnMode3D" onclick="setMode('3D')">
+<span class="material-symbols-outlined text-[18px]">view_in_ar</span>
+<span>Không gian 3D Spatial Explorer</span>
+<span class="px-1.5 py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed text-[10px] font-bold tracking-wider">PRO</span>
+</button>
+</div>
+<!-- Campus Live Telemetry Status -->
+<div class="pointer-events-auto hidden md:flex items-center gap-space-md px-space-md py-space-xs rounded-full bg-inverse-surface/85 backdrop-blur-md text-inverse-on-surface shadow-md">
+<div class="flex items-center gap-space-xs font-spatial-hud text-spatial-hud text-secondary-fixed">
+<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+<span>HỆ THỐNG GIS ONLINE: 10.8538° N, 106.6281° E</span>
+</div>
+<div class="h-3.5 w-px bg-white/20"></div>
+<div class="flex items-center gap-space-xs font-body-sm text-body-sm text-surface-dim">
+<span class="material-symbols-outlined text-[16px] text-primary-container">apartment</span>
+<span>Đang hiển thị: Cơ sở TP.HCM (CVPM Quang Trung)</span>
+</div>
+</div>
+</div>
+<!-- LEFT FLOATING DRAWER: Search, Filters & POI Intel Card -->
+<aside class="absolute top-20 left-space-md bottom-space-md w-full max-w-sm sm:max-w-md z-30 flex flex-col pointer-events-none">
+<div class="pointer-events-auto flex flex-col h-full bg-surface-container-lowest/95 backdrop-blur-xl rounded-xl shadow-xl overflow-hidden transition-all duration-300">
+<!-- Search & Instant POI Suggestion Header -->
+<div class="p-space-md bg-surface-container-low">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+<input class="w-full pl-10 pr-10 py-2.5 bg-surface-container-lowest text-on-surface font-body-md text-body-md rounded-lg shadow-sm placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary-container" id="campusSearchInput" oninput="handleSearch(this.value)" placeholder="Tìm phòng học, Lab AI, Thư viện, Hội trường..." type="text" value="Tòa nhà Công nghệ T"/>
+<button class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface text-[18px]" onclick="clearSearch()">close</button>
+</div>
+<!-- Fast Quick-Tags -->
+<div class="flex items-center gap-space-xs mt-space-sm overflow-x-auto pb-1 no-scrollbar">
+<button class="category-chip px-space-sm py-1 rounded-md font-label-sm text-label-sm whitespace-nowrap bg-primary-container text-on-primary" onclick="filterCategory('all')">Tất cả</button>
+<button class="category-chip px-space-sm py-1 rounded-md font-label-sm text-label-sm whitespace-nowrap bg-surface-container text-on-surface-variant hover:bg-surface-container-high" onclick="filterCategory('lab')">Lab Công nghệ</button>
+<button class="category-chip px-space-sm py-1 rounded-md font-label-sm text-label-sm whitespace-nowrap bg-surface-container text-on-surface-variant hover:bg-surface-container-high" onclick="filterCategory('hall')">Hội trường</button>
+<button class="category-chip px-space-sm py-1 rounded-md font-label-sm text-label-sm whitespace-nowrap bg-surface-container text-on-surface-variant hover:bg-surface-container-high" onclick="filterCategory('admin')">Hành chính</button>
+<button class="category-chip px-space-sm py-1 rounded-md font-label-sm text-label-sm whitespace-nowrap bg-surface-container text-on-surface-variant hover:bg-surface-container-high" onclick="filterCategory('facility')">Tiện ích</button>
+</div>
+</div>
+<!-- Filter Selectors: Buildings & Floors -->
+<div class="px-space-md py-space-sm bg-surface-container-lowest flex items-center justify-between gap-space-sm">
+<!-- Building Picker -->
+<div class="flex items-center gap-1.5 flex-1 min-w-0">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider shrink-0">Tòa:</span>
+<div class="flex items-center gap-1">
+<button class="px-2.5 py-1 rounded font-label-md text-label-md font-bold bg-primary-container text-on-primary" id="btnBldgT" onclick="filterBuilding('T')">T</button>
+<button class="px-2.5 py-1 rounded font-label-md text-label-md bg-surface-container text-on-surface hover:bg-surface-container-high" id="btnBldgA" onclick="filterBuilding('A')">A</button>
+<button class="px-2.5 py-1 rounded font-label-md text-label-md bg-surface-container text-on-surface hover:bg-surface-container-high" id="btnBldgP" onclick="filterBuilding('P')">P</button>
+</div>
+</div>
+<!-- Floor Range Selector -->
+<div class="flex items-center gap-1.5 shrink-0">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Tầng:</span>
+<select class="bg-surface-container text-on-surface font-label-md text-label-md py-1 px-2 rounded-md focus:outline-none focus:ring-1 focus:ring-primary-container" id="floorSelect" onchange="changeFloor(this.value)">
+<option value="all">Toàn bộ</option>
+<option value="1">Tầng 1 (Trệt)</option>
+<option value="2">Tầng 2</option>
+<option selected="" value="3">Tầng 3 (Innovation)</option>
+<option value="4">Tầng 4</option>
+<option value="5">Tầng 5</option>
+<option value="6">Tầng 6</option>
+<option value="7">Tầng 7 (Rooftop)</option>
+</select>
+</div>
+</div>
+<!-- Dynamic Selected POI Information Panel -->
+<div class="flex-1 overflow-y-auto p-space-md space-y-space-md">
+<!-- Building Header Hero Card with Image Placeholder -->
+<div class="relative rounded-xl overflow-hidden shadow-sm bg-surface-container-low group">
+<div class="w-full h-40 bg-cover bg-center transition-transform duration-500 group-hover:scale-105" data-alt="Modern high-tech university building exterior with glass facade, vibrant orange FPT corporate accents, students walking along landscaped outdoor plaza in sunny daylight, architectural photography, hyper-detailed rendering." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCzUqaP7u8cVKswn-WyK8hG8zne88_7CimNm0s7-707yq3U-ZgV6n1RKUroRG2vs6CKie4HBYItNaHivmYiq5QCDVc_Ru5GsK41DUsB562sncjSI07KM_wtp3-aXTBE3YhzrshpP8lxmdWAZpnlekraHaaSASZo4YH7lnbX6I3Q8I-VibuXk_ANzFUn_eqHiMSLbhheNvdIuusslPbJbfqO1aFl0BfKQjk0oqxRHew')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-on-surface/90 via-on-surface/30 to-transparent"></div>
+<div class="absolute bottom-space-md left-space-md right-space-md text-on-primary">
+<div class="flex items-center gap-space-xs mb-1">
+<span class="px-2 py-0.5 rounded bg-primary-container font-spatial-hud text-[11px] text-on-primary font-bold">KHU VỰC TRỌNG ĐIỂM</span>
+<span class="px-2 py-0.5 rounded bg-surface-container-lowest/30 backdrop-blur-md font-label-sm text-[11px] text-on-primary">Mã: FPT-T-QTSC</span>
+</div>
+<h2 class="font-headline-sm text-headline-sm font-bold text-on-primary leading-tight" id="poiTitle">Tòa nhà Công nghệ T (Innovation Hall)</h2>
+</div>
+</div>
+<!-- Key Metrics Grid -->
+<div class="grid grid-cols-3 gap-space-xs">
+<div class="p-space-sm rounded-lg bg-surface-container text-center">
+<span class="block font-label-sm text-label-sm text-on-surface-variant">Diện tích sàn</span>
+<span class="font-headline-sm text-headline-sm text-primary font-extrabold" id="poiArea">14.200</span>
+<span class="text-[10px] text-on-surface-variant font-medium">m² tổng thể</span>
+</div>
+<div class="p-space-sm rounded-lg bg-surface-container text-center">
+<span class="block font-label-sm text-label-sm text-on-surface-variant">Quy mô</span>
+<span class="font-headline-sm text-headline-sm text-secondary font-extrabold" id="poiFloors">07</span>
+<span class="text-[10px] text-on-surface-variant font-medium">Tầng đào tạo</span>
+</div>
+<div class="p-space-sm rounded-lg bg-surface-container text-center">
+<span class="block font-label-sm text-label-sm text-on-surface-variant">Điểm 360°</span>
+<span class="font-headline-sm text-headline-sm text-primary-container font-extrabold" id="poiNodes">14</span>
+<span class="text-[10px] text-on-surface-variant font-medium">Hotspots khả dụng</span>
+</div>
+</div>
+<!-- Description and Active Labs -->
+<div class="space-y-space-xs">
+<div class="flex items-center justify-between">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold">Phân khu &amp; Tiện ích nổi bật</span>
+<span class="font-label-sm text-label-sm text-primary cursor-pointer hover:underline">Chi tiết sơ đồ</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed" id="poiDesc">
+              Tâm điểm công nghệ cao của cơ sở Hồ Chí Minh, tích hợp phòng thí nghiệm Trí tuệ nhân tạo (AI), Trung tâm vi mạch bán dẫn, Smart Studio và không gian sáng tạo dành riêng cho sinh viên ngành CNTT.
+            </p>
+</div>
+<!-- Highlights List in Selected Node -->
+<div class="space-y-space-xs">
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+<span class="material-symbols-outlined text-[18px]">memory</span>
+</div>
+<div class="min-w-0">
+<h4 class="font-label-md text-label-md font-semibold text-on-surface truncate">Lab AI &amp; Robotics FPT Jetking</h4>
+<p class="font-body-sm text-[11px] text-on-surface-variant truncate">Tầng 3 - Phòng T301 (Sức chứa 45 máy tính AI)</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-primary text-[18px] shrink-0">view_in_ar</span>
+</div>
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary shrink-0">
+<span class="material-symbols-outlined text-[18px]">local_library</span>
+</div>
+<div class="min-w-0">
+<h4 class="font-label-md text-label-md font-semibold text-on-surface truncate">Thư viện số &amp; Co-working Hub</h4>
+<p class="font-body-sm text-[11px] text-on-surface-variant truncate">Tầng 2 - Phòng T205 (Mở cửa 24/7 mùa thi)</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-secondary text-[18px] shrink-0">view_in_ar</span>
+</div>
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="w-8 h-8 rounded-lg bg-surface-tint/10 flex items-center justify-center text-surface-tint shrink-0">
+<span class="material-symbols-outlined text-[18px]">sports_esports</span>
+</div>
+<div class="min-w-0">
+<h4 class="font-label-md text-label-md font-semibold text-on-surface truncate">Phòng Đấu trường Esports Poly</h4>
+<p class="font-body-sm text-[11px] text-on-surface-variant truncate">Tầng 4 - Phòng T408 (Chuẩn thi đấu quốc gia)</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-surface-tint text-[18px] shrink-0">view_in_ar</span>
+</div>
+</div>
+<!-- Facility Occupancy Indicator -->
+<div class="p-space-sm rounded-lg bg-surface-container">
+<div class="flex items-center justify-between text-body-sm mb-1.5">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Mật độ sử dụng phòng học thời điểm thực:</span>
+<span class="font-spatial-hud text-spatial-hud text-primary font-bold">78% ĐANG SỬ DỤNG</span>
+</div>
+<div class="w-full h-2 rounded-full bg-surface-container-high overflow-hidden">
+<div class="h-full bg-gradient-to-r from-secondary to-primary-container rounded-full" style="width: 78%"></div>
+</div>
+</div>
+</div>
+<!-- Sticky Action CTAs -->
+<div class="p-space-md bg-surface-container-lowest space-y-space-xs shadow-[0_-4px_16px_rgba(0,0,0,0.03)]">
+<button class="w-full flex items-center justify-center gap-space-xs py-2.5 px-space-md rounded-lg bg-primary-container text-on-primary font-label-md text-label-md font-bold shadow-md hover:bg-primary transition-all active:scale-[0.98]" onclick="launch360Tour('toaT')">
+<span class="material-symbols-outlined text-[20px]">360</span>
+<span>Trải nghiệm 360° tại điểm này</span>
+</button>
+<div class="grid grid-cols-2 gap-space-xs">
+<button class="flex items-center justify-center gap-1.5 py-2 px-space-sm rounded-lg bg-secondary text-on-secondary font-label-sm text-label-sm hover:bg-on-secondary-container transition-all" onclick="startNavigation()">
+<span class="material-symbols-outlined text-[16px]">directions</span>
+<span>Chỉ đường 3D từ cổng</span>
+</button>
+<button class="flex items-center justify-center gap-1.5 py-2 px-space-sm rounded-lg bg-surface-container text-on-surface font-label-sm text-label-sm hover:bg-surface-container-high transition-all" onclick="shareCoordinates()">
+<span class="material-symbols-outlined text-[16px]">share_location</span>
+<span>Chia sẻ tọa độ GIS</span>
+</button>
+</div>
+</div>
+</div>
+</aside>
+<!-- RIGHT SPATIAL MAP CONTROLS DOCK -->
+<div class="absolute right-space-md top-1/2 -translate-y-1/2 z-20 flex flex-col gap-space-xs pointer-events-none">
+<div class="pointer-events-auto flex flex-col p-1.5 rounded-xl bg-surface-container-lowest/90 backdrop-blur-md shadow-lg space-y-1">
+<!-- Zoom In -->
+<button class="w-10 h-10 rounded-lg flex items-center justify-center text-on-surface hover:bg-surface-container transition-colors" onclick="zoomMap(1.2)" title="Phóng to">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+<!-- Zoom Out -->
+<button class="w-10 h-10 rounded-lg flex items-center justify-center text-on-surface hover:bg-surface-container transition-colors" onclick="zoomMap(0.8)" title="Thu nhỏ">
+<span class="material-symbols-outlined text-[20px]">remove</span>
+</button>
+<div class="w-full h-px bg-outline-variant/30 my-0.5"></div>
+<!-- Compass North Reset -->
+<button class="w-10 h-10 rounded-lg flex items-center justify-center text-primary hover:bg-surface-container transition-transform" id="compassBtn" onclick="resetOrientation()" title="Đặt lại hướng Bắc">
+<span class="material-symbols-outlined text-[22px]">explore</span>
+</button>
+<!-- GPS Current Location -->
+<button class="w-10 h-10 rounded-lg flex items-center justify-center text-secondary hover:bg-surface-container transition-colors" onclick="locateUser()" title="Vị trí của bạn">
+<span class="material-symbols-outlined text-[20px]">my_location</span>
+</button>
+<!-- Satellite / Vector Layer Toggle -->
+<button class="w-10 h-10 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" id="layerToggleBtn" onclick="toggleMapLayer()" title="Chuyển chế độ Vệ tinh / Vector">
+<span class="material-symbols-outlined text-[20px]">layers</span>
+</button>
+</div>
+<!-- Quick 360 Fullscreen Node Picker -->
+<button class="pointer-events-auto w-10 h-10 rounded-xl bg-primary-container text-on-primary shadow-lg flex items-center justify-center hover:bg-primary transition-all active:scale-95" onclick="enterFullSpatial()" title="Mở rộng toàn màn hình không gian 3D">
+<span class="material-symbols-outlined text-[20px]">fullscreen</span>
+</button>
+</div>
+<!-- BOTTOM FLOATING HUD: Campus Quick Stats & Tour Breadcrumbs -->
+<div class="absolute bottom-space-md left-space-md right-space-md z-20 flex flex-wrap items-center justify-end md:justify-between gap-space-md pointer-events-none pl-0 sm:pl-[470px]">
+<!-- Facility Legend Overlay (Desktop) -->
+<div class="pointer-events-auto hidden xl:flex items-center gap-space-md px-space-md py-2 rounded-xl bg-surface-container-lowest/90 backdrop-blur-md shadow-md font-label-sm text-label-sm">
+<span class="font-spatial-hud text-on-surface-variant uppercase tracking-wider">Ký hiệu bản đồ:</span>
+<div class="flex items-center gap-1.5 text-on-surface">
+<span class="w-3 h-3 rounded-full bg-primary-container"></span>
+<span>Khối Công nghệ (T)</span>
+</div>
+<div class="flex items-center gap-1.5 text-on-surface">
+<span class="w-3 h-3 rounded-full bg-secondary"></span>
+<span>Khối Hành chính (A)</span>
+</div>
+<div class="flex items-center gap-1.5 text-on-surface">
+<span class="w-3 h-3 rounded-full bg-secondary-container"></span>
+<span>Khối Đồ họa &amp; Studio (P)</span>
+</div>
+<div class="flex items-center gap-1.5 text-on-surface">
+<span class="w-3 h-3 rounded-full bg-tertiary-container"></span>
+<span>Sân thể thao &amp; Dịch vụ</span>
+</div>
+</div>
+<!-- Quick Jump Floor Dock -->
+<div class="pointer-events-auto flex items-center gap-1 p-1 rounded-xl bg-inverse-surface/90 backdrop-blur-md shadow-lg text-inverse-on-surface">
+<span class="px-space-sm font-spatial-hud text-[11px] text-surface-dim uppercase">TẦNG:</span>
+<button class="w-7 h-7 rounded-lg text-xs font-bold hover:bg-white/20 transition-colors" onclick="changeFloor('1')">G</button>
+<button class="w-7 h-7 rounded-lg text-xs font-bold hover:bg-white/20 transition-colors" onclick="changeFloor('2')">2</button>
+<button class="w-7 h-7 rounded-lg text-xs font-bold bg-primary-container text-on-primary" onclick="changeFloor('3')">3</button>
+<button class="w-7 h-7 rounded-lg text-xs font-bold hover:bg-white/20 transition-colors" onclick="changeFloor('4')">4</button>
+<button class="w-7 h-7 rounded-lg text-xs font-bold hover:bg-white/20 transition-colors" onclick="changeFloor('5')">5</button>
+<button class="w-7 h-7 rounded-lg text-xs font-bold hover:bg-white/20 transition-colors" onclick="changeFloor('6')">6</button>
+<button class="w-7 h-7 rounded-lg text-xs font-bold hover:bg-white/20 transition-colors" onclick="changeFloor('7')">7</button>
+</div>
+</div>
+<!-- Active Toast Notification for GIS Actions -->
+<div class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none flex items-center gap-space-sm px-space-md py- space-sm py-3 rounded-xl bg-inverse-surface text-inverse-on-surface shadow-2xl font-label-md text-label-md" id="gisToast">
+<span class="material-symbols-outlined text-primary-container text-[20px]" id="toastIcon">check_circle</span>
+<span id="toastMsg">Đã sao chép liên kết tọa độ GIS vào bộ nhớ tạm!</span>
+</div>
+</section>
+<!-- SECONDARY SECTION: Key GIS Campus Facilities Directory Grid -->
+<section class="w-full px-margin-lg py-margin bg-surface-bright">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-space-md mb-gutter">
+<div>
+<div class="flex items-center gap-space-xs font-spatial-hud text-spatial-hud text-primary mb-1 uppercase tracking-wider">
+<span class="material-symbols-outlined text-[16px]">apartment</span>
+<span>DANH MỤC KHÔNG GIAN SỐ HÓA</span>
+</div>
+<h3 class="font-headline-lg text-headline-lg font-bold text-on-surface">Khám phá các phân khu cốt lõi</h3>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-xl">
+        Hệ thống dữ liệu GIS hỗ trợ định vị chuẩn xác từng phòng học thực hành, xưởng chế tác bán dẫn và studio thiết kế tại cơ sở Công viên phần mềm Quang Trung.
+      </p>
+</div>
+<!-- 3-Column Card Mosaic of Key Campus Locations -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter">
+<!-- Facility 1: Tòa Innovation -->
+<div class="p-space-lg rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-shadow group flex flex-col justify-between">
+<div>
+<div class="relative w-full h-44 rounded-lg overflow-hidden mb-space-md">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105" data-alt="Interior of a cutting-edge college robotics and IoT laboratory at FPT Polytechnic, students collaborating on robotic arms with code on monitors, vibrant ambient LED lighting, high contrast, clean architecture." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBGvfPoUlSNFqvGk8bTO6PU5PUA3RMHoAToHf-rLY1ShEIYEpmLCOwXZJCvpGKqyWALTM0xoEhlYD8sI0nU2tlv9CkcCWEPCdRvNwvjb4ubGkqj4DUFdEddK5SxP3QGVVBWmxxQAksSgwVL6lHZ6ZYmDLfZpKnAfByawFXUEBR3uWcgrECxz6zIFDCANa4Brpm8pwUL8HENj_b6M1RrgQx8fXNl6u1r9P9cZvC26GE')"></div>
+<span class="absolute top-2 left-2 px-2 py-1 rounded bg-inverse-surface/80 backdrop-blur-sm text-inverse-on-surface font-spatial-hud text-[11px] font-bold">TÒA NHÀ T</span>
+<span class="absolute top-2 right-2 px-2 py-1 rounded bg-primary-container text-on-primary font-label-sm text-[11px] font-bold">14 VR Nodes</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm font-bold text-on-surface mb-1">Khu phức hợp Innovation &amp; Labs</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-space-md">
+            Bao gồm trung tâm phần mềm, phòng thực hành vi mạch bán dẫn và hội trường trình diễn công nghệ cao.
+          </p>
+</div>
+<button class="w-full py-2 px-space-md rounded-lg bg-surface-container text-primary hover:bg-primary hover:text-on-primary font-label-md text-label-md font-semibold transition-colors flex items-center justify-center gap-1.5" onclick="selectPOI('toaT')">
+<span>Xem định vị trên bản đồ</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+<!-- Facility 2: Tòa Hành chính A & Trống Đồng Hall -->
+<div class="p-space-lg rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-shadow group flex flex-col justify-between">
+<div>
+<div class="relative w-full h-44 rounded-lg overflow-hidden mb-space-md">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105" data-alt="Modern university auditorium hall with tiered seating, large digital presentation screens, traditional Vietnamese Bronze Drum stylized ceiling relief, warm lighting, cinematic wide shot." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAhqV6oZsvRBKz4J7ZEqSSgpyHFMQb_CAs6cBqvi7s_6RYLQ8nvaGUg-rjCeVZtV327Q-MPPxF-wRUO8WRYkwNZ7L10Y6vA_cGYErwPXzILdp2iOpMdX2bka_IUyJOtLv-PIA-7Za9qlWtvxZDoolJ9p4gnXACvxgzbjPX50sDtTNm0kj8L6pcaYk9V2RUs6pU3bohaFT2cRQE9S7f3z_dOtAPtzkoRVme3ZqbSbJM')"></div>
+<span class="absolute top-2 left-2 px-2 py-1 rounded bg-inverse-surface/80 backdrop-blur-sm text-inverse-on-surface font-spatial-hud text-[11px] font-bold">TÒA NHÀ A</span>
+<span class="absolute top-2 right-2 px-2 py-1 rounded bg-secondary text-on-secondary font-label-sm text-[11px] font-bold">9 VR Nodes</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm font-bold text-on-surface mb-1">Hội trường Trống Đồng &amp; Tuyển sinh</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-space-md">
+            Không gian tổ chức sự kiện quy mô 1.200 chỗ ngồi, văn phòng tư vấn hướng nghiệp và khu vực hành chính một cửa.
+          </p>
+</div>
+<button class="w-full py-2 px-space-md rounded-lg bg-surface-container text-secondary hover:bg-secondary hover:text-on-secondary font-label-md text-label-md font-semibold transition-colors flex items-center justify-center gap-1.5" onclick="selectPOI('toaA')">
+<span>Xem định vị trên bản đồ</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+<!-- Facility 3: Tòa P & Trung tâm Thiết kế mỹ thuật số -->
+<div class="p-space-lg rounded-xl bg-surface-container-lowest shadow-sm hover:shadow-md transition-shadow group flex flex-col justify-between">
+<div>
+<div class="relative w-full h-44 rounded-lg overflow-hidden mb-space-md">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105" data-alt="Creative multimedia design studio with Mac workstations, drawing tablets, student art exhibits on glass walls, modern industrial ceiling, lively educational environment." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBZ33MIUp9YAUrsAvLCiyKuNWj_76_dsqxDcTf_f9opjzNGWyKJGMlhabNKHvArY_qIqdAx5B0gddDEt2A1ROHFvgk6y2cqO0yq43uyC3EVWcqM5AnGUy2bmz2y5DozHrre0AZmCigUHfYpwPuKtrpGZmvCE_lW3WSVeACA9FIv-vc-Em34oRfvLZ3-0NVyDTlpLmgTGYQTnfraW7JvZem4dKK-TEhUiPI69uCJEO8')"></div>
+<span class="absolute top-2 left-2 px-2 py-1 rounded bg-inverse-surface/80 backdrop-blur-sm text-inverse-on-surface font-spatial-hud text-[11px] font-bold">TÒA NHÀ P</span>
+<span class="absolute top-2 right-2 px-2 py-1 rounded bg-secondary-container text-on-secondary-container font-label-sm text-[11px] font-bold">11 VR Nodes</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm font-bold text-on-surface mb-1">Xưởng Thiết kế Đồ họa &amp; Digital</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-space-md">
+            Hệ thống Studio nhiếp ảnh, trường quay ảo Virtual Production và phòng render đồ họa 3D chuyển động.
+          </p>
+</div>
+<button class="w-full py-2 px-space-md rounded-lg bg-surface-container text-secondary hover:bg-secondary hover:text-on-secondary font-label-md text-label-md font-semibold transition-colors flex items-center justify-center gap-1.5" onclick="selectPOI('toaP')">
+<span>Xem định vị trên bản đồ</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Interactive JavaScript Controller for Map State & Interactivity -->
+<script>
+    // State storage
+    const campusData = {
+      toaT: {
+        title: "Tòa nhà Công nghệ T (Innovation Hall)",
+        area: "14.200",
+        floors: "07",
+        nodes: "14",
+        desc: "Tâm điểm công nghệ cao của cơ sở Hồ Chí Minh, tích hợp phòng thí nghiệm Trí tuệ nhân tạo (AI), Trung tâm vi mạch bán dẫn, Smart Studio và không gian sáng tạo dành riêng cho sinh viên ngành CNTT.",
+        coords: "10.8538, 106.6281",
+        zoom: 1.25,
+        panX: -60,
+        panY: -50
+      },
+      toaA: {
+        title: "Tòa nhà Hành chính A & Hội trường",
+        area: "9.800",
+        floors: "05",
+        nodes: "09",
+        desc: "Trung tâm quản trị đại học, Trung tâm Chăm sóc Người học, Phòng Tuyển sinh tư vấn và Hội trường Trống Đồng với sức chứa 1.200 đại biểu.",
+        coords: "10.8541, 106.6276",
+        zoom: 1.35,
+        panX: 120,
+        panY: 80
+      },
+      toaP: {
+        title: "Tòa nhà Đào tạo P (Design & Studio)",
+        area: "11.600",
+        floors: "06",
+        nodes: "11",
+        desc: "Khu vực chuyên biệt của ngành Thiết kế Mỹ thuật Số, Truyền thông đa phương tiện, Thương mại điện tử và chuỗi Studio thực hành quay dựng chuyên nghiệp.",
+        coords: "10.8535, 106.6289",
+        zoom: 1.3,
+        panX: -160,
+        panY: 100
+      },
+      sports: {
+        title: "Khu Thể thao Phức hợp & Sân Mini",
+        area: "4.500",
+        floors: "01",
+        nodes: "04",
+        desc: "Sân bóng đá cỏ nhân tạo đạt chuẩn, cụm sân Pickleball, bóng rổ hiện đại và khu vực rèn luyện thể chất sinh viên ngoài trời.",
+        coords: "10.8530, 106.6272",
+        zoom: 1.4,
+        panX: 280,
+        panY: -80
+      },
+      canteen: {
+        title: "Căng Tin Poly Food Central",
+        area: "2.100",
+        floors: "02",
+        nodes: "03",
+        desc: "Khu dịch vụ ẩm thực khang trang, phục vụ hơn 20 gian hàng đồ ăn thức uống bảo đảm vệ sinh an toàn thực phẩm, thanh toán không tiền mặt PolyPay.",
+        coords: "10.8533, 106.6294",
+        zoom: 1.4,
+        panX: -260,
+        panY: -100
+      }
+    };
+
+    let currentScale = 1;
+    let currentMode = '2D';
+    let currentBuilding = 'T';
+    let isSatellite = false;
+
+    function selectPOI(poiId) {
+      const data = campusData[poiId];
+      if (!data) return;
+
+      document.getElementById('poiTitle').textContent = data.title;
+      document.getElementById('poiArea').textContent = data.area;
+      document.getElementById('poiFloors').textContent = data.floors;
+      document.getElementById('poiNodes').textContent = data.nodes;
+      document.getElementById('poiDesc').textContent = data.desc;
+      document.getElementById('campusSearchInput').value = data.title;
+
+      // Animate SVG Map to Center this Building
+      const svg = document.getElementById('gisSvgMap');
+      currentScale = data.zoom;
+      svg.style.transform = `scale(${currentScale}) translate(${data.panX}px, ${data.panY}px)`;
+
+      showToast(`Đã chuyển tiêu điểm: ${data.title}`);
+    }
+
+    function setMode(mode) {
+      currentMode = mode;
+      const btn2D = document.getElementById('btnMode2D');
+      const btn3D = document.getElementById('btnMode3D');
+      const spatialLayer = document.getElementById('spatialLayerEffect');
+      const svg = document.getElementById('gisSvgMap');
+
+      if (mode === '3D') {
+        btn3D.className = "flex items-center gap-space-xs px-space-md py-space-xs rounded-full font-label-md text-label-md transition-all duration-200 bg-secondary text-on-secondary shadow-sm";
+        btn2D.className = "flex items-center gap-space-xs px-space-md py-space-xs rounded-full font-label-md text-label-md transition-all duration-200 text-on-surface-variant hover:text-on-surface hover:bg-surface-container";
+        spatialLayer.classList.remove('opacity-0');
+        spatialLayer.classList.add('opacity-100');
+        svg.style.filter = "contrast(1.1) brightness(0.98)";
+        showToast("Đã kích hoạt chế độ 3D Spatial Explorer (Độ cao & Khối không gian)");
+      } else {
+        btn2D.className = "flex items-center gap-space-xs px-space-md py-space-xs rounded-full font-label-md text-label-md transition-all duration-200 bg-primary-container text-on-primary shadow-sm";
+        btn3D.className = "flex items-center gap-space-xs px-space-md py-space-xs rounded-full font-label-md text-label-md transition-all duration-200 text-on-surface-variant hover:text-on-surface hover:bg-surface-container";
+        spatialLayer.classList.remove('opacity-100');
+        spatialLayer.classList.add('opacity-0');
+        svg.style.filter = "none";
+        showToast("Đã quay lại Bản đồ số quy hoạch phẳng GIS 2D");
+      }
+    }
+
+    function filterBuilding(bldg) {
+      currentBuilding = bldg;
+      ['T', 'A', 'P'].forEach(item => {
+        const btn = document.getElementById(`btnBldg${item}`);
+        if (item === bldg) {
+          btn.className = "px-2.5 py-1 rounded font-label-md text-label-md font-bold bg-primary-container text-on-primary";
+        } else {
+          btn.className = "px-2.5 py-1 rounded font-label-md text-label-md bg-surface-container text-on-surface hover:bg-surface-container-high";
+        }
+      });
+      selectPOI(bldg === 'T' ? 'toaT' : bldg === 'A' ? 'toaA' : 'toaP');
+    }
+
+    function changeFloor(floor) {
+      showToast(`Đang tải dữ liệu sơ đồ nội thất Tầng ${floor}`);
+    }
+
+    function zoomMap(factor) {
+      currentScale = Math.min(Math.max(currentScale * factor, 0.7), 2.2);
+      document.getElementById('gisSvgMap').style.transform = `scale(${currentScale})`;
+    }
+
+    function resetOrientation() {
+      currentScale = 1;
+      const svg = document.getElementById('gisSvgMap');
+      svg.style.transform = `scale(1) translate(0px, 0px)`;
+      const compass = document.getElementById('compassBtn');
+      compass.style.transform = "rotate(360deg)";
+      setTimeout(() => compass.style.transform = "rotate(0deg)", 400);
+      showToast("Đã cân chỉnh bản đồ về hướng chính Bắc");
+    }
+
+    function locateUser() {
+      showToast("Đang kết nối GPS thiết bị... Bạn đang ở gần Cổng Tô Ký");
+    }
+
+    function toggleMapLayer() {
+      isSatellite = !isSatellite;
+      const svg = document.getElementById('gisSvgMap');
+      const btn = document.getElementById('layerToggleBtn');
+      if (isSatellite) {
+        btn.classList.add('text-primary');
+        svg.style.filter = "saturate(1.4) hue-rotate(10deg)";
+        showToast("Hiển thị lớp dữ liệu ảnh vệ tinh độ phân giải cao");
+      } else {
+        btn.classList.remove('text-primary');
+        svg.style.filter = "none";
+        showToast("Đã chuyển về bản đồ vector chuyên dụng");
+      }
+    }
+
+    function enterFullSpatial() {
+      showToast("Chuyển sang chế độ toàn màn hình 360 Spatial Tour");
+      setTimeout(() => {
+        window.location.hash = "#kham-pha-360";
+      }, 700);
+    }
+
+    function launch360Tour(bldgId) {
+      showToast(`Đang khởi tạo trình phát 360° VR Tour cho ${bldgId.toUpperCase()}...`);
+    }
+
+    function startNavigation() {
+      showToast("Đã khởi tạo lộ trình 3D: Cổng chính Tô Ký ➔ Sảnh Tòa T (Khoảng cách: 120m - 2 phút đi bộ)");
+    }
+
+    function shareCoordinates() {
+      navigator.clipboard?.writeText("https://poly360.fpt.edu.vn/map?lat=10.8538&lng=106.6281");
+      showToast("Đã sao chép liên kết tọa độ GIS vào clipboard!");
+    }
+
+    function handleSearch(query) {
+      const q = query.toLowerCase().trim();
+      if (q.includes("a") || q.includes("trống đồng") || q.includes("tuyển sinh")) {
+        selectPOI("toaA");
+      } else if (q.includes("p") || q.includes("đồ họa") || q.includes("studio")) {
+        selectPOI("toaP");
+      } else if (q.includes("bóng") || q.includes("thể thao")) {
+        selectPOI("sports");
+      } else if (q.includes("ăn") || q.includes("căng tin") || q.includes("food")) {
+        selectPOI("canteen");
+      } else {
+        selectPOI("toaT");
+      }
+    }
+
+    function clearSearch() {
+      const input = document.getElementById('campusSearchInput');
+      input.value = '';
+      input.focus();
+    }
+
+    function filterCategory(cat) {
+      const chips = document.querySelectorAll('.category-chip');
+      chips.forEach(c => {
+        c.className = "category-chip px-space-sm py-1 rounded-md font-label-sm text-label-sm whitespace-nowrap bg-surface-container text-on-surface-variant hover:bg-surface-container-high";
+      });
+      event.target.className = "category-chip px-space-sm py-1 rounded-md font-label-sm text-label-sm whitespace-nowrap bg-primary-container text-on-primary";
+      showToast(`Lọc cơ sở theo nhóm: ${event.target.textContent}`);
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('gisToast');
+      const msgElem = document.getElementById('toastMsg');
+      if (!toast || !msgElem) return;
+      msgElem.textContent = msg;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+      clearTimeout(window.toastTimer);
+      window.toastTimer = setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 3200);
+    }
+
+    // Mark 'Bản đồ GIS' active in Header
+    document.addEventListener("DOMContentLoaded", () => {
+      const links = document.querySelectorAll('header nav a');
+      links.forEach(link => {
+        link.classList.add('whitespace-nowrap');
+        if (link.getAttribute('data-path') === 'ban-do-gis') {
+          link.className = "whitespace-nowrap bg-primary-container text-on-primary font-semibold rounded-lg px-space-md py-space-xs shadow-sm transition-all";
+        }
+      });
+    });
+  </script>
+</div></main><footer class="w-full bg-surface-container-low mt-margin-lg"><div class="w-full px-margin-lg py-margin-lg"><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter-lg pb-margin-lg border-b border-outline-variant/30"><div class="space-y-space-md"><div class="flex items-center gap-space-sm"><span class="font-headline-md text-headline-md text-primary font-bold tracking-tight">FPT Polytechnic</span></div><p class="font-body-md text-body-md text-on-surface-variant leading-relaxed">Hệ sinh thái trải nghiệm số 360° tương tác thực tế ảo, dẫn đầu ứng dụng công nghệ không gian trong đào tạo thực hành chất lượng cao.</p><div class="flex items-center gap-space-sm pt-space-xs"><a class="w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined text-[18px]">language</span></a><a class="w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined text-[18px]">smart_display</span></a><a class="w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined text-[18px]">share</span></a></div></div><div class="space-y-space-md"><h4 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Địa chỉ &amp; Cơ sở</h4><ul class="space-y-space-sm font-body-md text-body-md text-on-surface-variant"><li class="flex items-start gap-space-xs"><span class="material-symbols-outlined text-[20px] text-primary shrink-0">location_on</span><span>Công viên phần mềm Quang Trung, Phường Tân Chánh Hiệp, Quận 12, TP. Hồ Chí Minh</span></li><li class="flex items-center gap-space-xs"><span class="material-symbols-outlined text-[20px] text-primary shrink-0">call</span><span>Hotline Tuyển sinh: 0981 725 836</span></li><li class="flex items-center gap-space-xs"><span class="material-symbols-outlined text-[20px] text-primary shrink-0">mail</span><span>caodangfpt.hcm@fpt.edu.vn</span></li></ul></div><div class="space-y-space-md"><h4 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Liên kết nhanh</h4><ul class="space-y-space-sm font-body-md text-body-md text-on-surface-variant"><li><a class="hover:text-primary transition-colors" href="#">Hệ thống bản đồ 3D Spatial</a></li><li><a class="hover:text-primary transition-colors" href="#">Lịch trình hội thảo Open Day</a></li><li><a class="hover:text-primary transition-colors" href="#">Tra cứu văn bằng &amp; Điểm thi</a></li><li><a class="hover:text-primary transition-colors" href="#">Sổ tay sinh viên số hóa</a></li><li><a class="hover:text-primary transition-colors" href="#">Chính sách học phí &amp; Học bổng</a></li></ul></div><div class="space-y-space-md"><h4 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Giờ tiếp đón &amp; Tham quan</h4><p class="font-body-md text-body-md text-on-surface-variant">Thứ 2 - Thứ 7: 07:30 - 18:00<br/>Chủ nhật: Mở cửa đón đoàn đăng ký trước qua hệ thống 360 VR.</p><div class="pt-space-sm"><span class="inline-flex items-center gap-space-xs px-space-md py-space-xs rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-md text-label-md"><span class="w-2 h-2 rounded-full bg-secondary"></span>Sẵn sàng đón tiếp tham quan</span></div></div></div><div class="pt-margin flex flex-col md:flex-row items-center justify-between gap-space-md font-body-sm text-body-sm text-on-surface-variant"><div>© 2025 Trường Cao đẳng FPT Polytechnic. Bản quyền thuộc về FPT Education.</div><div class="flex items-center gap-space-lg"><a class="hover:text-on-surface transition-colors" href="#">Quy chế đào tạo</a><a class="hover:text-on-surface transition-colors" href="#">Bảo mật thông tin</a><a class="hover:text-on-surface transition-colors" href="#">Điều khoản sử dụng</a></div></div></div></footer></body></html>

@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_standard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      "colors": {
+        "on-secondary-fixed-variant": "#314863",
+        "on-tertiary-fixed-variant": "#00468c",
+        "inverse-surface": "#1d3052",
+        "on-surface": "#041b3c",
+        "on-surface-variant": "#584238",
+        "on-error-container": "#93000a",
+        "on-tertiary-fixed": "#001b3d",
+        "surface-container": "#e8edff",
+        "surface-container-highest": "#d7e2ff",
+        "surface": "#f9f9ff",
+        "surface-container-lowest": "#ffffff",
+        "outline-variant": "#e0c0b2",
+        "inverse-primary": "#ffb693",
+        "secondary-container": "#c7dfff",
+        "outline": "#8c7166",
+        "tertiary-container": "#4c96ff",
+        "on-secondary-fixed": "#011d35",
+        "surface-variant": "#d7e2ff",
+        "secondary-fixed-dim": "#b0c9e8",
+        "error-container": "#ffdad6",
+        "primary-fixed-dim": "#ffb693",
+        "surface-dim": "#cadaff",
+        "surface-bright": "#f9f9ff",
+        "on-error": "#ffffff",
+        "surface-tint": "#a04100",
+        "secondary-fixed": "#d1e4ff",
+        "on-tertiary": "#ffffff",
+        "error": "#ba1a1a",
+        "on-primary-container": "#531e00",
+        "background": "#f9f9ff",
+        "surface-container-low": "#f1f3ff",
+        "inverse-on-surface": "#edf0ff",
+        "on-background": "#041b3c",
+        "on-primary": "#ffffff",
+        "surface-container-high": "#e0e8ff",
+        "on-secondary-container": "#4b637e",
+        "on-secondary": "#ffffff",
+        "tertiary-fixed-dim": "#a9c7ff",
+        "secondary": "#49607c",
+        "on-primary-fixed": "#351000",
+        "on-tertiary-container": "#002e60",
+        "tertiary": "#005db7",
+        "tertiary-fixed": "#d6e3ff",
+        "primary": "#a04100",
+        "on-primary-fixed-variant": "#7a3000",
+        "primary-fixed": "#ffdbcc",
+        "primary-container": "#f36f21"
+      },
+      "borderRadius": {
+        "DEFAULT": "0.25rem",
+        "lg": "0.5rem",
+        "xl": "0.75rem",
+        "full": "9999px"
+      },
+      "spacing": {
+        "space-lg": "1.5rem",
+        "space-xs": "0.25rem",
+        "space-xl": "2.5rem",
+        "space-md": "1rem",
+        "space-sm": "0.5rem",
+        "gutter-mobile": "1rem",
+        "margin-mobile": "1rem",
+        "margin": "2.5rem",
+        "gutter": "1.5rem"
+      },
+      "fontFamily": {
+        "label-lg": ["Plus Jakarta Sans"],
+        "headline-xl-mobile": ["Plus Jakarta Sans"],
+        "body-md": ["Inter"],
+        "headline-lg": ["Plus Jakarta Sans"],
+        "body-lg": ["Inter"],
+        "label-md": ["Plus Jakarta Sans"],
+        "headline-lg-mobile": ["Plus Jakarta Sans"],
+        "label-sm": ["Plus Jakarta Sans"],
+        "headline-sm": ["Plus Jakarta Sans"],
+        "headline-md": ["Plus Jakarta Sans"],
+        "headline-xl": ["Plus Jakarta Sans"],
+        "body-sm": ["Inter"]
+      },
+      "fontSize": {
+        "label-lg": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+        "headline-xl-mobile": ["32px", {"lineHeight": "40px", "fontWeight": "800"}],
+        "body-md": ["15px", {"lineHeight": "24px", "fontWeight": "400"}],
+        "headline-lg": ["36px", {"lineHeight": "44px", "fontWeight": "700"}],
+        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+        "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+        "headline-lg-mobile": ["26px", {"lineHeight": "34px", "fontWeight": "700"}],
+        "label-sm": ["11px", {"lineHeight": "14px", "fontWeight": "700"}],
+        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+        "headline-xl": ["48px", {"lineHeight": "56px", "fontWeight": "800"}],
+        "body-sm": ["13px", {"lineHeight": "20px", "fontWeight": "400"}]
+      }
+    }
+  }
+}</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><header class="fixed top-0 left-0 w-full z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-20 w-full px-margin flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-lg"><a class="flex items-center gap-space-sm" data-path="home" href="#"><div class="w-10 h-10 rounded-xl bg-primary-container flex items-center justify-center shadow-[0_4px_14px_rgba(243,111,33,0.35)]"><span class="material-symbols-outlined text-on-primary text-[24px]">school</span></div><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-on-surface tracking-tight uppercase leading-none">FPT Polytechnic</span><span class="font-label-sm text-label-sm text-primary tracking-widest uppercase mt-1">Virtual Campus 360</span></div></a><div class="hidden xl:flex items-center gap-space-xs bg-surface-container-low px-space-sm py-1.5 rounded-full"><span class="material-symbols-outlined text-[18px] text-tertiary">location_on</span><span class="font-label-sm text-label-sm text-on-surface">Hanoi Main Campus</span><span class="material-symbols-outlined text-[16px] text-on-surface-variant">expand_more</span></div></div><nav class="hidden lg:flex items-center gap-1 bg-surface-container-lowest/80 p-1.5 rounded-full shadow-[0_1px_8px_rgba(0,0,0,0.04)]" data-active-classes="bg-primary-container text-on-primary font-bold shadow-[0_4px_14px_rgba(243,111,33,0.35)] rounded-full"><a class="px-4 py-2 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all" data-path="home" href="#">Home</a><a class="px-4 py-2 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all" data-path="about" href="#">About</a><a class="px-4 py-2 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all" data-path="virtual-campus" href="#">Virtual Campus</a><a class="px-4 py-2 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all" data-path="facilities-rooms" href="#">Facilities &amp; Rooms</a><a class="px-4 py-2 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all" data-path="open-day" href="#">Open Day</a><a class="px-4 py-2 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all" data-path="student-games" href="#">Student Games</a><a aria-current="page" class="px-4 py-2 transition-all bg-primary-container text-on-primary font-bold shadow-[0_4px_14px_rgba(243,111,33,0.35)] rounded-full" data-path="news" href="#">News</a><a class="px-4 py-2 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all" data-path="explore" href="#">Explore</a></nav><div class="flex items-center gap-space-md"><div class="hidden md:flex items-center relative"><div class="flex items-center bg-surface-container-lowest rounded-full pl-space-md pr-space-sm py-1.5 shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><span class="material-symbols-outlined text-[20px] text-on-surface-variant mr-2">search</span><input class="bg-transparent font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none w-44" placeholder="Tìm kiếm tin tức, sự kiện..." type="text"/><a class="w-7 h-7 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-colors" data-path="search" href="#"><span class="material-symbols-outlined text-[16px]">arrow_forward</span></a></div></div><a class="hidden sm:inline-flex items-center gap-space-xs bg-primary-container hover:bg-primary text-on-primary font-label-md text-label-md px-space-lg py-2.5 rounded-full transition-all shadow-[0_4px_14px_rgba(243,111,33,0.35)] active:scale-95" data-path="open-day-2025" href="#"><span class="material-symbols-outlined text-[18px]">event_upcoming</span><span>Open Day 2025</span></a><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-20 bg-surface min-h-[calc(100vh-80px)]"><div class="flex flex-col w-full">
+<!-- Top Editorial Header Strip -->
+<section class="w-full px-margin pt-space-md pb-space-xs">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-space-md border-b-0 pb-space-sm">
+<div>
+<div class="flex items-center gap-space-xs mb-space-xs">
+<span class="inline-flex items-center justify-center w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+<span class="font-label-sm text-label-sm uppercase tracking-widest text-primary">Cổng Thông Tin Truyền Thông</span>
+<span class="text-outline-variant font-body-sm">•</span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-secondary">Cập nhật 24/7</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Tin Tức &amp; Sự Kiện Học Đường</h1>
+</div>
+<div class="flex items-center gap-space-sm self-start md:self-auto">
+<span class="font-body-sm text-body-sm text-on-secondary-container">Năm học 2024 - 2025</span>
+<div class="h-4 w-px bg-surface-container-highest"></div>
+<div class="flex items-center gap-1.5 text-primary font-label-md text-label-md bg-surface-container-low px-3 py-1 rounded-full">
+<span class="material-symbols-outlined text-[16px]">campaign</span>
+<span>1.000+ Suất Học Bổng Sẵn Sàng</span>
+</div>
+</div>
+</div>
+</section>
+<!-- HERO SECTION: Spotlight Article (Bento Editorial Style) -->
+<section class="w-full px-margin py-space-md">
+<div class="relative bg-surface-container-lowest rounded-2xl shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[500px]">
+<!-- Left Visual (7 Cols) with Rich Media Scrim -->
+<div class="lg:col-span-7 relative min-h-[360px] lg:min-h-full overflow-hidden group">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-700 ease-out group-hover:scale-105" data-alt="Futuristic FPT Polytechnic campus hall packed with enthusiastic young Vietnamese tech students showcasing AI robotics, modern neon orange ambient LED light ribbons, high-tech holographic interactive projection displays, cinematic depth of field, award gala atmosphere with high architectural glass facade" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAi-icGn8yuRxq1Fn90fDXJeNyebc4WpKE-RNiHcY_Ta7CUoKpA8y2GmlW9Fyv_NDEK75fUfOm_UyrrPxJwFBH-Xd1k913ubij7I8Enc2A3Bn17i5dINdpv-kyInLKemjfVRkM5mguIuKO-sk5d_Niq82fIr5SRzU-EJ1uOpp2I0jiWxdvK0vlxuPuaGdkWFTwDTgP8C0dvkg4Irwaz3oWkBrfs80uE45UNtYcT75Y')"></div>
+<div class="absolute inset-0 bg-gradient-to-t from-on-surface/90 via-on-surface/30 to-transparent lg:bg-gradient-to-r lg:from-transparent lg:via-on-surface/20 lg:to-on-surface/80"></div>
+<!-- Live Tag overlay top-left -->
+<div class="absolute top-space-md left-space-md flex flex-wrap items-center gap-space-xs z-10">
+<span class="bg-primary-container text-on-primary font-label-sm text-label-sm uppercase px-3 py-1.5 rounded-full shadow-[0_4px_14px_rgba(243,111,33,0.4)] flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">local_fire_department</span>
+            Sự Kiện Nổi Bật
+          </span>
+<span class="bg-inverse-surface/80 backdrop-blur-md text-inverse-on-surface font-label-sm text-label-sm uppercase px-3 py-1.5 rounded-full">
+            Innovation &amp; AI
+          </span>
+</div>
+<!-- 360 Badge Floating Tag bottom-left -->
+<div class="absolute bottom-space-md left-space-md z-10 flex items-center gap-space-xs bg-surface-container-lowest/90 backdrop-blur-md px-3.5 py-1.5 rounded-full shadow-md">
+<span class="material-symbols-outlined text-primary text-[18px]">view_in_ar</span>
+<span class="font-label-sm text-label-sm text-on-surface font-semibold">Tích hợp mô hình VR 360°</span>
+</div>
+</div>
+<!-- Right Editorial Content Panel (5 Cols) -->
+<div class="lg:col-span-5 p-space-lg lg:p-space-xl flex flex-col justify-between bg-surface-container-lowest">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-center gap-space-xs text-secondary font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px] text-primary">calendar_month</span>
+<span>15 Tháng 05, 2025</span>
+<span class="text-outline-variant">•</span>
+<span class="material-symbols-outlined text-[16px] text-secondary">timer</span>
+<span>5 phút đọc</span>
+<span class="text-outline-variant">•</span>
+<span class="material-symbols-outlined text-[16px] text-tertiary">visibility</span>
+<span>1.420 lượt xem</span>
+</div>
+<a class="group" href="#">
+<h2 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary transition-colors leading-snug tracking-tight">
+              FPT Polytechnic Khởi Động Chuỗi Sự Kiện TechFest 2025 &amp; Ra Mắt Không Gian Trải Nghiệm Thực Tế Ảo 360° Mới
+            </h2>
+</a>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-3">
+            Cùng khám phá những đột phá công nghệ mới nhất tại cơ sở Trịnh Văn Bô, đón đầu xu hướng đào tạo Thực học - Thực nghiệp kết hợp mô hình số hóa trường học 3D, phòng thực nghiệm vi mạch bán dẫn và trung tâm sáng tạo AI thế hệ mới.
+          </p>
+<div class="flex items-center gap-space-sm pt-space-xs">
+<div class="w-9 h-9 rounded-full bg-surface-container-high flex items-center justify-center font-label-md text-label-md text-primary font-bold">
+              PT
+            </div>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface leading-tight">Ban Truyền Thông &amp; Hợp Tác Doanh Nghiệp</span>
+<span class="font-body-sm text-body-sm text-secondary">FPT Education Official</span>
+</div>
+</div>
+</div>
+<!-- Call to Actions -->
+<div class="pt-space-md flex flex-wrap items-center gap-space-sm">
+<a class="inline-flex items-center gap-space-xs bg-primary-container hover:bg-primary text-on-primary font-label-md text-label-md px-space-lg py-3 rounded-full transition-all shadow-[0_4px_14px_rgba(243,111,33,0.35)] active:scale-95" href="#">
+<span>Đọc Toàn Bộ Bài Viết</span>
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</a>
+<button class="inline-flex items-center gap-space-xs bg-surface-container-low hover:bg-surface-container text-on-surface font-label-md text-label-md px-space-md py-3 rounded-full transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px] text-secondary">bookmark_border</span>
+<span>Lưu Bản Tin</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 1: Category Filter Bar & Search Utility -->
+<section class="w-full px-margin pt-space-lg pb-space-sm">
+<div class="bg-surface-container-lowest p-space-sm rounded-2xl shadow-sm flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-space-md">
+<!-- Tabs Nav -->
+<div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1" id="news-tab-container">
+<button class="px-4 py-2 rounded-full font-label-md text-label-md bg-on-surface text-surface whitespace-nowrap shadow-sm transition-all" data-filter="all">
+          Tất Cả
+        </button>
+<button class="px-4 py-2 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-all whitespace-nowrap" data-filter="school">
+          Tin Nhà Trường
+        </button>
+<button class="px-4 py-2 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-all whitespace-nowrap" data-filter="students">
+          Hoạt Động Sinh Viên
+        </button>
+<button class="px-4 py-2 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-all whitespace-nowrap" data-filter="admissions">
+          Tuyển Sinh 2025
+        </button>
+<button class="px-4 py-2 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-all whitespace-nowrap" data-filter="tech">
+          Công Nghệ &amp; Khởi Nghiệp
+        </button>
+<button class="px-4 py-2 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-all whitespace-nowrap" data-filter="events">
+          Sự Kiện &amp; Hội Thảo
+        </button>
+</div>
+<!-- Controls: Keyword Search + Sort -->
+<div class="flex flex-wrap sm:flex-nowrap items-center gap-space-xs">
+<div class="flex items-center bg-surface-container-low px-space-sm py-2 rounded-full flex-grow sm:w-64">
+<span class="material-symbols-outlined text-[18px] text-secondary mr-2">search</span>
+<input class="bg-transparent font-body-sm text-body-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none w-full" placeholder="Tìm kiếm bài viết..." type="text"/>
+</div>
+<div class="flex items-center bg-surface-container-low px-space-sm py-2 rounded-full gap-1">
+<span class="material-symbols-outlined text-[18px] text-secondary">sort</span>
+<select class="bg-transparent font-label-md text-label-md text-on-surface focus:outline-none cursor-pointer pr-2">
+<option value="newest">Mới nhất</option>
+<option value="popular">Phổ biến nhất</option>
+<option value="views">Nhiều lượt đọc</option>
+</select>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 2: Latest News Grid -->
+<section class="w-full px-margin py-space-md">
+<div class="flex items-center justify-between mb-space-md">
+<div class="flex items-center gap-space-xs">
+<div class="w-1.5 h-6 bg-primary-container rounded-full"></div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Tin Tức Mới Nhất</h3>
+</div>
+<span class="font-body-sm text-body-sm text-secondary">Hiển thị 6 / 72 bài viết</span>
+</div>
+<!-- 3-Column Editorial Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-space-lg">
+<!-- Card 1 -->
+<article class="bg-surface-container-lowest rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden group">
+<div class="relative w-full aspect-[16/10] overflow-hidden bg-surface-container">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105" data-alt="Group of four excited Vietnamese university students holding an AI hackathon champion trophy on a brightly lit tech stage, cheering joyfully, orange banners in background, high-definition photography" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuABWvEpGb5H3PSpn4Yb9H1UNXLk1SJIdqxZrICJMg8XFEsqynIiz0q3uydM2gwibxfdAJpXs5snrBZhJFF1J-PFxK049M2J4_pr44XbTk5mc7LYcCWjVJcPRjPMzjZ94u2mCDtiLb2FjgynhiYbPkcd0O_dKWyBLnqGr4InbMuBuJWM3ofKuAGTuHaFEqrXsXY7nKK1rIU99gSMCTNjEQNTqAT9UrTijFINP8EDdXE')"></div>
+<span class="absolute top-3 left-3 bg-surface-container-lowest/90 backdrop-blur-md text-primary font-label-sm text-label-sm px-3 py-1 rounded-full font-bold shadow-sm">
+            Hoạt Động Sinh Viên
+          </span>
+<span class="absolute bottom-3 right-3 bg-on-surface/80 text-surface font-label-sm text-label-sm px-2.5 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">visibility</span>
+            890
+          </span>
+</div>
+<div class="p-space-md flex flex-col flex-grow justify-between gap-space-sm">
+<div>
+<div class="flex items-center gap-space-xs text-secondary font-label-sm text-label-sm mb-1.5">
+<span>12 Tháng 05, 2025</span>
+<span>•</span>
+<span>CLB Lập Trình Poly</span>
+</div>
+<a class="group/title" href="#">
+<h4 class="font-headline-sm text-headline-sm text-on-surface group-hover/title:text-primary transition-colors line-clamp-2 leading-snug">
+                Sinh viên FPT Polytechnic xuất sắc giành Quán quân Hackathon AI Toàn quốc 2025
+              </h4>
+</a>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-2">
+              Dự án 'PolyBot AI' ứng dụng thị giác máy tính hỗ trợ kiểm tra linh kiện bán dẫn của nhóm BeeTech vượt qua hơn 120 đội thi cả nước.
+            </p>
+</div>
+<div class="pt-space-xs flex items-center justify-between border-t border-surface-container-low">
+<span class="font-label-md text-label-md text-primary flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+              Xem chi tiết <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</span>
+<button class="w-8 h-8 rounded-full hover:bg-surface-container-high flex items-center justify-center text-secondary transition-colors" title="Lưu bài viết">
+<span class="material-symbols-outlined text-[18px]">bookmark_border</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Card 2 -->
+<article class="bg-surface-container-lowest rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden group">
+<div class="relative w-full aspect-[16/10] overflow-hidden bg-surface-container">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105" data-alt="Modern educational scholarship announcement banner featuring smiling young university applicants in Vietnam holding admission letters with orange graphics, bright minimalist studio lighting" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCi7MN7Bn9rCm0v7J25vvEQS07jRhUMi4llIVgO4f_JtALjYSj2lGE63M4RHiVpkxnVWNGrshPw3eHAMukKsKcmpiYfPy8-_lEQe_WT6QbCwujYZuyyAirnkQAXPqQSjcEN1ft6PRIsrnzcVNB91Joc1gzeapZ5oBJi4hrgzm-ZAJxPbV2htVYTjR-4FmgN52FyC8i_vs_PcQEa3Yt7CAvmBGorVueQB51_NAYTejw')"></div>
+<span class="absolute top-3 left-3 bg-primary-container text-on-primary font-label-sm text-label-sm px-3 py-1 rounded-full font-bold shadow-sm">
+            Tuyển Sinh 2025
+          </span>
+<span class="absolute bottom-3 right-3 bg-on-surface/80 text-surface font-label-sm text-label-sm px-2.5 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">visibility</span>
+            3.210
+          </span>
+</div>
+<div class="p-space-md flex flex-col flex-grow justify-between gap-space-sm">
+<div>
+<div class="flex items-center gap-space-xs text-secondary font-label-sm text-label-sm mb-1.5">
+<span>10 Tháng 05, 2025</span>
+<span>•</span>
+<span>Hội Đồng Tuyển Sinh</span>
+</div>
+<a class="group/title" href="#">
+<h4 class="font-headline-sm text-headline-sm text-on-surface group-hover/title:text-primary transition-colors line-clamp-2 leading-snug">
+                Hội đồng Tuyển sinh công bố 1.000 suất Học bổng "Thắp Sáng Tương Lai" Mùa Tuyển Sinh Mới
+              </h4>
+</a>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-2">
+              Chính sách học bổng giá trị lên đến 70% học phí toàn khóa dành riêng cho tân sinh viên có thành tích xuất sắc và đam mê đổi mới sáng tạo.
+            </p>
+</div>
+<div class="pt-space-xs flex items-center justify-between border-t border-surface-container-low">
+<span class="font-label-md text-label-md text-primary flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+              Xem chi tiết <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</span>
+<button class="w-8 h-8 rounded-full hover:bg-surface-container-high flex items-center justify-center text-secondary transition-colors" title="Lưu bài viết">
+<span class="material-symbols-outlined text-[18px]">bookmark_border</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Card 3 -->
+<article class="bg-surface-container-lowest rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden group">
+<div class="relative w-full aspect-[16/10] overflow-hidden bg-surface-container">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105" data-alt="Formal corporate partnership memorandum signing ceremony between high-ranking university executives in modern suits and tech industry leaders, digital background with FPT branding, professional journalism photography" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBxztHYawVR5913Pxg4WaznV4j6Yehh9uQteRavz_htOn9NzFbNwAEwKGBdSPlIUwBFz4IH8eRB9cZTKWMoGytptOw3tPLlVPr09nMavP9-eVZkB9befkbIOWEa3akCjhhlVYOLkFU9KuujBNATIorzXQ_KIy7wSBBN_W0neLJh6CTTOStMajdKx2Go6fGZiKUfaZR_oBGBFjpYWb2x4z5aVaB14ZuCACg17Qjpo6A')"></div>
+<span class="absolute top-3 left-3 bg-surface-container-lowest/90 backdrop-blur-md text-tertiary font-label-sm text-label-sm px-3 py-1 rounded-full font-bold shadow-sm">
+            Tin Nhà Trường
+          </span>
+<span class="absolute bottom-3 right-3 bg-on-surface/80 text-surface font-label-sm text-label-sm px-2.5 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">visibility</span>
+            1.150
+          </span>
+</div>
+<div class="p-space-md flex flex-col flex-grow justify-between gap-space-sm">
+<div>
+<div class="flex items-center gap-space-xs text-secondary font-label-sm text-label-sm mb-1.5">
+<span>08 Tháng 05, 2025</span>
+<span>•</span>
+<span>Quan Hệ Doanh Nghiệp</span>
+</div>
+<a class="group/title" href="#">
+<h4 class="font-headline-sm text-headline-sm text-on-surface group-hover/title:text-primary transition-colors line-clamp-2 leading-snug">
+                Lễ ký kết hợp tác chiến lược giữa FPT Polytechnic và 20 doanh nghiệp công nghệ hàng đầu
+              </h4>
+</a>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-2">
+              Cam kết 100% sinh viên đạt chuẩn có cơ hội thực tập hưởng lương và tuyển dụng trực tiếp ngay tại ngày hội hướng nghiệp.
+            </p>
+</div>
+<div class="pt-space-xs flex items-center justify-between border-t border-surface-container-low">
+<span class="font-label-md text-label-md text-primary flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+              Xem chi tiết <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</span>
+<button class="w-8 h-8 rounded-full hover:bg-surface-container-high flex items-center justify-center text-secondary transition-colors" title="Lưu bài viết">
+<span class="material-symbols-outlined text-[18px]">bookmark_border</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Card 4 -->
+<article class="bg-surface-container-lowest rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden group">
+<div class="relative w-full aspect-[16/10] overflow-hidden bg-surface-container">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105" data-alt="Interior of a cutting-edge computer design laboratory at a university, rows of sleek iMac computers, students working on 3D graphics and digital animation, natural light streaming through expansive architectural windows" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDHlt_Q7TrZexsywssIXW103i5HW1aVQpJ18U0UCOdmFVvcmaMmqFtAS0AZCTmVmvxXhIuml9Y9RwuXsy-nrygYz3VR57rfDcn1nFkChD19R7fWXDD75JWkObPkTUEa_qsKmQgpc8ZCXDGqUL64_Qc1T1pylhzVrQkh60obMbS-ZJjRP2NETrhJBUyQ6q1oqPOBHodVSvCVZ-2yAhWaC1ARIYgf9cSQGLyyRFHfGdc')"></div>
+<span class="absolute top-3 left-3 bg-surface-container-lowest/90 backdrop-blur-md text-on-surface font-label-sm text-label-sm px-3 py-1 rounded-full font-bold shadow-sm">
+            Công Nghệ &amp; Thiết Bị
+          </span>
+<span class="absolute bottom-3 right-3 bg-on-surface/80 text-surface font-label-sm text-label-sm px-2.5 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">visibility</span>
+            945
+          </span>
+</div>
+<div class="p-space-md flex flex-col flex-grow justify-between gap-space-sm">
+<div>
+<div class="flex items-center gap-space-xs text-secondary font-label-sm text-label-sm mb-1.5">
+<span>05 Tháng 05, 2025</span>
+<span>•</span>
+<span>Viện Công Nghệ Poly</span>
+</div>
+<a class="group/title" href="#">
+<h4 class="font-headline-sm text-headline-sm text-on-surface group-hover/title:text-primary transition-colors line-clamp-2 leading-snug">
+                Trải nghiệm không gian Studio iMac M3 và Xưởng vi mạch tự động hóa tại Tòa Nhà T
+              </h4>
+</a>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-2">
+              Khu phức hợp công nghệ đa chức năng mới giúp sinh viên ngành Thiết kế đồ họa và Tự động hóa tiếp cận trang thiết bị tiêu chuẩn công nghiệp.
+            </p>
+</div>
+<div class="pt-space-xs flex items-center justify-between border-t border-surface-container-low">
+<span class="font-label-md text-label-md text-primary flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+              Xem chi tiết <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</span>
+<button class="w-8 h-8 rounded-full hover:bg-surface-container-high flex items-center justify-center text-secondary transition-colors" title="Lưu bài viết">
+<span class="material-symbols-outlined text-[18px]">bookmark_border</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Card 5 -->
+<article class="bg-surface-container-lowest rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden group">
+<div class="relative w-full aspect-[16/10] overflow-hidden bg-surface-container">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105" data-alt="Vibrant campus sports festival opening ceremony on an artificial turf soccer pitch, university athletes in colorful orange and navy jerseys saluting under sunny blue sky, energetic crowd of students cheering from stands" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDkeVuyosjSF4wZRxfOFCj78707i2jppgWF2x8HNSk3uARY64FVgOLCRIQ9ayz0D6izbN9GLK0OAmA1dninqtqk2kAhnAj7PkjRGyw-5uiybJX3FalQX8M8AfHayMPeVobl0H3F9BDFEU67YKwuNr2uHpkqL1ZmhnuDr89nK0hO-sRdOEn-dn6cfMCcYtRdwnTwapuCI9g5fQYPkFUhMbmX4gD21ysqsP5-Kj63_2I')"></div>
+<span class="absolute top-3 left-3 bg-surface-container-lowest/90 backdrop-blur-md text-primary font-label-sm text-label-sm px-3 py-1 rounded-full font-bold shadow-sm">
+            Hoạt Động Sinh Viên
+          </span>
+<span class="absolute bottom-3 right-3 bg-on-surface/80 text-surface font-label-sm text-label-sm px-2.5 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">visibility</span>
+            2.480
+          </span>
+</div>
+<div class="p-space-md flex flex-col flex-grow justify-between gap-space-sm">
+<div>
+<div class="flex items-center gap-space-xs text-secondary font-label-sm text-label-sm mb-1.5">
+<span>03 Tháng 05, 2025</span>
+<span>•</span>
+<span>Đoàn Thanh Niên FPT Poly</span>
+</div>
+<a class="group/title" href="#">
+<h4 class="font-headline-sm text-headline-sm text-on-surface group-hover/title:text-primary transition-colors line-clamp-2 leading-snug">
+                Giải bóng đá Poly Cup 2025 chính thức khai mạc với 32 đội bóng tranh tài
+              </h4>
+</a>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-2">
+              Sân chơi rèn luyện thể chất quy mô thường niên thu hút hơn 600 vận động viên đến từ các khoa chuyên ngành toàn quốc.
+            </p>
+</div>
+<div class="pt-space-xs flex items-center justify-between border-t border-surface-container-low">
+<span class="font-label-md text-label-md text-primary flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+              Xem chi tiết <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</span>
+<button class="w-8 h-8 rounded-full hover:bg-surface-container-high flex items-center justify-center text-secondary transition-colors" title="Lưu bài viết">
+<span class="material-symbols-outlined text-[18px]">bookmark_border</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Card 6 -->
+<article class="bg-surface-container-lowest rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden group">
+<div class="relative w-full aspect-[16/10] overflow-hidden bg-surface-container">
+<div class="w-full h-full bg-cover bg-center transition-transform duration-500 group-hover:scale-105" data-alt="Keynote technology speaker addressing university audience in amphitheater auditorium, large LED screen displaying artificial intelligence neural network graphics, engaged university audience listening attentively" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDzvy1gkTQB0dZPOGXuG_JM9W2jPlCGSm51LG1pyqDqjJmlqe3f4xT47OcHyjd2QQmjZUpWWRJZ8Vs71EAlXry9_SMcLgeTqca4NaDJNt_W7CXHGNUKqp_t15FvlEG3bos1rhxGz_O1QETrHuG-kv72WCbYvmC_o9vP4YyYeAE4DvvgMzFjy0tPfUX4v2cZuNE9gNXRPE6R1ja2IwBosZAvrcEpSoK4IdJ3LQwW95o')"></div>
+<span class="absolute top-3 left-3 bg-surface-container-lowest/90 backdrop-blur-md text-secondary font-label-sm text-label-sm px-3 py-1 rounded-full font-bold shadow-sm">
+            Sự Kiện &amp; Tọa Đàm
+          </span>
+<span class="absolute bottom-3 right-3 bg-on-surface/80 text-surface font-label-sm text-label-sm px-2.5 py-0.5 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">visibility</span>
+            1.870
+          </span>
+</div>
+<div class="p-space-md flex flex-col flex-grow justify-between gap-space-sm">
+<div>
+<div class="flex items-center gap-space-xs text-secondary font-label-sm text-label-sm mb-1.5">
+<span>01 Tháng 05, 2025</span>
+<span>•</span>
+<span>Chuyên Gia FPT Software</span>
+</div>
+<a class="group/title" href="#">
+<h4 class="font-headline-sm text-headline-sm text-on-surface group-hover/title:text-primary transition-colors line-clamp-2 leading-snug">
+                Tọa đàm chuyên đề "Gen Z &amp; Kỷ Nguyên Trí Tuệ Nhân Tạo" cùng chuyên gia FPT Software
+              </h4>
+</a>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-2">
+              Chia sẻ định hướng nghề nghiệp, cách làm chủ công cụ AI tạo sinh và cơ hội vươn ra thị trường phần mềm toàn cầu cho tân kỹ sư.
+            </p>
+</div>
+<div class="pt-space-xs flex items-center justify-between border-t border-surface-container-low">
+<span class="font-label-md text-label-md text-primary flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+              Xem chi tiết <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</span>
+<button class="w-8 h-8 rounded-full hover:bg-surface-container-high flex items-center justify-center text-secondary transition-colors" title="Lưu bài viết">
+<span class="material-symbols-outlined text-[18px]">bookmark_border</span>
+</button>
+</div>
+</div>
+</article>
+</div>
+<!-- Pagination & Load More Controls -->
+<div class="mt-space-xl flex flex-col sm:flex-row items-center justify-between gap-space-md bg-surface-container-lowest px-space-lg py-space-md rounded-2xl shadow-sm">
+<div class="flex items-center gap-space-xs text-secondary font-body-sm text-body-sm">
+<span>Hiển thị trang</span>
+<span class="font-label-md text-label-md text-on-surface bg-surface-container-high px-2.5 py-1 rounded-md">1</span>
+<span>trên tổng số 12 trang</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="w-10 h-10 rounded-full bg-surface-container-low text-secondary flex items-center justify-center hover:bg-surface-container-high disabled:opacity-40 transition-colors" disabled="">
+<span class="material-symbols-outlined text-[20px]">chevron_left</span>
+</button>
+<button class="w-10 h-10 rounded-full bg-primary-container text-on-primary font-label-md text-label-md flex items-center justify-center shadow-sm">1</button>
+<button class="w-10 h-10 rounded-full bg-surface-container-low hover:bg-surface-container-high text-on-surface font-label-md text-label-md flex items-center justify-center transition-colors">2</button>
+<button class="w-10 h-10 rounded-full bg-surface-container-low hover:bg-surface-container-high text-on-surface font-label-md text-label-md flex items-center justify-center transition-colors">3</button>
+<span class="text-secondary px-1">...</span>
+<button class="w-10 h-10 rounded-full bg-surface-container-low hover:bg-surface-container-high text-on-surface font-label-md text-label-md flex items-center justify-center transition-colors">12</button>
+<button class="w-10 h-10 rounded-full bg-surface-container-low text-on-surface flex items-center justify-center hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</button>
+</div>
+<button class="inline-flex items-center gap-space-xs bg-surface-container-high hover:bg-surface-container text-on-surface font-label-md text-label-md px-space-lg py-2.5 rounded-full transition-colors">
+<span class="material-symbols-outlined text-[18px]">cached</span>
+<span>Xem Thêm Tin Tức</span>
+</button>
+</div>
+</section>
+<!-- SECTION 3: UPCOMING EVENTS (Structured Calendar List) -->
+<section class="w-full px-margin py-space-xl">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-space-xs mb-space-lg">
+<div>
+<div class="flex items-center gap-space-xs mb-1">
+<span class="material-symbols-outlined text-primary text-[20px]">event_upcoming</span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-primary">Lịch Hoạt Động &amp; Hội Thảo</span>
+</div>
+<h3 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Sự Kiện Sắp Diễn Ra</h3>
+</div>
+<a class="font-label-md text-label-md text-primary hover:underline flex items-center gap-1" href="#">
+<span>Xem toàn bộ lịch sự kiện</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</a>
+</div>
+<!-- Event Cards Stack -->
+<div class="space-y-space-md">
+<!-- Event 1: Open Day High Priority -->
+<div class="bg-surface-container-lowest rounded-2xl p-space-md lg:p-space-lg shadow-sm hover:shadow-xl transition-all flex flex-col lg:flex-row items-start lg:items-center justify-between gap-space-md group">
+<div class="flex items-start gap-space-md">
+<!-- Calendar Date Pill -->
+<div class="flex-shrink-0 w-20 h-20 rounded-2xl bg-primary-fixed flex flex-col items-center justify-center text-center shadow-sm">
+<span class="font-label-sm text-label-sm uppercase font-bold text-on-primary-fixed-variant tracking-wider">Tháng 6</span>
+<span class="font-headline-lg text-headline-lg text-primary font-black leading-none">15</span>
+<span class="font-label-sm text-label-sm text-on-primary-fixed">2025</span>
+</div>
+<!-- Info Details -->
+<div class="flex flex-col gap-1">
+<div class="flex flex-wrap items-center gap-space-xs mb-1">
+<span class="bg-primary-container text-on-primary font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-bold">
+                Sắp Diễn Ra
+              </span>
+<span class="bg-surface-container-high text-on-secondary-container font-label-sm text-label-sm px-2.5 py-0.5 rounded-full">
+                Sự Kiện Toàn Trường
+              </span>
+</div>
+<a class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary transition-colors leading-tight" href="#">
+              FPT Polytechnic Open Day 2025 — Trải Nghiệm Một Ngày Làm Sinh Viên
+            </a>
+<div class="flex flex-wrap items-center gap-y-1 gap-x-space-md text-secondary font-body-sm text-body-sm mt-1">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-primary">schedule</span>
+                07:30 - 17:00
+              </span>
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-tertiary">location_on</span>
+                Lotus Grand Hall &amp; Sảnh Tòa T, Cơ sở Trịnh Văn Bô, Hà Nội
+              </span>
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">group</span>
+                Dự kiến 2.500+ Học sinh &amp; Phụ huynh
+              </span>
+</div>
+</div>
+</div>
+<!-- Action CTA -->
+<div class="flex items-center gap-space-sm w-full lg:w-auto justify-end pt-space-xs lg:pt-0 border-t lg:border-t-0 border-surface-container-low">
+<a class="inline-flex items-center justify-center gap-space-xs bg-primary-container hover:bg-primary text-on-primary font-label-md text-label-md px-space-lg py-2.5 rounded-full transition-all shadow-[0_4px_14px_rgba(243,111,33,0.35)] w-full sm:w-auto" href="#">
+<span class="material-symbols-outlined text-[18px]">how_to_reg</span>
+<span>Đăng Ký Tham Gia</span>
+</a>
+</div>
+</div>
+<!-- Event 2: Poly Hackathon -->
+<div class="bg-surface-container-lowest rounded-2xl p-space-md lg:p-space-lg shadow-sm hover:shadow-xl transition-all flex flex-col lg:flex-row items-start lg:items-center justify-between gap-space-md group">
+<div class="flex items-start gap-space-md">
+<!-- Calendar Date Pill -->
+<div class="flex-shrink-0 w-20 h-20 rounded-2xl bg-surface-container-high flex flex-col items-center justify-center text-center shadow-sm">
+<span class="font-label-sm text-label-sm uppercase font-bold text-secondary tracking-wider">Tháng 6</span>
+<span class="font-headline-lg text-headline-lg text-on-surface font-black leading-none">22</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">2025</span>
+</div>
+<!-- Info Details -->
+<div class="flex flex-col gap-1">
+<div class="flex flex-wrap items-center gap-space-xs mb-1">
+<span class="bg-secondary-container text-on-secondary-fixed font-label-sm text-label-sm px-2.5 py-0.5 rounded-full">
+                Cuộc Thi Công Nghệ
+              </span>
+<span class="text-primary font-label-sm text-label-sm flex items-center gap-0.5">
+<span class="material-symbols-outlined text-[14px]">military_tech</span>
+                Giải thưởng 150 Triệu VNĐ
+              </span>
+</div>
+<a class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary transition-colors leading-tight" href="#">
+              Chung Kết Poly Hackathon 2025: Sáng Tạo Ứng Dụng AI
+            </a>
+<div class="flex flex-wrap items-center gap-y-1 gap-x-space-md text-secondary font-body-sm text-body-sm mt-1">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-primary">schedule</span>
+                08:30 - 16:00
+              </span>
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-tertiary">location_on</span>
+                Hội trường Tầng 7, Tòa Nhà Tri Thức
+              </span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-space-sm w-full lg:w-auto justify-end pt-space-xs lg:pt-0 border-t lg:border-t-0 border-surface-container-low">
+<a class="inline-flex items-center justify-center gap-space-xs bg-surface-container-low hover:bg-surface-container text-on-surface font-label-md text-label-md px-space-lg py-2.5 rounded-full transition-colors w-full sm:w-auto" href="#">
+<span>Xem Lịch Trình</span>
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</a>
+</div>
+</div>
+<!-- Event 3: VFX Workshop -->
+<div class="bg-surface-container-lowest rounded-2xl p-space-md lg:p-space-lg shadow-sm hover:shadow-xl transition-all flex flex-col lg:flex-row items-start lg:items-center justify-between gap-space-md group">
+<div class="flex items-start gap-space-md">
+<!-- Calendar Date Pill -->
+<div class="flex-shrink-0 w-20 h-20 rounded-2xl bg-surface-container-high flex flex-col items-center justify-center text-center shadow-sm">
+<span class="font-label-sm text-label-sm uppercase font-bold text-secondary tracking-wider">Tháng 6</span>
+<span class="font-headline-lg text-headline-lg text-on-surface font-black leading-none">28</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">2025</span>
+</div>
+<!-- Info Details -->
+<div class="flex flex-col gap-1">
+<div class="flex flex-wrap items-center gap-space-xs mb-1">
+<span class="bg-surface-container text-on-surface font-label-sm text-label-sm px-2.5 py-0.5 rounded-full">
+                Workshop Kỹ Năng
+              </span>
+<span class="text-tertiary font-label-sm text-label-sm font-semibold">Giới hạn 80 chỗ</span>
+</div>
+<a class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary transition-colors leading-tight" href="#">
+              Workshop Thiết Kế Đồ Họa 3D &amp; Kỹ Xảo Điện Ảnh Cùng Chuyên Gia VFX Quốc Tế
+            </a>
+<div class="flex flex-wrap items-center gap-y-1 gap-x-space-md text-secondary font-body-sm text-body-sm mt-1">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-primary">schedule</span>
+                13:30 - 16:30
+              </span>
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-tertiary">location_on</span>
+                iMac Studio P.402, Tòa Nhà T
+              </span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-space-sm w-full lg:w-auto justify-end pt-space-xs lg:pt-0 border-t lg:border-t-0 border-surface-container-low">
+<a class="inline-flex items-center justify-center gap-space-xs bg-surface-container-low hover:bg-surface-container text-on-surface font-label-md text-label-md px-space-lg py-2.5 rounded-full transition-colors w-full sm:w-auto" href="#">
+<span class="material-symbols-outlined text-[18px]">edit_calendar</span>
+<span>Đăng Ký Tham Gia</span>
+</a>
+</div>
+</div>
+<!-- Event 4: Job Fair 2025 -->
+<div class="bg-surface-container-lowest rounded-2xl p-space-md lg:p-space-lg shadow-sm hover:shadow-xl transition-all flex flex-col lg:flex-row items-start lg:items-center justify-between gap-space-md group">
+<div class="flex items-start gap-space-md">
+<!-- Calendar Date Pill -->
+<div class="flex-shrink-0 w-20 h-20 rounded-2xl bg-surface-container-high flex flex-col items-center justify-center text-center shadow-sm">
+<span class="font-label-sm text-label-sm uppercase font-bold text-secondary tracking-wider">Tháng 7</span>
+<span class="font-headline-lg text-headline-lg text-on-surface font-black leading-none">05</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">2025</span>
+</div>
+<!-- Info Details -->
+<div class="flex flex-col gap-1">
+<div class="flex flex-wrap items-center gap-space-xs mb-1">
+<span class="bg-surface-container text-on-surface font-label-sm text-label-sm px-2.5 py-0.5 rounded-full">
+                Ngày Hội Việc Làm
+              </span>
+<span class="text-on-surface-variant font-label-sm text-label-sm">50+ Doanh nghiệp tham gia</span>
+</div>
+<a class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary transition-colors leading-tight" href="#">
+              Lễ Tốt Nghiệp &amp; Ngày Hội Việc Làm Job Fair Poly 2025
+            </a>
+<div class="flex flex-wrap items-center gap-y-1 gap-x-space-md text-secondary font-body-sm text-body-sm mt-1">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-primary">schedule</span>
+                Cả ngày (08:00 - 17:30)
+              </span>
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-tertiary">location_on</span>
+                Quảng trường Trịnh Văn Bô, FPT Polytechnic Hà Nội
+              </span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-space-sm w-full lg:w-auto justify-end pt-space-xs lg:pt-0 border-t lg:border-t-0 border-surface-container-low">
+<a class="inline-flex items-center justify-center gap-space-xs bg-surface-container-low hover:bg-surface-container text-on-surface font-label-md text-label-md px-space-lg py-2.5 rounded-full transition-colors w-full sm:w-auto" href="#">
+<span>Tìm Hiểu Thêm</span>
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</a>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 4: OPEN DAY FEATURE BANNER -->
+<section class="w-full px-margin py-space-sm">
+<div class="relative rounded-3xl overflow-hidden shadow-2xl bg-gradient-to-r from-on-surface via-on-secondary-fixed to-inverse-surface text-surface min-h-[380px] flex items-center">
+<!-- Background Ambient Glow & Photography -->
+<div class="absolute inset-0 bg-cover bg-center opacity-25 mix-blend-luminosity" data-alt="Wide panoramic angle of modern university open day carnival at FPT Polytechnic with festival tents, young enthusiastic students interacting with technology exhibitions, sunny morning light, cinematic atmosphere" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDeOzG6L-LUPJ2QbKeINEHnpk1GR3feY-XUv-KnbRpKlzcLPNWHi3Mrh_sma0bZLwzc9nFKhZ2HKP8c6CfYavT0AImvm8cD1U03aPwCNn5oixROY-6VX93jRnAGqG3nBAuv1nFJT6eLsAMfCPyjnPgEuawH2UkdtCRorNBXpXKlfmP7iALeRlO2FLtHn1VuTixxGD92O5HLI7gM4OoMj1NAoXKNm6xvxljVE2-cmBY')"></div>
+<div class="absolute -right-20 -bottom-20 w-96 h-96 rounded-full bg-primary-container/20 blur-3xl pointer-events-none"></div>
+<div class="absolute left-1/4 -top-20 w-80 h-80 rounded-full bg-tertiary-container/15 blur-3xl pointer-events-none"></div>
+<!-- Banner Content -->
+<div class="relative z-10 w-full p-space-lg md:p-space-xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-space-xl">
+<div class="max-w-2xl flex flex-col gap-space-sm">
+<div class="inline-flex items-center gap-space-xs bg-primary-container text-on-primary px-3.5 py-1.5 rounded-full font-label-sm text-label-sm font-bold uppercase tracking-wider self-start shadow-md">
+<span class="material-symbols-outlined text-[16px]">celebration</span>
+<span>Đặc Biệt Mùa Tuyển Sinh 2025</span>
+</div>
+<h3 class="font-headline-lg text-headline-lg text-surface tracking-tight leading-tight">
+            Ngày Hội Khám Phá FPT Polytechnic Open Day 2025
+          </h3>
+<p class="font-body-lg text-body-lg text-surface-container-highest max-w-xl">
+            Cơ hội trải nghiệm trực tiếp môi trường học tập thực chiến, gặp gỡ lãnh đạo doanh nghiệp và phỏng vấn học bổng thắp sáng tương lai lên đến 70%.
+          </p>
+<!-- Quick Date Highlight Badge -->
+<div class="flex flex-wrap items-center gap-space-md pt-space-xs">
+<div class="flex items-center gap-2 bg-surface/10 backdrop-blur-md px-4 py-2 rounded-xl">
+<span class="material-symbols-outlined text-primary-container text-[20px]">calendar_today</span>
+<span class="font-label-md text-label-md font-semibold text-surface">Chủ Nhật, 15/06/2025</span>
+</div>
+<div class="flex items-center gap-2 bg-surface/10 backdrop-blur-md px-4 py-2 rounded-xl">
+<span class="material-symbols-outlined text-tertiary-container text-[20px]">pin_drop</span>
+<span class="font-label-md text-label-md font-semibold text-surface">Cơ sở Trịnh Văn Bô, Hà Nội</span>
+</div>
+</div>
+</div>
+<!-- Banner CTAs -->
+<div class="flex flex-col sm:flex-row lg:flex-col gap-space-sm w-full lg:w-auto">
+<a class="inline-flex items-center justify-center gap-space-xs bg-primary-container hover:bg-primary text-on-primary font-label-lg text-label-lg px-space-xl py-3.5 rounded-full transition-all shadow-[0_4px_20px_rgba(243,111,33,0.5)] active:scale-95 text-center" href="#">
+<span class="material-symbols-outlined text-[20px]">how_to_reg</span>
+<span>Đăng Ký Tham Dự Ngay</span>
+</a>
+<a class="inline-flex items-center justify-center gap-space-xs bg-surface/10 hover:bg-surface/20 text-surface backdrop-blur-md font-label-md text-label-md px-space-lg py-3 rounded-full transition-colors text-center" href="#">
+<span class="material-symbols-outlined text-[18px]">view_in_ar</span>
+<span>Khám phá Tour 360° Trước</span>
+</a>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 5: NEWSLETTER SUBSCRIPTION (Đăng Ký Nhận Bản Tin) -->
+<section class="w-full px-margin py-space-xl">
+<div class="bg-surface-container-low rounded-3xl p-space-lg md:p-space-xl shadow-sm relative overflow-hidden">
+<!-- Decorative geometric SVG accent in background -->
+<svg class="absolute right-0 bottom-0 text-surface-container opacity-60 w-96 h-96 pointer-events-none -mr-16 -mb-16" fill="currentColor" viewbox="0 0 200 200">
+<circle cx="100" cy="100" r="80"></circle>
+<circle cx="100" cy="100" fill="#f9f9ff" r="60"></circle>
+<circle cx="100" cy="100" r="40"></circle>
+</svg>
+<div class="relative z-10 max-w-3xl mx-auto text-center flex flex-col items-center gap-space-md">
+<div class="w-14 h-14 rounded-2xl bg-primary-fixed flex items-center justify-center text-primary shadow-sm">
+<span class="material-symbols-outlined text-[28px]">mark_email_unread</span>
+</div>
+<div class="flex flex-col gap-space-xs">
+<h3 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">
+            Nhận Bản Tin &amp; Thông Báo Tuyển Sinh Mới Nhất
+          </h3>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-xl mx-auto">
+            Đăng ký để không bỏ lỡ các thông tin học bổng, sự kiện công nghệ và tin tức học đường hấp dẫn từ FPT Polytechnic. Cập nhật trực tiếp vào hộp thư mỗi tuần.
+          </p>
+</div>
+<!-- Subscription Form -->
+<form class="w-full max-w-md flex flex-col sm:flex-row items-center gap-space-xs mt-space-xs" onsubmit="event.preventDefault(); alert('Cảm ơn bạn đã đăng ký nhận bản tin!');">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3.5 top-3 text-[18px] text-secondary">email</span>
+<input class="w-full bg-surface-container-lowest text-on-surface font-body-sm text-body-sm pl-10 pr-4 py-3 rounded-full focus:outline-none focus:ring-2 focus:ring-primary shadow-sm" placeholder="Nhập địa chỉ email của bạn..." required="" type="email"/>
+</div>
+<button class="w-full sm:w-auto whitespace-nowrap bg-on-surface hover:bg-primary text-surface font-label-md text-label-md px-space-lg py-3 rounded-full transition-all shadow-md active:scale-95" type="submit">
+            Đăng Ký Ngay
+          </button>
+</form>
+<div class="flex items-center gap-space-xs text-secondary font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-[16px] text-tertiary">verified_user</span>
+<span>Chúng tôi cam kết bảo mật thông tin và chỉ gửi thông tin hữu ích. Không spam.</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Interactive JavaScript for Category Switching Micro-Interaction -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const container = document.getElementById('news-tab-container');
+      if (container) {
+        const tabs = container.querySelectorAll('button');
+        tabs.forEach(tab => {
+          tab.addEventListener('click', () => {
+            tabs.forEach(t => {
+              t.className = 'px-4 py-2 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-all whitespace-nowrap';
+            });
+            tab.className = 'px-4 py-2 rounded-full font-label-md text-label-md bg-on-surface text-surface whitespace-nowrap shadow-sm transition-all';
+          });
+        });
+      }
+    });
+  </script>
+</div></main><footer class="w-full bg-surface-container-lowest mt-space-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="w-full px-margin py-space-xl"><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-space-xl"><div class="lg:col-span-2 flex flex-col gap-space-md"><div class="flex items-center gap-space-sm"><div class="w-10 h-10 rounded-xl bg-primary-container flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[24px]">school</span></div><div><span class="font-headline-sm text-headline-sm text-on-surface uppercase tracking-tight block leading-none">FPT Polytechnic</span><span class="font-label-sm text-label-sm text-primary tracking-widest uppercase">Virtual Campus 360</span></div></div><p class="font-body-md text-body-md text-on-surface-variant max-w-md">Hệ sinh thái tham quan không gian thực tế ảo 360° độc quyền của FPT Polytechnic. Khám phá cơ sở vật chất chuẩn quốc tế, giảng đường, xưởng thực hành và đời sống sinh viên năng động.</p><div class="flex items-center gap-space-sm text-on-surface-variant"><span class="material-symbols-outlined text-[20px] text-primary">verified</span><span class="font-label-md text-label-md text-on-surface">Thực học - Thực nghiệp - Khởi nghiệp</span></div></div><div class="flex flex-col gap-space-md"><h4 class="font-headline-sm text-headline-sm text-on-surface">Khám phá 360</h4><ul class="flex flex-col gap-space-sm"><li class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors cursor-pointer">Bản đồ Virtual Campus</li><li class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors cursor-pointer">Hệ thống Phòng Lab CNTT</li><li class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors cursor-pointer">Xưởng Đồ họa &amp; Thiết kế</li><li class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors cursor-pointer">Tòa nhà Hội trường &amp; Sự kiện</li><li class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors cursor-pointer">Sân vận động &amp; Ký túc xá</li></ul></div><div class="flex flex-col gap-space-md"><h4 class="font-headline-sm text-headline-sm text-on-surface">Tin tức &amp; Sự kiện</h4><ul class="flex flex-col gap-space-sm"><li class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors cursor-pointer">Tin tuyển sinh 2025</li><li class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors cursor-pointer">Open Day &amp; Trải nghiệm</li><li class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors cursor-pointer">Cuộc thi &amp; Gamification</li><li class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors cursor-pointer">Gương mặt sinh viên tiêu biểu</li><li class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary transition-colors cursor-pointer">Hợp tác doanh nghiệp</li></ul></div><div class="flex flex-col gap-space-md"><h4 class="font-headline-sm text-headline-sm text-on-surface">Trụ sở Đào tạo</h4><p class="font-body-sm text-body-sm text-on-surface-variant">Toà nhà FPT Polytechnic, Phố Trịnh Văn Bô, Nam Từ Liêm, Hà Nội</p><div class="flex flex-col gap-1 font-body-sm text-body-sm text-on-surface-variant"><span class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-primary">call</span>(024) 8582 0808</span><span class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-primary">mail</span>caodang@fpt.edu.vn</span></div><div class="pt-2"><span class="inline-block px-3 py-1 rounded-full bg-surface-container-high text-on-secondary-container font-label-sm text-label-sm">Hotline: 0981 725 836</span></div></div></div><div class="mt-space-xl pt-space-lg flex flex-col md:flex-row items-center justify-between gap-space-md bg-surface-container-low px-space-lg py-space-md rounded-xl"><p class="font-body-sm text-body-sm text-on-surface-variant">© 2025 Trường Cao đẳng FPT Polytechnic. Bản quyền thuộc về FPT Education.</p><div class="flex items-center gap-space-lg"><a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Chính sách bảo mật</a><a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Điều khoản sử dụng</a><a class="font-label-sm text-label-sm text-on-surface-variant hover:text-primary transition-colors" href="#">Trợ giúp VR 360</a></div></div></div></footer></body></html>

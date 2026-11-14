@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="vi" class="scroll-smooth">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minigame Vòng Quay May Mắn & Thợ Săn XP | FPT Polytechnic Virtual Campus 360°</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              orange: '#F26F21',
+              'orange-dark': '#D9580F',
+              'orange-light': '#FFF5EE',
+              navy: '#0D47A1',
+              'navy-dark': '#0A2540',
+              slate: '#0F172A',
+              muted: '#64748B',
+              bg: '#F8FAFC'
+            }
+          },
+          fontFamily: {
+            heading: ['"Plus Jakarta Sans"', 'sans-serif'],
+            sans: ['Inter', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #F8FAFC; color: #0F172A; }
+    h1, h2, h3, h4, h5, h6, .font-heading { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .glass-nav { background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(16px); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-50 text-slate-900 antialiased">
+  <!-- Public Global Header -->
+  <header class="sticky top-0 z-50 glass-nav border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-[#D9580F] to-[#F26F21] flex items-center justify-center text-white font-heading font-black text-2xl shadow-lg shadow-orange-500/25">P</div>
+        <div>
+          <span class="font-heading font-black text-xl text-slate-900 tracking-tight block">FPT POLYTECHNIC</span>
+          <span class="text-xs font-semibold text-[#F26F21] uppercase tracking-wider">Virtual Campus 360°</span>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600">
+        <a href="/" class="hover:text-[#F26F21] transition">Trang chủ</a>
+        <a href="/about" class="hover:text-[#F26F21] transition">Giới thiệu</a>
+        <a href="/virtual-campus" class="hover:text-[#F26F21] transition flex items-center gap-1.5 text-[#F26F21]">
+          <span class="material-symbols-outlined text-[18px]">view_in_ar</span> Tour 360°
+        </a>
+        <a href="/map" class="hover:text-[#F26F21] transition">Bản đồ GIS</a>
+        <a href="/locations" class="hover:text-[#F26F21] transition">Cơ sở vật chất</a>
+        <a href="/events" class="hover:text-[#F26F21] transition">Sự kiện Open Day</a>
+        <a href="/games" class="hover:text-[#F26F21] transition">Minigame</a>
+        <a href="/news" class="hover:text-[#F26F21] transition">Tin tức</a>
+        <a href="/contact" class="hover:text-[#F26F21] transition">Tuyển sinh</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <a href="/login" class="px-5 py-2.5 rounded-xl border border-slate-300 text-sm font-bold text-slate-700 hover:bg-slate-100 transition">Đăng nhập</a>
+        <a href="/events" class="px-5 py-2.5 rounded-xl bg-[#F26F21] text-white text-sm font-bold shadow-md shadow-orange-500/20 hover:bg-[#D9580F] transition flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[18px]">confirmation_number</span> Nhận vé Open Day
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 w-full">
+    <!-- Breadcrumb -->
+    <div class="flex items-center gap-2 text-xs font-semibold text-slate-500 mb-6">
+      <a href="/" class="hover:text-[#F26F21]">Trang chủ</a>
+      <span class="material-symbols-outlined text-xs">chevron_right</span>
+      <span class="text-slate-900 font-bold">Gamification & Vòng Quay May Mắn 2026</span>
+    </div>
+
+    <!-- Gamification Status Bar -->
+    <div class="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200 shadow-sm mb-8 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-400 to-[#F26F21] flex items-center justify-center text-white text-2xl shadow-md shadow-orange-500/20">
+          <span class="material-symbols-outlined text-3xl">casino</span>
+        </div>
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold font-heading text-slate-900">Vòng Quay May Mắn FPT Poly</h1>
+          <p class="text-xs text-slate-500">Khám phá không gian thực tế ảo, săn mã quà tặng và tích lũy điểm XP</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-4 sm:gap-6 bg-slate-50 px-5 py-3 rounded-2xl border border-slate-200">
+        <div>
+          <span class="text-[11px] font-semibold text-slate-500 block">Lượt quay hôm nay:</span>
+          <span class="font-heading font-black text-lg text-[#F26F21]">3 / 3 lượt</span>
+        </div>
+        <div class="w-px h-8 bg-slate-200"></div>
+        <div>
+          <span class="text-[11px] font-semibold text-slate-500 block">Ví điểm thưởng:</span>
+          <span class="font-heading font-black text-lg text-emerald-600">1,450 XP</span>
+        </div>
+        <div class="w-px h-8 bg-slate-200"></div>
+        <div>
+          <span class="text-[11px] font-semibold text-slate-500 block">Hạng hiện tại:</span>
+          <span class="font-heading font-black text-sm text-indigo-600">#4 Vàng 🏆</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Game Grid: Wheel + Live Winners -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
+      <!-- Lucky Wheel Arena (7 Cols) -->
+      <div class="lg:col-span-7 bg-gradient-to-b from-slate-900 via-[#0A2540] to-slate-900 rounded-3xl p-8 sm:p-10 text-white shadow-2xl relative overflow-hidden flex flex-col items-center justify-center border border-slate-800">
+        <div class="text-center mb-8">
+          <span class="px-4 py-1.5 rounded-full bg-[#F26F21]/20 text-[#F26F21] text-xs font-bold border border-[#F26F21]/30">VÒNG QUAY CÔNG NGHỆ 360°</span>
+          <h2 class="text-2xl font-bold font-heading mt-2">Bấm Quay Để Nhận Quà Ngay</h2>
+        </div>
+
+        <!-- Wheel Graphic Visual -->
+        <div class="relative w-80 h-80 sm:w-96 sm:h-96 flex items-center justify-center mb-8">
+          <!-- Outer Neon Ring -->
+          <div class="absolute inset-0 rounded-full border-8 border-dashed border-[#F26F21]/60 animate-spin" style="animation-duration: 30s;"></div>
+          <!-- Wheel Body -->
+          <div class="w-72 h-72 sm:w-84 sm:h-84 rounded-full bg-gradient-to-tr from-slate-800 to-slate-900 border-4 border-amber-400 shadow-2xl relative overflow-hidden flex items-center justify-center">
+            <!-- 8 Segments SVG Graphic -->
+            <svg class="w-full h-full" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="48" fill="#1E293B" stroke="#F26F21" stroke-width="1.5" />
+              <!-- Wedge slices -->
+              <path d="M50 50 L50 2 A48 48 0 0 1 84 16 Z" fill="#F26F21" opacity="0.9" />
+              <path d="M50 50 L84 16 A48 48 0 0 1 98 50 Z" fill="#0D47A1" opacity="0.9" />
+              <path d="M50 50 L98 50 A48 48 0 0 1 84 84 Z" fill="#F59E0B" opacity="0.9" />
+              <path d="M50 50 L84 84 A48 48 0 0 1 50 98 Z" fill="#10B981" opacity="0.9" />
+              <path d="M50 50 L50 98 A48 48 0 0 1 16 84 Z" fill="#8B5CF6" opacity="0.9" />
+              <path d="M50 50 L16 84 A48 48 0 0 1 2 50 Z" fill="#EC4899" opacity="0.9" />
+              <path d="M50 50 L2 50 A48 48 0 0 1 16 16 Z" fill="#F26F21" opacity="0.8" />
+              <path d="M50 50 L16 16 A48 48 0 0 1 50 2 Z" fill="#3B82F6" opacity="0.8" />
+            </svg>
+            <!-- Center Spinner Cap -->
+            <button class="absolute z-20 w-24 h-24 rounded-full bg-gradient-to-tr from-[#D9580F] to-[#F26F21] text-white font-heading font-black text-sm uppercase shadow-2xl flex flex-col items-center justify-center border-4 border-white hover:scale-105 transition cursor-pointer active:scale-95">
+              <span class="material-symbols-outlined text-2xl">play_arrow</span>
+              <span>QUAY</span>
+            </button>
+          </div>
+          <!-- Wheel Pointer Indicator -->
+          <div class="absolute -top-3 z-30 w-0 h-0 border-l-[16px] border-l-transparent border-r-[16px] border-r-transparent border-t-[28px] border-t-amber-400 drop-shadow-md"></div>
+        </div>
+
+        <!-- Wheel Prize Labels List -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 w-full text-center text-xs font-semibold">
+          <div class="bg-white/10 rounded-xl py-2 px-3">🎁 Áo thun Poly</div>
+          <div class="bg-white/10 rounded-xl py-2 px-3">🎒 Balo Tech 2026</div>
+          <div class="bg-white/10 rounded-xl py-2 px-3">⭐ 500 XP Campus</div>
+          <div class="bg-white/10 rounded-xl py-2 px-3">🎟️ Vé VIP Open Day</div>
+        </div>
+      </div>
+
+      <!-- Live Leaderboard & Recent Winners (5 Cols) -->
+      <div class="lg:col-span-5 space-y-6">
+        <!-- Leaderboard -->
+        <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm">
+          <div class="flex items-center justify-between mb-6 pb-3 border-b border-slate-100">
+            <div class="flex items-center gap-2.5">
+              <span class="material-symbols-outlined text-amber-500 text-2xl">military_tech</span>
+              <h3 class="font-heading font-bold text-base text-slate-900">Bảng Xếp Hạng Tuần</h3>
+            </div>
+            <span class="text-xs font-bold text-[#F26F21]">Cập nhật 5 phút trước</span>
+          </div>
+
+          <div class="space-y-3">
+            <div class="flex items-center justify-between p-3 rounded-2xl bg-amber-50/80 border border-amber-200">
+              <div class="flex items-center gap-3">
+                <span class="w-7 h-7 rounded-full bg-amber-400 text-slate-900 font-bold text-xs flex items-center justify-center">1</span>
+                <div>
+                  <span class="font-bold text-xs text-slate-900 block">Lê Hoàng Nam</span>
+                  <span class="text-[10px] text-slate-500">Chuyên ngành Lập trình Web</span>
+                </div>
+              </div>
+              <span class="font-heading font-black text-xs text-amber-700">4,850 XP</span>
+            </div>
+
+            <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 border border-slate-200">
+              <div class="flex items-center gap-3">
+                <span class="w-7 h-7 rounded-full bg-slate-300 text-slate-800 font-bold text-xs flex items-center justify-center">2</span>
+                <div>
+                  <span class="font-bold text-xs text-slate-900 block">Trần Thị Bích Ngọc</span>
+                  <span class="text-[10px] text-slate-500">Thiết kế Đồ họa</span>
+                </div>
+              </div>
+              <span class="font-heading font-black text-xs text-slate-700">4,200 XP</span>
+            </div>
+
+            <div class="flex items-center justify-between p-3 rounded-2xl bg-orange-50/60 border border-orange-200">
+              <div class="flex items-center gap-3">
+                <span class="w-7 h-7 rounded-full bg-orange-300 text-slate-900 font-bold text-xs flex items-center justify-center">3</span>
+                <div>
+                  <span class="font-bold text-xs text-slate-900 block">Đặng Quang Huy</span>
+                  <span class="text-[10px] text-slate-500">Ứng dụng Phần mềm</span>
+                </div>
+              </div>
+              <span class="font-heading font-black text-xs text-orange-700">3,950 XP</span>
+            </div>
+
+            <div class="flex items-center justify-between p-3 rounded-2xl bg-blue-50/70 border border-blue-200 ring-2 ring-blue-400/30">
+              <div class="flex items-center gap-3">
+                <span class="w-7 h-7 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center">4</span>
+                <div>
+                  <span class="font-bold text-xs text-blue-900 block">Bạn (Nguyễn Văn An)</span>
+                  <span class="text-[10px] text-blue-600">Thí sinh tiềm năng</span>
+                </div>
+              </div>
+              <span class="font-heading font-black text-xs text-blue-700">1,450 XP</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Winners Ticker -->
+        <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="material-symbols-outlined text-emerald-600">celebration</span>
+            <h4 class="font-heading font-bold text-sm text-slate-900">Người trúng thưởng gần đây</h4>
+          </div>
+          <div class="space-y-2 text-xs">
+            <div class="p-2.5 bg-slate-50 rounded-xl flex items-center justify-between">
+              <span class="font-semibold text-slate-700">Nguyễn *** Tuấn (0908***12)</span>
+              <span class="font-bold text-[#F26F21]">Áo thun FPT Poly</span>
+            </div>
+            <div class="p-2.5 bg-slate-50 rounded-xl flex items-center justify-between">
+              <span class="font-semibold text-slate-700">Phạm *** Linh (0971***88)</span>
+              <span class="font-bold text-emerald-600">+1000 XP thưởng</span>
+            </div>
+            <div class="p-2.5 bg-slate-50 rounded-xl flex items-center justify-between">
+              <span class="font-semibold text-slate-700">Vũ *** Minh (0933***45)</span>
+              <span class="font-bold text-indigo-600">Bình nước giữ nhiệt</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Daily Campus Quizzes Section -->
+    <div class="bg-white rounded-3xl p-8 sm:p-10 border border-slate-200 shadow-sm mb-12">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h3 class="text-xl font-bold font-heading text-slate-900">Thử Thách Trắc Nghiệm Campus — Nhận Thêm Lượt Quay</h3>
+          <p class="text-xs text-slate-500 mt-1">Trả lời đúng 3 câu hỏi về khuôn viên trường để nhận thêm 2 lượt quay may mắn</p>
+        </div>
+        <span class="px-4 py-2 rounded-xl bg-orange-100 text-[#F26F21] text-xs font-bold">+2 Lượt / Ngày</span>
+      </div>
+
+      <div class="bg-slate-50 rounded-2xl p-6 border border-slate-200 max-w-3xl">
+        <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Câu hỏi 1 / 3</span>
+        <h4 class="text-base font-bold text-slate-900 mb-4">Tòa nhà nào tại CVPM Quang Trung tập trung các phòng thực hành công nghệ cao AI và Studio 360° của FPT Polytechnic?</h4>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-semibold">
+          <button class="p-3.5 rounded-xl border-2 border-[#F26F21] bg-orange-50 text-left text-slate-900 flex items-center justify-between">
+            <span>A. Tòa nhà Innovation (Tòa T)</span>
+            <span class="material-symbols-outlined text-[#F26F21] text-base">check_circle</span>
+          </button>
+          <button class="p-3.5 rounded-xl border border-slate-200 bg-white text-left text-slate-700 hover:border-slate-300">
+            <span>B. Tòa nhà Thư viện trung tâm</span>
+          </button>
+          <button class="p-3.5 rounded-xl border border-slate-200 bg-white text-left text-slate-700 hover:border-slate-300">
+            <span>C. Khu ký túc xá QTSC</span>
+          </button>
+          <button class="p-3.5 rounded-xl border border-slate-200 bg-white text-left text-slate-700 hover:border-slate-300">
+            <span>D. Tòa nhà Điều hành chung</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Public Global Footer -->
+  <footer class="bg-slate-900 text-slate-400 py-16 border-t border-slate-800 mt-auto">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-10">
+      <div>
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-xl bg-[#F26F21] flex items-center justify-center text-white font-heading font-black text-xl">P</div>
+          <span class="font-heading font-bold text-lg text-white">FPT POLYTECHNIC</span>
+        </div>
+        <p class="text-xs leading-relaxed text-slate-400 mb-4">Trường Cao đẳng FPT Polytechnic cơ sở TP.HCM. Triết lý Thực học - Thực nghiệp, tiên phong ứng dụng công nghệ thực tế ảo 360° trong giáo dục số.</p>
+        <p class="text-xs text-slate-500">© 2026 FPT Polytechnic. All rights reserved.</p>
+      </div>
+      <div>
+        <h4 class="font-heading font-bold text-sm text-white uppercase tracking-wider mb-4">Khám phá Campus</h4>
+        <ul class="space-y-2.5 text-xs">
+          <li><a href="/virtual-campus" class="hover:text-[#F26F21] transition">Không gian 360° Toàn cảnh</a></li>
+          <li><a href="/map" class="hover:text-[#F26F21] transition">Bản đồ số GIS & Phân tầng</a></li>
+          <li><a href="/locations" class="hover:text-[#F26F21] transition">Xưởng thực hành & Phòng Lab</a></li>
+          <li><a href="/events" class="hover:text-[#F26F21] transition">Ngày hội trải nghiệm Open Day</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-heading font-bold text-sm text-white uppercase tracking-wider mb-4">Hệ thống Cổng thông tin</h4>
+        <ul class="space-y-2.5 text-xs">
+          <li><a href="/portal/student" class="hover:text-[#F26F21] transition">Cổng Sinh viên & Thẻ điện tử</a></li>
+          <li><a href="/portal/parent" class="hover:text-[#F26F21] transition">Cổng Phụ huynh theo dõi</a></li>
+          <li><a href="/admin" class="hover:text-[#F26F21] transition">Hệ thống Quản trị CMS 360°</a></li>
+          <li><a href="/games" class="hover:text-[#F26F21] transition">Minigame & Tích lũy XP</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-heading font-bold text-sm text-white uppercase tracking-wider mb-4">Liên hệ & Tuyển sinh</h4>
+        <p class="text-xs leading-relaxed text-slate-400 mb-2">Tòa nhà T, Công viên phần mềm Quang Trung, Phường Tân Chánh Hiệp, Quận 12, TP.HCM</p>
+        <p class="text-xs text-slate-300 font-semibold mb-1">Hotline: 1900 633 540 - 0981 725 836</p>
+        <p class="text-xs text-slate-300">Email: tuyensinhpoly@fpt.edu.vn</p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

@@ -385,4 +385,34 @@ export class TourAdminService {
       publishedCount: result.count,
     };
   }
+
+  /**
+   * Unpublish tour nodes back to DRAFT for maintenance.
+   */
+  async unpublishTour(user: AuthenticatedUser, nodeIds?: string[]) {
+    const whereClause =
+      nodeIds && nodeIds.length > 0
+        ? { id: { in: nodeIds }, deletedAt: null }
+        : { deletedAt: null };
+
+    const result = await this.prisma.tourNode.updateMany({
+      where: whereClause,
+      data: { status: PublishStatus.DRAFT },
+    });
+
+    await this.auditLog.record({
+      action: "TOUR_UNPUBLISH",
+      actorUserId: user.id,
+      actorUsername: user.username ?? user.fullName,
+      resourceType: "TourNode",
+      resourceId: null,
+      diffJson: { unpublishedCount: result.count },
+    });
+
+    return {
+      success: true,
+      message: `Đã chuyển ${result.count} cảnh 360° về chế độ Bản nháp (DRAFT).`,
+      unpublishedCount: result.count,
+    };
+  }
 }

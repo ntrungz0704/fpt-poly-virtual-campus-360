@@ -98,3 +98,22 @@ export async function publishTourScenes(nodeIds?: string[]): Promise<{
     },
   );
 }
+
+/**
+ * Unpublish tour scenes back to DRAFT.
+ * POST /api/v1/admin/tour/unpublish
+ */
+export async function unpublishTourScenes(nodeIds?: string[]): Promise<{
+  success: boolean;
+  message: string;
+  unpublishedCount: number;
+}> {
+  return apiRequest<{ success: boolean; message: string; unpublishedCount: number }>(
+    "/admin/tour/unpublish",
+    {
+      method: "POST",
+      body: { nodeIds },
+      auth: true,
+    },
+  );
+}

@@ -92,4 +92,13 @@ export class TourAdminController {
   ) {
     return this.tourAdminService.publishTour(user, nodeIds);
   }
+
+  @Post("unpublish")
+  @RequirePermissions("tour:publish")
+  async unpublishTour(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body("nodeIds") nodeIds?: string[],
+  ) {
+    return this.tourAdminService.unpublishTour(user, nodeIds);
+  }
 }

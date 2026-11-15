@@ -1,280 +1,168 @@
-# BÁO CÁO KỸ THUẬT HANDOFF — M7.2: QUIZ DELIVERY & ZERO-LEAK SECURITY ENGINE
+# BÁO CÁO NGHIỆM THU NGHIỆP VỤ & KỸ THUẬT MILESTONE M7.3 (QUIZ ATTEMPT ENGINE)
+## XỬ LÝ TRIỆT ĐỂ TOÀN DIỆN 4 BLOCKER B01–B04 THEO CHỈ ĐẠO TECH LEAD
 
 **Dự án:** FPT Polytechnic Virtual Campus 360°  
 **Nhánh:** `fix/m4-acceptance-blockers`  
 **Pull Request trên GitHub:** PR #1  
-**Thời gian hoàn tất:** 2026-11-15 21:29 (GMT+7)
+**Thời gian cập nhật:** 2026-11-15 23:26 (GMT+7)
 
 ---
 
-## 1. ĐỐI CHIẾU COMMIT SHA CHÍNH XÁC (FULL SHA TỪ GITHUB)
-- **M7.1 Final Code Commit (B01-RACE):** `c6dc56e0ff2e11eb30d3bc09bda4825dac0145ce` (*Đã được Tech Lead nghiệm thu FULL PASS*)
-- **M7.1 Final Docs Commit:** `5238946a937a003d5d33cfb503ccfe5938524478` (*Đã được Tech Lead nghiệm thu FULL PASS*)
-- **M7.2 Code Commit:** `eaa718d6e45f6cc24723a053ac4ff94fa19b39fa` (`feat(quiz-delivery): implement secure quiz delivery api and portal view with zero-leak guarantee (M7.2)`)
-- **M7.2 Docs Commit:** Đi kèm và đồng bộ trực tiếp trên nhánh `fix/m4-acceptance-blockers` ngay sau code commit `eaa718d6e45f6cc24723a053ac4ff94fa19b39fa`.
+## 1. ĐỐI CHIẾU COMMIT SHA TRÊN GITHUB
+- **HEAD Baseline trước (M7.2 FULL PASS):** `bc851f93f92a80016a57faf0fdb54173d0dd59b4`
+- **M7.3 Initial Implementation Commits:**
+  - Code Commit: `a2a04a5` (`feat(quiz-attempt): implement real-time quiz attempt engine, postgresql state persistence, and portal exam room (M7.3)`)
+  - Docs Commit: `3623125` (`docs(handoff): document m7.3 quiz attempt engine architecture, additive migration, and postgresql regression evidence`)
+- **M7.3 Remediation B01–B04 Commits:**
+  - Code Commit (B01–B04): `e5795c2` (`feat(quiz-attempt): implement atomic save transaction, serialized autosave, admin monitoring, and boundary concurrency test (B01-B04)`)
+  - Docs Commit (B01–B04): Commit tiếp theo sau tài liệu này.
 - **Quy chuẩn Git:** Tuân thủ 100% nguyên tắc tách biệt Code commit và Docs commit, không force-push, remote tip đồng bộ tuyệt đối với local HEAD.
 
 ---
 
-## 2. DISCOVERY FINDINGS & QUY TẮC NGHIỆP VỤ XÁC MINH
+## 2. GIẢI TRÌNH ROOT CAUSE & GIẢI PHÁP KỸ THUẬT CHO 4 BLOCKER B01–B04
 
-1. **Cơ chế xác thực & Phân quyền Student Portal:**
-   - Sử dụng `JwtAuthGuard` toàn cục kết hợp `@CurrentUser()` decorator.
-   - Mọi endpoint tại `/api/v1/portal/quiz/*` đều thực thi kiểm tra nghiêm ngặt `user.userType === "STUDENT"`.
-   - Nếu chưa đăng nhập -> `401 Unauthorized`.
-   - Nếu tài khoản có vai trò khác (như `PARENT`, `STAFF`) -> `403 Forbidden` (`FORBIDDEN_STUDENT_ONLY`).
+### 🔴 B01 — Atomic Save Progress và Expiration Guard
+- **Root Cause:**
+  - Trong triển khai ban đầu, `saveProgress()` truy vấn `attempt` bên ngoài giao dịch, kiểm tra `now >= attempt.expiresAt` trước khi ghi, và cập nhật từng câu trả lời độc lập bằng vòng lặp `for`.
+  - Điều này dẫn đến nguy cơ race condition: nếu một request bắt đầu trước thời điểm hết hạn nhưng trễ mạng đến DB sau khi hết hạn hoặc sau khi một request khác chuyển attempt sang `EXPIRED`, dữ liệu vẫn có thể được ghi.
+  - Ngoài ra, việc lặp qua từng câu trả lời độc lập khiến cho một batch chứa câu trả lời hợp lệ và không hợp lệ có thể bị ghi một phần (partial write) trước khi phát hiện lỗi.
+- **Giải pháp Kỹ thuật Triển khai:**
+  - File: `apps/api/src/modules/portal/portal-quiz.service.ts`
+  - Đưa toàn bộ luồng lưu tiến độ vào `this.prisma.$transaction(async (tx) => { ... })`.
+  - Khóa hàng bản ghi attempt bằng câu lệnh PostgreSQL độc quyền:  
+    `await tx.$executeRaw\`SELECT id FROM quiz_config_attempts WHERE id = ${attemptId}::uuid FOR UPDATE\`;`
+  - Tái kiểm tra thời gian thực `const now = new Date();` và trạng thái `attempt.status === 'IN_PROGRESS'` ngay sau khi giành được khóa hàng. Nếu `now >= attempt.expiresAt`, tự động chuyển trạng thái thành `EXPIRED` trên DB và ném ngay `BadRequestException('Lượt thi đã hết thời gian hoặc không còn hiệu lực làm bài.')`.
+  - Thực hiện xác thực toàn bộ mảng `dto.answers` TRƯỚC KHI thực hiện bất kỳ lệnh ghi nào (Atomic Batch Validation): kiểm tra câu hỏi có thuộc attempt hay không, kiểm tra `selectedOptionIndex` có nằm trong giới hạn mảng options của câu hỏi hay không. Nếu có bất kỳ item nào sai, ném lỗi 400 lập tức -> transaction tự động rollback toàn bộ, không có bất kỳ dòng dữ liệu nào bị ghi dở dang.
+  - Toàn bộ câu trả lời hợp lệ được cập nhật trong transaction cùng thời điểm `answeredAt: now`.
 
-2. **Quy tắc Đủ điều kiện Tham gia (Eligibility):**
-   - **Bài thi Toàn trường (`eventId === null`):** Tất cả sinh viên đã kích hoạt tài khoản hợp lệ đều có quyền xem và truy cập làm bài thi.
-   - **Bài thi Sự kiện (`eventId !== null`):** Sinh viên bắt buộc phải có bản ghi tham gia sự kiện `EventParticipation` tương ứng với `participationStatus !== "CANCELLED"`.
-   - Nếu sinh viên chưa đăng ký sự kiện mà cố tình truy cập bài thi gắn với sự kiện đó qua URL ID -> Hệ thống chặn ngay lập tức với `403 Forbidden` (`FORBIDDEN_NOT_ELIGIBLE: "Bạn chưa đăng ký tham gia sự kiện tương ứng với bài thi này."`).
+### 🔴 B02 — Frontend Autosave Ordering & Request Serialization
+- **Root Cause:**
+  - Trong `apps/web/src/app/(portal)/portal/quiz/page.tsx`, mỗi lần sinh viên click chọn đáp án, hàm `handleSelectOption()` phát ngay request API mà không tuần tự hóa.
+  - Nếu sinh viên đổi đáp án nhanh (ví dụ click A rồi đổi sang B ngay lập tức), request A và B bay song song trên mạng; nếu request B đến DB trước rồi request A đến sau, request A sẽ ghi đè lên B, dẫn đến lệch trạng thái giữa màn hình và PostgreSQL. Ngoài ra nhãn "Đã lưu" có thể hiển thị sai khi request cũ phản hồi sau.
+- **Giải pháp Kỹ thuật Triển khai:**
+  - File: `apps/web/src/app/(portal)/portal/quiz/page.tsx`
+  - Thiết lập cơ chế chuỗi Promise tuần tự (Strict FIFO Serialization):  
+    `const saveQueueRef = useRef<Promise<void>>(Promise.resolve());`
+  - Duy trì bộ đếm tuần tự toàn cục `latestSequenceRef` và bộ đếm phiên bản theo từng câu hỏi `questionLatestSeqRef`.
+  - Giao diện vẫn phản hồi tức thời (Optimistic UI Update) để người dùng không cảm thấy độ trễ.
+  - Mọi thao tác lưu mạng đều được nối đuôi vào `saveQueueRef.current`. Nếu trong thời gian chờ đợi hàng đợi, câu hỏi đã nhận được một click mới hơn (`questionLatestSeqRef.current[questionId] > seq`), request cũ sẽ bị bỏ qua (skip), không gửi payload lỗi thời lên máy chủ.
+  - Nhãn "Đã lưu lúc HH:mm:ss" CHỈ xuất hiện khi request đang hoàn tất là request mới nhất của toàn phòng thi (`seq === latestSequenceRef.current`).
 
-3. **Vòng đời Cấu hình Bài thi (Lifecycle Isolation):**
-   - Chỉ các bài thi có `status === "PUBLISHED"` và `deletedAt === null` mới xuất hiện trong danh sách phát đề và cho phép truy cập chi tiết.
-   - Bài thi `DRAFT` và `ARCHIVED` bị loại trừ hoàn toàn khỏi danh sách hoạt động và trả về `404 Not Found` khi truy vấn trực tiếp qua ID.
-   - Bài thi đã bị xóa mềm (`deletedAt !== null`) trả về `404 Not Found`.
+### 🔴 B03 — Admin Exam Room Monitoring (Giám sát phòng thi)
+- **Root Cause:**
+  - Trong phạm vi M7.3 ban đầu, hệ thống chỉ có các API và giao diện dành cho sinh viên, chưa có màn hình và endpoint phục vụ giám sát lượt thi cho ban quản trị.
+- **Giải pháp Kỹ thuật Triển khai:**
+  - **Shared Contract (`packages/shared/src/quiz-config.ts`):**
+    - `AdminQuizAttemptStudentDto`: Sinh viên (`id, fullName, email, studentCode, avatarUrl`).
+    - `AdminQuizAttemptMonitoringDto`: Lượt thi (`id, quizConfigId, quizTitle, student, attemptNumber, status, startedAt, expiresAt, submittedAt, totalQuestions, answeredCount, remainingSeconds`).
+    - `AdminQuizAttemptListQueryDto` & `AdminQuizAttemptListResponseDto`: Hỗ trợ phân trang, lọc theo `quizConfigId`, `status`, tìm kiếm theo `search`.
+  - **Backend API & Service:**
+    - `apps/api/src/modules/quiz-config/dto/quiz-config.dto.ts`: `AdminQuizAttemptQueryDto`.
+    - `apps/api/src/modules/quiz-config/quiz-config.service.ts`: `getAttemptsMonitoring()` truy vấn cơ sở dữ liệu PostgreSQL, tính toán tiến độ câu hỏi `answeredCount / totalQuestions`, thời gian còn lại `remainingSeconds`, tự động chuẩn hóa trạng thái `EXPIRED` nếu đã quá hạn.
+    - `apps/api/src/modules/quiz-config/quiz-config.controller.ts`: Endpoint `GET /api/v1/admin/quiz-configs/attempts/monitoring`, đặt trước `@Get(":id")` để tránh xung đột routing, bảo vệ nghiêm ngặt bằng `JwtAuthGuard`, `PermissionsGuard` và quyền `events:write`.
+    - Tuân thủ 100% nguyên tắc Read-only: Không cung cấp bất kỳ API nào cho phép Admin sửa câu trả lời, can thiệp kết quả hoặc thay đổi thời gian thi.
+  - **Frontend Admin (`apps/web`):**
+    - `apps/web/src/app/admin/events/components/exam-room-monitoring.tsx`: Giao diện giám sát phòng thi chuyên nghiệp với thanh lọc tìm kiếm thời gian thực, lọc trạng thái, checkbox "Tự động làm mới (10s)", nút làm mới, bảng dữ liệu chi tiết sinh viên, thanh tiến độ làm bài (%), đồng hồ đếm ngược và phân trang.
+    - `apps/web/src/app/admin/events/page.tsx`: Tích hợp tab điều hướng mới `"exam-monitoring"` (Giám sát phòng thi M7.3).
 
----
-
-## 3. KIẾN TRÚC BẢO MẬT ZERO-LEAK & RESPONSE CONTRACT
-
-### 🔴 Nguyên tắc Tối thượng: Bảo mật Đề thi Khảo thí
-Payload gửi về client tuyệt đối không chứa bất kỳ manh mối nào có thể suy ra đáp án trước hoặc trong khi làm bài:
-1. **Loại bỏ hoàn toàn ở mức cơ sở dữ liệu:**
-   - Service sử dụng Prisma `select` tường minh, **KHÔNG BAO GIỜ** select trường `correctIndex`, `explanation` hay `questionBankItemId`.
-2. **Loại bỏ qua Allowlist Response Mapper:**
-   - Dữ liệu câu hỏi được map nghiêm ngặt qua `PortalQuizQuestionDeliveryDto`:
-     ```ts
-     export interface PortalQuizQuestionDeliveryDto {
-       id: string; // ID snapshot của câu hỏi
-       sortOrder: number;
-       questionText: string;
-       options: string[]; // Danh sách các phương án [A, B, C, D]
-       topic: string;
-       difficulty: QuestionDifficulty;
-     }
-     ```
-   - Trường `correctIndex`: **UNDEFINED (100% không xuất hiện trong JSON)**.
-   - Trường `explanation`: **UNDEFINED (100% không xuất hiện trong JSON)**.
-   - Trường `questionBankItemId`: **UNDEFINED**.
-   - Bất kỳ alias hay trường nội bộ nào của Prisma / PostgreSQL: **UNDEFINED**.
-
-### 🟢 API Endpoints Triển khai:
-1. **`GET /api/v1/portal/quiz/active`:**
-   - Trả về danh sách bài thi đang mở mà sinh viên đủ điều kiện truy cập.
-   - DTO: `PortalQuizSummaryDto[]` (chứa `id, title, description, eventId, eventName, timeLimitMinutes, passingScore, maxAttempts, totalQuestions, isShuffleQuestions, isShuffleOptions, publishedAt`).
-2. **`GET /api/v1/portal/quiz/:id`:**
-   - Trả về chi tiết bài thi và bộ câu hỏi snapshot chuẩn hóa.
-   - DTO: `PortalQuizDetailDeliveryDto` (kế thừa summary + danh sách `questions: PortalQuizQuestionDeliveryDto[]`).
-
----
-
-## 4. CHI TIẾT CÁC FILE THAY ĐỔI & THÊM MỚI
-
-### Backend API:
-- `apps/api/src/modules/portal/portal-quiz.controller.ts`: Controller phục vụ các endpoint `/portal/quiz/active` và `/portal/quiz/:id`, bảo vệ bởi `JwtAuthGuard` và kiểm tra quyền `STUDENT`.
-- `apps/api/src/modules/portal/portal-quiz.service.ts`: Service xử lý logic lọc đề thi theo quyền, kiểm tra eligibility sự kiện, query snapshot từ PostgreSQL và map dữ liệu allowlist an toàn.
-- `apps/api/src/modules/portal/portal.module.ts`: Đăng ký `PortalQuizController` và `PortalQuizService`.
-- `apps/api/test/integration/quiz-delivery.integration.spec.ts`: Bộ 10 integration tests chuyên sâu chạy trên PostgreSQL thực tế.
-
-### Frontend Web:
-- `apps/web/src/components/portal/PortalNavTabs.tsx`: Bổ sung tab điều hướng `/portal/quiz` (Bài thi trắc nghiệm).
-- `apps/web/src/lib/portal/portal-api.ts`: Bổ sung client methods `getActiveQuizzes()` và `getQuizDelivery(quizId)`.
-- `apps/web/src/app/(portal)/portal/quiz/page.tsx`: Giao diện phát đề thi trực tuyến cho sinh viên, hỗ trợ đầy đủ Loading, Empty, Error, danh sách bài thi đang mở và màn hình xem đề thi chi tiết với options A-B-C-D bảo mật.
-
-### Shared Package:
-- `packages/shared/src/quiz-config.ts`: Khai báo các interface `PortalQuizQuestionDeliveryDto`, `PortalQuizSummaryDto`, `PortalQuizDetailDeliveryDto`.
+### 🔴 B04 — Concurrency Test gần giới hạn maxAttempts
+- **Root Cause:**
+  - Test 13 trước đó gửi 6 request đồng thời khi sinh viên chưa có lượt thi nào (`attemptCount = 0`, `maxAttempts = 3`). Test này chứng minh được idempotent resume nhưng chưa kiểm tra được race condition tại thời điểm nhạy cảm nhất: khi sinh viên chỉ còn đúng 1 lượt thi cuối cùng trước khi chạm trần `maxAttempts`.
+- **Giải pháp Kỹ thuật Triển khai:**
+  - File: `apps/api/test/integration/quiz-attempt.integration.spec.ts`
+  - Cập nhật Test 13: Tạo trước 2 lượt thi đã hết hạn (`attemptNumber = 1, 2`, `status = EXPIRED`) cho sinh viên đối với bài thi có `maxAttempts = 3`. Lúc này sinh viên chỉ còn đúng 1 lượt thi hợp lệ.
+  - Bắn đồng thời 6 request `POST .../attempts`.
+  - Khẳng định (Assert):
+    - 100% request trả về mã HTTP hợp lệ (201 thành công hoặc 400), KHÔNG CÓ BẤT KỲ REQUEST NÀO BỊ 500 (loại trừ hoàn toàn lỗi deadlock hoặc vi phạm unique constraint).
+    - Trong cơ sở dữ liệu PostgreSQL: Tổng số attempt của sinh viên đạt chính xác 3 (bằng `maxAttempts`), không vượt quá trần.
+    - Lượt thi thứ 3 có `status = IN_PROGRESS`, và tất cả các request 201 trả về cùng `id` của lượt thi thứ 3.
+    - Khi lượt thi thứ 3 hết hạn, gửi tiếp request thứ 7 -> Hệ thống từ chối ngay lập tức với HTTP 400 (`Đã vượt quá số lượt thi cho phép`).
 
 ---
 
-## 5. BẰNG CHỨNG KIỂM THỬ POSTGRESQL (10/10 TESTS PASS)
+## 3. DANH SÁCH FILE THAY ĐỔI
+1. `apps/api/src/modules/portal/portal-quiz.service.ts`: B01 transaction nguyên tử, `FOR UPDATE` row lock, time re-check under lock, atomic batch validation & updates.
+2. `apps/api/src/modules/quiz-config/dto/quiz-config.dto.ts`: B03 `AdminQuizAttemptQueryDto`.
+3. `apps/api/src/modules/quiz-config/quiz-config.controller.ts`: B03 `GET /admin/quiz-configs/attempts/monitoring` endpoint.
+4. `apps/api/src/modules/quiz-config/quiz-config.service.ts`: B03 `getAttemptsMonitoring()` read-only query.
+5. `apps/api/test/integration/quiz-attempt.integration.spec.ts`: B04 concurrency test near limit, B01 atomic batch rollback test (Test 15), B01 expiry immutability test (Test 16), B03 admin monitoring test (Test 17).
+6. `apps/web/src/app/(portal)/portal/quiz/page.tsx`: B02 FIFO serialized queue, seq counter, stale payload skip.
+7. `apps/web/src/app/admin/events/components/exam-room-monitoring.tsx`: B03 Giao diện Giám sát phòng thi.
+8. `apps/web/src/app/admin/events/page.tsx`: B03 Tab "Giám sát phòng thi (M7.3)".
+9. `apps/web/src/lib/auth/api-client.ts`: B03 `quizConfigApi.getAttemptsMonitoring()`.
+10. `packages/shared/src/quiz-config.ts`: B03 Shared contracts cho Admin Exam Room Monitoring.
 
-Bộ integration test `quiz-delivery.integration.spec.ts` được thực thi trực tiếp trên cơ sở dữ liệu PostgreSQL biệt lập:
+---
+
+## 4. BẰNG CHỨNG KIỂM THỬ THỰC TẾ TRÊN POSTGRESQL (52/52 TESTS PASS)
+Tất cả 4 bộ test tích hợp đã chạy độc lập tuần tự trên cơ sở dữ liệu PostgreSQL thực tế:
+
+### 1. M7.3 Quiz Attempt Suite (`quiz-attempt.integration.spec.ts`): 17/17 TESTS PASS (36.12s)
 ```
-PASS test/integration/quiz-delivery.integration.spec.ts (33.535 s)
-  Quiz Delivery Integration Suite (M7.2)
-    √ Test 1 [Authentication Security]: Unauthenticated request is rejected (401) (15 ms)
-    √ Test 2 [Role Authorization]: Non-student role (PARENT) is rejected (403) (10 ms)
-    √ Test 3 [Active Quizzes Delivery]: Returns eligible PUBLISHED quizzes; excludes DRAFT, ARCHIVED, Soft-deleted (14 ms)
-    √ Test 4 [Safe Detail Delivery]: Returns questions with ZERO LEAK of correctIndex, explanation, or internal IDs (13 ms)
-    √ Test 5 [Event Eligibility]: Student not registered for event is rejected (403) (20 ms)
-    √ Test 6 [Lifecycle Guard]: DRAFT and ARCHIVED quizzes reject detail access (404) (15 ms)
-    √ Test 7 [Soft-Delete Guard]: Soft-deleted quiz rejects detail access (404) (8 ms)
-    √ Test 8 [ID Validation]: Invalid UUID returns 400; non-existent UUID returns 404 (14 ms)
-    √ Test 9 [Snapshot Immutability]: Modifying or deleting QuestionBankItem does not change delivered quiz (40 ms)
-    √ Test 10 [Regression Guard]: Existing OpenDayQuizItem remains unaffected (38 ms)
+PASS test/integration/quiz-attempt.integration.spec.ts (35.885 s)
+  Quiz Attempt Integration Suite (M7.3)
+    √ Test 1 [Security]: Unauthenticated request is rejected (401) (12 ms)
+    √ Test 2 [Security]: Non-student role (PARENT) is rejected (403) (16 ms)
+    √ Test 3 [Lifecycle Guard]: DRAFT, ARCHIVED, and Soft-deleted quizzes cannot be started (404) (36 ms)
+    √ Test 4 [Event Eligibility]: Unregistered student cannot start event quiz (403) (17 ms)
+    √ Test 5 [Start Attempt]: Successfully starts attempt with server-side timer & Zero-leak guarantee (89 ms)
+    √ Test 6 [Resume Attempt]: Starting again while IN_PROGRESS resumes existing attempt without incrementing attemptNumber (24 ms)
+    √ Test 7 [Shuffle Stability]: Question order and option mapping remain completely stable across resume and GET (30 ms)
+    √ Test 8 [Save Progress]: Saves answers directly to PostgreSQL and prevents duplicates (112 ms)
+    √ Test 9 [Validation]: Rejects non-existent question or out-of-range option index (400) (22 ms)
+    √ Test 10 [IDOR Protection]: Student B cannot read or modify Student A's attempt (403) (21 ms)
+    √ Test 11 [Expiry Guard]: Expired attempt transitions to EXPIRED and rejects further progress (400) (105 ms)
+    √ Test 12 [Max Attempts]: Student can start second attempt after first expired, but 3rd attempt is rejected (400) (114 ms)
+    √ Test 13 [Concurrency Near Limit]: Concurrent start requests when only 1 attempt remains respect maxAttempts via advisory lock without over-provisioning (206 ms)
+    √ Test 14 [Regression Guard]: M7.2 delivery endpoints and M7.1 config remain completely functional (21 ms)
+    √ Test 15 [B01 Atomic Rollback]: Invalid item in batch rolls back entire batch without partial writes (185 ms)
+    √ Test 16 [B01 Expiry Immutability]: EXPIRED attempt cannot be reverted to IN_PROGRESS or updated (78 ms)
+    √ Test 17 [B03 Admin Monitoring]: Admin can query exam room monitoring list with filters and student details, non-admin blocked (403) (101 ms)
 
 Test Suites: 1 passed, 1 total
-Tests:       10 passed, 10 total
+Tests:       17 passed, 17 total
 Snapshots:   0 total
-Time:        33.769 s
+Time:        36.124 s
 ```
 
----
+### 2. M7.2 Quiz Delivery Suite (`quiz-delivery.integration.spec.ts`): 10/10 TESTS PASS (34.91s)
+- Test 1-2: Security (401 unauthenticated, 403 PARENT).
+- Test 3-4: Active Quizzes & Zero-leak payload.
+- Test 5: Event Eligibility Policy (CONFIRMED, CHECKED_IN, INVITED, CANCELLED, unregistered).
+- Test 6-8: Lifecycle & ID guards.
+- Test 9-10: Snapshot immutability & Open Day regression.
 
-## 6. KẾT QUẢ QUALITY GATES TOÀN DỰ ÁN
+### 3. M7.1 Quiz Configuration Suite (`quiz-config.integration.spec.ts`): 13/13 TESTS PASS (31.11s)
+- Test 1-5: RBAC, validation, CRUD, question snapshot, reordering.
+- Test 6-9: Publish, archive, soft-delete, Open Day isolation.
+- Test 10-13: Immutability guards & atomic concurrency locks.
 
-| Quality Gate | Command | Exit Code | Kết quả chi tiết |
-| :--- | :--- | :---: | :--- |
-| **M7.2 Integration Tests** | `pnpm --filter api exec jest test/integration/quiz-delivery.integration.spec.ts --runInBand` | **0** | **10/10 tests PASS (33.77s)** trên PostgreSQL |
-| **Shared Package Build** | `pnpm --filter shared build` | **0** | `tsc` biên dịch thành công, types cập nhật |
-| **API Typecheck** | `pnpm --filter api typecheck` | **0** | `tsc --noEmit` 0 errors |
-| **Web Typecheck** | `pnpm --filter web typecheck` | **0** | `tsc --noEmit` 0 errors |
-| **API Lint** | `pnpm --filter api lint` | **0** | `eslint` 0 errors |
-| **Web Lint** | `pnpm --filter web lint` | **0** | `eslint` 0 errors |
-| **API Unit Tests** | `pnpm --filter api test:unit` | **0** | 8 suites, 31 tests PASS (5.69s) |
-| **Web Unit Tests** | `pnpm --filter web test:unit` | **0** | 10 tests PASS (139ms) |
-| **Production Build** | `pnpm --filter web build` | **0** | 28 static/dynamic routes compiled successfully |
+### 4. M6 Question Bank Management Suite (`question-bank.integration.spec.ts`): 12/12 TESTS PASS (29.25s)
+- Test 1-10: CRUD, search, filter, Excel download/preview.
+- Test 13-14: Trust boundary import, race-condition duplicates, strict enum validation.
 
----
-
-## 7. BẢNG ĐỐI CHIẾU TIẾN ĐỘ 9 MODULE (STANDARDIZED EVIDENCE MATRIX)
-
-| Module | Route Admin | Route Người dùng | API Endpoint | Bảng DB (PostgreSQL) | Bằng chứng Kiểm thử Thực tế | Trạng thái Nghiệm thu |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **M1: Users & Excel** | `/admin/users` | `/login`, `/auth/me` | `/api/v1/admin/users/import`, `/api/v1/auth/*` | `users`, `audit_logs` | 13/13 Integration tests PASS | **FULL PASS** *(đã nghiệm thu)* |
-| **M2: Media & Tour Studio** | `/admin/media`, `/admin/virtual-tour` | `/campus` | `/api/v1/admin/media`, `/api/v1/admin/scenes` | `media_assets`, `tour_nodes`, `hotspots` | Pre-flight check & integrity test PASS | **FULL PASS** *(đã nghiệm thu)* |
-| **M3: Open Day Events** | `/admin/events` | `/events`, `/tickets` | `/api/v1/admin/events`, `/api/v1/public/events` | `open_day_events`, `open_day_sessions`, `tickets` | 15/15 Integration tests PASS | **FULL PASS** *(đã nghiệm thu)* |
-| **M4: GIS & Locations** | `/admin/locations` | `/map`, `/locations` | `/api/v1/admin/locations`, `/api/v1/public/locations` | `locations`, `buildings`, `floors`, `location_types`, `audit_logs` | 13/13 Integration tests PASS | **FULL PASS** *(đã nghiệm thu)* |
-| **M5: Content CMS (News)** | `/admin/news` | `/news`, `/news/[slug]` | `/api/v1/admin/news`, `/api/v1/public/news` | `news_articles`, `media_assets`, `users`, `audit_logs` | 16/16 Integration tests PASS | **FULL PASS** *(đã nghiệm thu)* |
-| **M6: Question Bank** | `/admin/questions` | Ngân hàng câu hỏi trắc nghiệm | `/api/v1/admin/questions` | `question_bank_items`, `users`, `audit_logs` | 12/12 Integration tests PASS: strict enum, trust boundary | **FULL PASS** *(đã nghiệm thu)* |
-| **M7.1: Quiz Configuration** | `/admin/events` (Cấu hình Bài thi) | Bộ đề thi chuẩn hóa | `/api/v1/admin/quiz-configs` | `quiz_configurations`, `quiz_config_questions`, `audit_logs` | 13/13 Integration tests PASS: B01-RACE atomic conditional tx | **FULL PASS** *(đã nghiệm thu)* |
-| **M7.2: Quiz Delivery** | `/admin/events` | `/portal/quiz` (Phát đề thi) | `/api/v1/portal/quiz/active`, `/api/v1/portal/quiz/:id` | `quiz_configurations`, `quiz_config_questions`, `event_participations` | **10/10 Integration tests PASS (33.77s)**: Zero-leak guarantee | **HOÀN TẤT TRIỂN KHAI — SẴN SÀNG FULL PASS** |
-| **M7.3: Quiz Attempt** | Giám sát phòng thi | `/portal/quiz/:attemptId` | `/api/v1/portal/quiz/start`, `/api/v1/portal/quiz/save-progress` | `quiz_attempts`, `quiz_attempt_answers` | Chờ M7.2 nghiệm thu | **PENDING (Kế tiếp)** |
-| **M7.4: Scoring & XP** | Thống kê điểm thi | Chấm điểm tự động & Nhận XP | `/api/v1/portal/quiz/submit` | `quiz_attempts`, `xp_ledgers` | Chờ M7.3 hoàn tất | **PENDING** |
-| **M7.5: Results & Recovery**| Báo cáo kết quả bài thi | Lịch sử thi & Chứng nhận | `/api/v1/portal/quiz/history` | `quiz_attempts` | Chờ M7.4 hoàn tất | **PENDING** |
-| **M8: Open Day Check-in** | Quét QR Check-in | Vé điện tử & Vòng quay may mắn | `/api/v1/admin/check-in`, `/api/v1/portal/gamification/*` | `event_participations`, `user_spin_histories`, `xp_ledgers` | Baseline đã hoạt động | **SẴN SÀNG ĐÓNG GÓI** |
-| **M9: Student & Parent** | Quản lý liên kết phụ huynh | `/portal/*`, `/parent/*` | `/api/v1/portal/*`, `/api/v1/parent/*` | `parent_student_links`, `users` | 13/13 Integration tests PASS | **SẴN SÀNG ĐÓNG GÓI** |
+**Tổng cộng:** 52/52 tests PASS tuyệt đối trên cơ sở dữ liệu PostgreSQL thực tế (0 mock).
 
 ---
 
-## 8. BẢO CHỨNG PHẠM VI (SCOPE GUARD)
-- Tuyệt đối chỉ triển khai phạm vi của M7.2: phát đề thi an toàn, kiểm soát quyền truy cập, không rò rỉ đáp án.
-- Không triển khai trước M7.3 (Quiz Attempt), M7.4 (Scoring & XP) hay M7.5 (Results).
-- Giữ nguyên vẹn 100% tính năng OpenDayQuizItem và các module đã nghiệm thu M1–M7.1.
-- Sẵn sàng kích hoạt M7.3 (Quiz Attempt) ngay khi Tech Lead ký nghiệm thu FULL PASS!
+## 5. KẾT QUẢ QUALITY GATES DỰ ÁN
+- **Prisma Schema Validation:** `pnpm exec prisma validate` -> Exit code 0 (The schema at prisma/schema.prisma is valid).
+- **Shared Package Build:** `pnpm --filter shared build` -> Exit code 0 (`tsc`).
+- **API Typecheck:** `pnpm --filter api typecheck` -> Exit code 0 (`tsc --noEmit`).
+- **Web Typecheck:** `pnpm --filter web typecheck` -> Exit code 0 (`tsc --noEmit`).
+- **API Lint:** `pnpm --filter api lint` -> Exit code 0 (0 errors, 0 warnings).
+- **Web Lint:** `pnpm --filter web lint` -> Exit code 0 (0 errors, 0 warnings).
+- **API Unit Tests:** `pnpm --filter api test:unit` -> 8 suites, 31 tests PASS (5.95s).
+- **Web Unit Tests:** `pnpm --filter web test:unit` -> 10 tests PASS (129ms).
+- **Web Production Build:** `pnpm --filter web build` -> 28 static/dynamic routes compiled successfully.
 
 ---
 
-## 9. GIẢI TRÌNH NGHIỆP VỤ & BẰNG CHỨNG HỒI QUY THEO YÊU CẦU TECH LEAD (B01 & B02)
-
-### B01. PHÂN TÍCH CHÍNH SÁCH ĐIỀU KIỆN DỰ THI THEO SỰ KIỆN (EVENT ELIGIBILITY POLICY)
-Qua rà soát toàn bộ codebase và cấu trúc Enum `ParticipationStatus` (`INVITED`, `CONFIRMED`, `CHECKED_IN`, `CANCELLED`), hệ thống ghi nhận hiện trạng nghiệp vụ như sau:
-- `CONFIRMED`: Sinh viên đăng ký tham gia sự kiện công khai qua trang web (`public.service.ts`).
-- `CHECKED_IN`: Sinh viên đã quét mã QR tại cổng sự kiện Open Day (`open-day.service.ts`).
-- `INVITED`: Sinh viên thuộc danh sách được ban tổ chức gửi thư mời trực tiếp qua hệ thống quản trị (`users-rbac.service.ts`).
-- `CANCELLED`: Sinh viên đã chủ động hủy tham gia hoặc bị ban tổ chức thu hồi vé.
-
-**Hai phương án nghiệp vụ theo góc nhìn kiến trúc:**
-- **Phương án A (Hiện tại - Inclusive):** `participationStatus: { not: "CANCELLED" }`. Cho phép sinh viên có trạng thái `CONFIRMED`, `CHECKED_IN`, và `INVITED` được tiếp cận và làm bài thi liên kết sự kiện. Ưu điểm: Đảm bảo sinh viên được ban tổ chức mời đặc cách (`INVITED`) không bị chặn oan khi sự kiện chưa mở cổng check-in; sinh viên đã đăng ký (`CONFIRMED`) có thể làm bài khảo sát chuẩn bị trước sự kiện.
-- **Phương án B (Strict):** `participationStatus: { in: ["CONFIRMED", "CHECKED_IN"] }`. Chỉ cho phép sinh viên đã chủ động xác nhận đăng ký hoặc đã có mặt thực tế tại hội trường làm bài thi.
-- **Hành động & Bảo chứng:** Nhằm tôn trọng quyết định của Product Owner / Tech Lead mà không tự ý áp đặt, mã nguồn hiện tại giữ **Phương án A** làm mặc định, đồng thời đã cập nhật **Test 5** trong `quiz-delivery.integration.spec.ts` kiểm thử toàn diện toàn bộ ma trận 5 trường hợp (`CONFIRMED` -> 200, `CHECKED_IN` -> 200, `INVITED` -> 200, `CANCELLED` -> 403, Chưa đăng ký -> 403). Nếu PO chỉ định chuyển sang Phương án B, chỉ cần thay đổi 1 dòng điều kiện query mà không gây bất kỳ tác động phụ nào.
-
-### B02. BẰNG CHỨNG CHẠY THẬT BỘ TEST HỒI QUY (POSTGRESQL REAL DB)
-Tất cả 3 bộ test tích hợp liên quan trực tiếp đến Question Bank và Quiz Engine đã được chạy tuần tự độc lập trên PostgreSQL:
-
-1. **M7.2 Quiz Delivery Integration Suite (`quiz-delivery.integration.spec.ts`):**
-   - Lệnh: `pnpm --filter api exec jest test/integration/quiz-delivery.integration.spec.ts --runInBand`
-   - Exit code: **0**
-   - Kết quả: **10/10 tests PASS** (26.92 s)
-   - Chi tiết hoàn tất **B01-TEST-01**: Test 5 kiểm tra ma trận 2 chiều đầy đủ cho 5 trạng thái sinh viên qua cả 2 endpoint:
-     * Endpoint GET `/api/v1/portal/quiz/:id` (Detail): `CONFIRMED` -> 200, `CHECKED_IN` -> 200, `INVITED` -> 200, `CANCELLED` -> 403, `Unregistered` -> 403.
-     * Endpoint GET `/api/v1/portal/quiz/active` (List): `CONFIRMED` -> chứa event quiz ID, `CHECKED_IN` -> chứa event quiz ID, `INVITED` -> chứa event quiz ID, `CANCELLED` -> KHÔNG chứa event quiz ID, `Unregistered` -> KHÔNG chứa event quiz ID.
-     * General quiz (`eventId == null`) luôn hiển thị đầy đủ và truy cập được với mọi sinh viên hợp lệ.
-
-2. **M7.1 Quiz Configuration Integration Suite (`quiz-config.integration.spec.ts`):**
-   - Lệnh: `pnpm --filter api exec jest test/integration/quiz-config.integration.spec.ts --runInBand`
-   - Exit code: **0**
-   - Kết quả: **13/13 tests PASS** (30.76 s)
-   - Chi tiết: Toàn bộ kiểm thử bất biến cấu hình, concurrency race condition (B01-RACE) đều đạt tuyệt đối.
-
-3. **M6 Question Bank Integration Suite (`question-bank.integration.spec.ts`):**
-   - Lệnh: `pnpm --filter api exec jest test/integration/question-bank.integration.spec.ts --runInBand`
-   - Exit code: **0**
-   - Kết quả: **12/12 tests PASS** (25.49 s)
-   - Chi tiết: Nghiệm thu hoàn tất import Excel, strict enum difficulty/status, và server-side validation.
-
----
-
-## 10. BÁO CÁO NGHIỆM THU KỸ THUẬT MILESTONE M7.3 (QUIZ ATTEMPT ENGINE)
-
-### 1. BẢO CHỨNG THIẾT KẾ DATABASE & MIGRATION ADDITIVE
-- **Mô hình thực thể (Prisma Schema):**
-  + Enum `QuizAttemptStatus`: `IN_PROGRESS`, `SUBMITTED`, `EXPIRED`.
-  + Model `QuizConfigAttempt`: Khóa ngoại với `User` và `QuizConfiguration`, lưu `attemptNumber`, `startedAt`, `expiresAt`, `submittedAt`, `status`.
-  + Model `QuizConfigAttemptAnswer`: Khóa ngoại với `QuizConfigAttempt` và `QuizConfigQuestion`, lưu `displayedOrder`, `optionOrderJson` (mapping xáo trộn phương án), `selectedOptionIndex`, `answeredAt`.
-  + Ràng buộc duy nhất & chỉ mục:
-    * `@@unique([userId, quizConfigId, attemptNumber], map: "uq_quiz_config_attempt_user_quiz_number")`
-    * `@@unique([attemptId, quizConfigQuestionId], map: "uq_quiz_config_attempt_answer_attempt_question")`
-    * `@@index([userId])`, `@@index([quizConfigId])`, `@@index([status])`, `@@index([expiresAt])`
-- **Bảo chứng hồi quy (Regression Guard):**
-  + Giữ nguyên 100% bảng legacy `quiz_attempts` của Open Day Gamification (M3D) và `OpenDayQuizItem`.
-  + Migration mới: `prisma/migrations/20261115000005_quiz_config_attempts/migration.sql` được áp dụng độc lập, tính phụ gia 100%.
-
-### 2. BACKEND API ENGINE & BẢO VỆ CHỐNG LỖ HỔNG
-- **POST `/api/v1/portal/quiz/:quizConfigId/attempts` (Start & Resume Attempt):**
-  + Yêu cầu xác thực JWT và `userType === "STUDENT"`.
-  + Kiểm tra quiz `PUBLISHED` và chưa xóa mềm (DRAFT, ARCHIVED -> 404).
-  + Kiểm tra điều kiện tham gia sự kiện theo Phương án A đã chốt (`INVITED`, `CONFIRMED`, `CHECKED_IN` -> 200; `CANCELLED`, Unregistered -> 403).
-  + **Advisory Lock Concurrency Protection:** Dùng `pg_advisory_xact_lock(hashtext('quiz_attempt_' || userId || '_' || quizConfigId))` tuần tự hóa giao dịch, bảo chứng các request đồng thời không thể vượt quá `maxAttempts`.
-  + **Idempotent Resume:** Nếu sinh viên có attempt `IN_PROGRESS` còn hạn (`now < expiresAt`), trả về lượt thi hiện tại mà không tạo thêm bản ghi hay tăng `attemptNumber`.
-  + **Server-side Timer Precision:** `startedAt` và `expiresAt` được tính bằng đồng hồ máy chủ (`startedAt + timeLimitMinutes * 60 * 1000`), không phụ thuộc client clock.
-  + **Stable Option & Question Shuffling:** Áp dụng thuật toán Fisher-Yates lưu thứ tự xáo trộn vào `displayedOrder` và `optionOrderJson`, giữ cố định qua mọi lần reload/resume.
-  + **Zero-leak Contract:** Không trả về `correctIndex`, `explanation`, hay `questionBankItemId`.
-- **GET `/api/v1/portal/quiz/attempts/:attemptId` (Get Attempt Details):**
-  + Kiểm tra quyền sở hữu IDOR: Sinh viên chỉ được truy cập attempt của chính mình (Sinh viên khác -> 403 Forbidden).
-  + Tự động chuyển trạng thái `EXPIRED` nếu `now >= expiresAt`.
-  + Trả về danh sách câu hỏi theo đúng thứ tự đã lưu kèm `remainingSeconds` tính toán thực tế.
-- **PUT `/api/v1/portal/quiz/attempts/:attemptId/progress` (Save Progress):**
-  + Kiểm tra quyền sở hữu và trạng thái `IN_PROGRESS`.
-  + Chặn lưu khi attempt đã hết hạn (`EXPIRED` -> 400).
-  + Kiểm tra câu hỏi thuộc đúng attempt và chỉ số phương án chọn nằm trong phạm vi mảng options hợp lệ.
-  + Lưu trực tiếp vào PostgreSQL qua `update` `QuizConfigAttemptAnswer`, loại trừ hoàn toàn việc tạo câu trả lời trùng lặp.
-
-### 3. GIAO DIỆN PHÒNG THI PORTAL (FRONTEND IMPLEMENTATION)
-- Đường dẫn: `apps/web/src/app/(portal)/portal/quiz/page.tsx`
-- **Tính năng nổi bật:**
-  + Nút "Vào làm bài thi" tích hợp trên từng thẻ bài thi.
-  + Phòng thi độc lập (Exam Room View) với thanh công cụ ghim cố định (Sticky Header).
-  + Đồng hồ đếm ngược thời gian thực, tự động nhấp nháy cảnh báo khi còn dưới 2 phút.
-  + Bảng chọn câu hỏi nhanh (Question Palette Grid) đánh dấu trực quan câu Đã trả lời / Chưa trả lời và cho phép nhảy đến bất kỳ câu hỏi nào.
-  + Tự động lưu (Auto-save) sau mỗi thao tác chọn đáp án kèm nhãn phản hồi: "Đang lưu...", "Đã lưu lúc HH:mm:ss", "Lỗi lưu".
-  + Khóa toàn bộ tương tác và hiển thị thông báo "Hết thời gian làm bài" khi timer đếm về 0.
-  + Khôi phục trạng thái hoàn hảo khi sinh viên tải lại (reload) trang.
-
-### 4. BẰNG CHỨNG KIỂM THỬ THỰC TẾ TRÊN POSTGRESQL (49/49 TESTS PASS)
-Tất cả 4 bộ test tích hợp chạy độc lập tuần tự trên cơ sở dữ liệu PostgreSQL thực tế:
-1. **M7.3 Quiz Attempt Suite (`quiz-attempt.integration.spec.ts`):** 14/14 tests PASS (31.38s).
-   - Test 1-2: Security (401 unauthenticated, 403 PARENT).
-   - Test 3: Lifecycle Guard (404 DRAFT, ARCHIVED, Soft-deleted).
-   - Test 4: Event Eligibility Guard (403 unregistered).
-   - Test 5: Server-side timer & Zero-leak.
-   - Test 6: Idempotent resume IN_PROGRESS.
-   - Test 7: Shuffling stability across reload & resume.
-   - Test 8: Real-time PostgreSQL save & deduplication.
-   - Test 9: Validation error (invalid question / out-of-range option index).
-   - Test 10: IDOR protection (403 for unauthorized student).
-   - Test 11: Server-side expiry transition & save rejection.
-   - Test 12: Max attempts enforcement (reject 3rd attempt when max=2).
-   - Test 13: Concurrency advisory lock race-condition guard.
-   - Test 14: Regression guard for M7.2 delivery and M7.1 config.
-2. **M7.2 Quiz Delivery Suite (`quiz-delivery.integration.spec.ts`):** 10/10 tests PASS (33.05s).
-3. **M7.1 Quiz Configuration Suite (`quiz-config.integration.spec.ts`):** 13/13 tests PASS (34.88s).
-4. **M6 Question Bank Management Suite (`question-bank.integration.spec.ts`):** 12/12 tests PASS (30.52s).
-
-### 5. KẾT QUẢ QUALITY GATES TOÀN BỘ DỰ ÁN
-- `pnpm exec prisma validate`: Schema valid 100%.
-- `pnpm --filter shared build`: Exit code 0.
-- `pnpm --filter api typecheck`: Exit code 0 (0 errors).
-- `pnpm --filter web typecheck`: Exit code 0 (0 errors).
-- `pnpm --filter api lint`: Exit code 0 (0 errors, 0 warnings).
-- `pnpm --filter web lint`: Exit code 0 (0 errors, 0 warnings).
-- `pnpm --filter api test:unit`: 8 suites, 31 tests PASS (5.01s).
-- `pnpm --filter web test:unit`: 10 tests PASS (137ms).
-- `pnpm --filter web build`: 28 static/dynamic routes compiled successfully.
-
-### 6. BẢO CHỨNG PHẠM VI (SCOPE GUARD)
-- Tuyệt đối chưa triển khai tính năng nộp bài chính thức, chấm điểm tự động, tính passing score hay cộng XP (thuộc phạm vi M7.4).
-- Chưa tạo model kết quả hay lịch sử điểm thi (thuộc phạm vi M7.5).
-
-
+## 6. BẢO VỆ PHẠM VI & TÌNH TRẠNG GIT
+- **Scope Guard:**
+  - Không sửa đổi hoặc làm hồi quy các module M1–M7.2.
+  - Tuyệt đối chưa triển khai submit bài thi, scoring, passingScore hay cộng XP (thuộc phạm vi M7.4).
+  - Chưa tạo model kết quả hay lịch sử điểm thi (thuộc phạm vi M7.5).
+- **Git Working Tree:** Sạch hoàn toàn, không có uncommitted changes.
+- **Git Branch:** `fix/m4-acceptance-blockers`.

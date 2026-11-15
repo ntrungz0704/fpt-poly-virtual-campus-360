@@ -29,6 +29,11 @@ import {
   Textarea,
 } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import {
+  fetchAdminTourNodes,
+  saveTourStudioBatch,
+  publishTourScenes,
+} from "@/lib/admin/tour-admin-api";
 
 function getInitialScenes(): TourSceneItem[] {
   if (typeof window === "undefined") return TOUR_SCENES;
@@ -54,22 +59,105 @@ export default function AdminVirtualTourPage() {
   );
   const [cameraAngles, setCameraAngles] = useState({ yaw: 0, pitch: 2, fov: 68 });
   const [toast, setToast] = useState({ open: false, message: "" });
+  const [isSaving, setIsSaving] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   const stageRef = useRef<PanoramaStageHandle>(null);
 
-  const handleSaveTourConfiguration = () => {
+  // Load latest tour nodes from backend database on mount
+  React.useEffect(() => {
+    let mounted = true;
+    fetchAdminTourNodes()
+      .then((nodes) => {
+        if (mounted && nodes && nodes.length > 0) {
+          setScenes((prevScenes) =>
+            prevScenes.map((scene) => {
+              const matchedNode = nodes.find((n) => n.slug === scene.id);
+              if (!matchedNode) return scene;
+              return {
+                ...scene,
+                name: matchedNode.title,
+                intro: matchedNode.intro,
+                initialView: {
+                  ...scene.initialView,
+                  yaw: matchedNode.initialYaw,
+                  pitch: matchedNode.initialPitch,
+                  fov: matchedNode.initialFov || scene.initialView.fov,
+                },
+                hotspots:
+                  matchedNode.hotspots && matchedNode.hotspots.length > 0
+                    ? matchedNode.hotspots.map((h) => ({
+                        id: h.id,
+                        label: h.title,
+                        yaw: h.yaw,
+                        pitch: h.pitch,
+                        type: h.hotspotType === "SCENE_LINK" ? ("scene" as const) : ("info" as const),
+                        infoText: h.body ?? undefined,
+                      }))
+                    : scene.hotspots,
+              };
+            })
+          );
+        }
+      })
+      .catch(() => {
+        // Fallback to initial scenes when backend is unreachable
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleSaveTourConfiguration = async () => {
+    setIsSaving(true);
     try {
-      localStorage.setItem("vc_admin_tour_scenes", JSON.stringify(scenes));
+      // 1. Try to persist directly to PostgreSQL via Admin Tour API
+      const res = await saveTourStudioBatch(scenes);
       setToast({
         open: true,
-        message:
-          "Đã lưu bản nháp Tour 360° & Hotspot vào bộ nhớ trình duyệt (Local Draft). Lưu ý: Đây là bản nháp trên thiết bị này, chưa đồng bộ lên cơ sở dữ liệu.",
+        message: `Đã lưu thành công ${res.savedCount} cảnh 360° & Hotspot trực tiếp vào Cơ sở dữ liệu PostgreSQL!`,
       });
+      // Also cache in localStorage as safety backup
+      try {
+        localStorage.setItem("vc_admin_tour_scenes", JSON.stringify(scenes));
+      } catch {
+        // Ignore storage quota
+      }
     } catch {
+      // 2. Fallback to browser local draft if backend API is offline
+      try {
+        localStorage.setItem("vc_admin_tour_scenes", JSON.stringify(scenes));
+        setToast({
+          open: true,
+          message:
+            "Không thể kết nối máy chủ API. Đã lưu bản nháp Tour 360° & Hotspot vào bộ nhớ trình duyệt cục bộ.",
+        });
+      } catch {
+        setToast({
+          open: true,
+          message: "Không thể lưu cấu hình tour.",
+        });
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handlePublishTour = async () => {
+    setIsPublishing(true);
+    try {
+      const res = await publishTourScenes();
       setToast({
         open: true,
-        message: "Không thể lưu vào bộ nhớ cục bộ.",
+        message: res.message || "Đã xuất bản thành công toàn bộ cảnh 360° lên cổng công khai Virtual Campus!",
       });
+    } catch (err) {
+      setToast({
+        open: true,
+        message: `Lỗi xuất bản: ${err instanceof Error ? err.message : "Thất bại"}`,
+      });
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -215,10 +303,21 @@ export default function AdminVirtualTourPage() {
             variant="primary"
             size="md"
             icon="save"
+            loading={isSaving}
             onClick={handleSaveTourConfiguration}
             data-testid="save-tour-btn"
           >
-            Lưu bản nháp Tour 360°
+            Lưu vào CSDL
+          </Button>
+          <Button
+            variant="secondary"
+            size="md"
+            icon="rocket_launch"
+            loading={isPublishing}
+            onClick={handlePublishTour}
+            data-testid="publish-tour-btn"
+          >
+            Xuất bản Tour
           </Button>
         </div>
       </div>

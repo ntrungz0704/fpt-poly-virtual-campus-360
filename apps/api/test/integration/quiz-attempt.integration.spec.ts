@@ -837,7 +837,7 @@ describe("Quiz Attempt Integration Suite (M7.3)", () => {
   // Test 16: B01-T03: Deterministic Lock Contention - Save started before expiry waits on lock, acquires after expiry, gets rejected (400)
   // ============================================================================
   it("Test 16 [B01-T03 Deterministic Lock Contention]: Save request in-flight before expiry is held by row lock until past expiresAt, then rejected (400) and committed as EXPIRED", async () => {
-    // 1. Create an attempt whose expiresAt is 600ms in the future
+    // 1. Create an attempt whose expiresAt is 1200ms in the future (sufficient margin for lock setup and polling)
     const expiringAttempt = await prisma.quizConfigAttempt.create({
       data: {
         userId: studentUser.id,
@@ -845,7 +845,7 @@ describe("Quiz Attempt Integration Suite (M7.3)", () => {
         attemptNumber: 16,
         status: "IN_PROGRESS",
         startedAt: new Date(),
-        expiresAt: new Date(Date.now() + 600), // Expires in 600ms
+        expiresAt: new Date(Date.now() + 1200), // Expires in 1200ms
       },
     });
 
@@ -864,77 +864,124 @@ describe("Quiz Attempt Integration Suite (M7.3)", () => {
     });
 
     // 2. Open an independent Prisma transaction to acquire and hold the row lock (FOR UPDATE)
-    let releaseHoldingLock: () => void;
+    let releaseHoldingLock!: () => void;
     const lockWaitPromise = new Promise<void>((resolve) => {
       releaseHoldingLock = resolve;
     });
 
-    let lockAcquiredSignal: () => void;
+    let lockAcquiredSignal!: () => void;
     const lockAcquiredPromise = new Promise<void>((resolve) => {
       lockAcquiredSignal = resolve;
     });
 
-    // Run the holding transaction in background
+    // Run the holding transaction in background using $queryRaw as requested by Tech Lead
     const holdingTxPromise = prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT id FROM quiz_config_attempts WHERE id = ${expiringAttempt.id}::uuid FOR UPDATE`;
+      await tx.$queryRaw`SELECT id FROM quiz_config_attempts WHERE id = ${expiringAttempt.id}::uuid FOR UPDATE`;
       lockAcquiredSignal(); // Signal that row lock is firmly held
       await lockWaitPromise; // Hold lock until released
     });
 
-    // Wait until holding transaction has firmly acquired the row lock
-    await lockAcquiredPromise;
+    try {
+      // Wait until holding transaction has firmly acquired the row lock
+      await lockAcquiredPromise;
 
-    // 3. Confirm that attempt is STILL VALID (now < expiresAt) at the time save request is fired
-    expect(Date.now()).toBeLessThan(expiringAttempt.expiresAt.getTime());
+      // 3. Confirm that attempt is STILL VALID (now < expiresAt) at the time save request is fired
+      expect(Date.now()).toBeLessThan(expiringAttempt.expiresAt.getTime());
 
-    // Fire the save request: it will immediately block waiting for the row lock held by holdingTx!
-    const saveRequestPromise = request(server)
-      .put(`/api/v1/portal/quiz/attempts/${expiringAttempt.id}/progress`)
-      .set("Authorization", `Bearer ${studentToken}`)
-      .send({
-        answers: [
-          {
-            quizConfigQuestionId: quizQuestions[0].id,
-            selectedOptionIndex: 3,
+      // 4. Trigger Supertest request IMMEDIATELY via .then() so it is actively dispatched over HTTP
+      let requestCompleted = false;
+
+      const inFlightSavePromise = request(server)
+        .put(`/api/v1/portal/quiz/attempts/${expiringAttempt.id}/progress`)
+        .set("Authorization", `Bearer ${studentToken}`)
+        .send({
+          answers: [
+            {
+              quizConfigQuestionId: quizQuestions[0].id,
+              selectedOptionIndex: 3,
+            },
+          ],
+        })
+        .then(
+          (res) => {
+            requestCompleted = true;
+            return res;
           },
-        ],
+          (err: unknown) => {
+            requestCompleted = true;
+            throw err;
+          },
+        );
+
+      // 5. Poll pg_stat_activity to prove the request has reached PostgreSQL and is waiting on row lock (wait_event_type = 'Lock')
+      let lockWaitingDetected = false;
+      const pollStart = Date.now();
+
+      while (Date.now() - pollStart < 3000) {
+        const waitingRows = await prisma.$queryRaw<
+          Array<{ pid: number; wait_event_type: string | null; wait_event: string | null; query: string | null }>
+        >`
+          SELECT pid, wait_event_type, wait_event, query
+          FROM pg_stat_activity
+          WHERE wait_event_type = 'Lock'
+            AND query ILIKE '%quiz_config_attempts%'
+            AND query ILIKE '%FOR UPDATE%'
+        `;
+
+        if (waitingRows.length > 0) {
+          lockWaitingDetected = true;
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 20));
+      }
+
+      // Assert that PostgreSQL row lock contention was detected
+      expect(lockWaitingDetected).toBe(true);
+      // Assert that the request is STILL in-flight (blocked on lock)
+      expect(requestCompleted).toBe(false);
+      // Assert that this lock contention was detected BEFORE the attempt expired!
+      expect(Date.now()).toBeLessThan(expiringAttempt.expiresAt.getTime());
+
+      // 6. Only after proving request is waiting on lock, wait until expiresAt has passed deterministically
+      while (Date.now() <= expiringAttempt.expiresAt.getTime() + 100) {
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      expect(Date.now()).toBeGreaterThan(expiringAttempt.expiresAt.getTime());
+      // Crucial: Request must STILL be waiting on lock (not completed prematurely)
+      expect(requestCompleted).toBe(false);
+
+      // 7. Release the holding lock!
+      releaseHoldingLock();
+      await holdingTxPromise;
+
+      // 8. Save request unblocks, acquires row lock, re-checks now >= expiresAt under lock, returns 400!
+      const saveRes = await inFlightSavePromise;
+      expect(requestCompleted).toBe(true);
+      expect(saveRes.status).toBe(400);
+      const msg = saveRes.body.error?.message || saveRes.body.message || "";
+      expect(msg).toContain("hết thời gian");
+
+      // 9. Verify in PostgreSQL: status was COMMITTED as EXPIRED
+      const postCheckAttempt = await prisma.quizConfigAttempt.findUniqueOrThrow({
+        where: { id: expiringAttempt.id },
       });
+      expect(postCheckAttempt.status).toBe("EXPIRED");
 
-    // 4. Wait until expiresAt has passed deterministically
-    const remainingToExpiry = expiringAttempt.expiresAt.getTime() - Date.now();
-    if (remainingToExpiry > 0) {
-      await new Promise((r) => setTimeout(r, remainingToExpiry + 150));
-    } else {
-      await new Promise((r) => setTimeout(r, 150));
-    }
-    expect(Date.now()).toBeGreaterThan(expiringAttempt.expiresAt.getTime());
-
-    // 5. Release the holding lock!
-    releaseHoldingLock!();
-    await holdingTxPromise;
-
-    // 6. Save request unblocks, acquires row lock, re-checks now >= expiresAt under lock, returns 400!
-    const saveRes = await saveRequestPromise;
-    expect(saveRes.status).toBe(400);
-    const msg = saveRes.body.error?.message || saveRes.body.message || "";
-    expect(msg).toContain("hết thời gian");
-
-    // 7. Verify in PostgreSQL: status was COMMITTED as EXPIRED
-    const postCheckAttempt = await prisma.quizConfigAttempt.findUniqueOrThrow({
-      where: { id: expiringAttempt.id },
-    });
-    expect(postCheckAttempt.status).toBe("EXPIRED");
-
-    // 8. Verify answer was NOT written (remains null)
-    const postCheckAnswer = await prisma.quizConfigAttemptAnswer.findUniqueOrThrow({
-      where: {
-        attemptId_quizConfigQuestionId: {
-          attemptId: expiringAttempt.id,
-          quizConfigQuestionId: quizQuestions[0].id,
+      // 10. Verify answer was NOT written (remains null)
+      const postCheckAnswer = await prisma.quizConfigAttemptAnswer.findUniqueOrThrow({
+        where: {
+          attemptId_quizConfigQuestionId: {
+            attemptId: expiringAttempt.id,
+            quizConfigQuestionId: quizQuestions[0].id,
+          },
         },
-      },
-    });
-    expect(postCheckAnswer.selectedOptionIndex).toBeNull();
+      });
+      expect(postCheckAnswer.selectedOptionIndex).toBeNull();
+    } finally {
+      // Ensure holding lock is always released even if assertions fail, preventing test hangs
+      releaseHoldingLock?.();
+      await holdingTxPromise.catch(() => {});
+    }
   });
 
   // ============================================================================

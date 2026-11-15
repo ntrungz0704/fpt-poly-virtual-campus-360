@@ -16,6 +16,7 @@ describe("Question Bank Management Integration Suite (M6)", () => {
   let ctx: ApiTestContext;
   let adminToken = "";
   let studentToken = "";
+  let tourEditorToken = "";
   let prisma: PrismaService;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let server: any;
@@ -71,6 +72,35 @@ describe("Question Bank Management Integration Suite (M6)", () => {
       pwdRequired: false,
       jti: "test-jti-student-m6-001",
     });
+
+    // 3. Create staff user with TOUR_EDITOR role (has campus:write, but NO events:write)
+    const tourEditorRole = await prisma.role.findUniqueOrThrow({
+      where: { code: "TOUR_EDITOR" },
+    });
+
+    const tourEditorUser = await prisma.user.create({
+      data: {
+        username: "tour_editor_test_m6",
+        fullName: "Biên Tập Viên Tour M6",
+        email: "tour_editor_m6@poly.edu.vn",
+        userType: "STAFF",
+        accountStatus: "ACTIVE",
+        activationStatus: "ACTIVATED",
+        provisioningMethod: "ADMIN_DIRECT",
+        passwordHash: adminLoginRes.body.data.user?.passwordHash || "some-hash",
+        userRoles: {
+          create: [{ roleId: tourEditorRole.id }],
+        },
+      },
+    });
+
+    tourEditorToken = jwtService.sign({
+      sub: tourEditorUser.id,
+      username: tourEditorUser.username,
+      roles: ["TOUR_EDITOR"],
+      pwdRequired: false,
+      jti: "test-jti-tour-editor-m6-001",
+    });
   });
 
   afterAll(async () => {
@@ -85,7 +115,8 @@ describe("Question Bank Management Integration Suite (M6)", () => {
   // --------------------------------------------------------------------------
   // 1. RBAC Security Tests
   // --------------------------------------------------------------------------
-  it("Test 1 [RBAC]: Student token cannot access Question Bank admin APIs (403 Forbidden)", async () => {
+  it("Test 1 [RBAC]: Student token and campus:write-only token cannot access Question Bank admin APIs (403 Forbidden)", async () => {
+    // 1. Student token -> 403 Forbidden
     const listRes = await request(server)
       .get("/api/v1/admin/questions")
       .set("Authorization", `Bearer ${studentToken}`)
@@ -106,7 +137,29 @@ describe("Question Bank Management Integration Suite (M6)", () => {
 
     expect(createRes.body.success).toBe(false);
 
-    // Unauthenticated request -> 401
+    // 2. M6 Remediation - Blocker 2: User with campus:write (TOUR_EDITOR) without events:write -> 403 Forbidden
+    const tourEditorRes = await request(server)
+      .get("/api/v1/admin/questions")
+      .set("Authorization", `Bearer ${tourEditorToken}`)
+      .expect(403);
+
+    expect(tourEditorRes.body.success).toBe(false);
+    expect(tourEditorRes.body.error.code).toBe("FORBIDDEN");
+
+    const tourEditorCreateRes = await request(server)
+      .post("/api/v1/admin/questions")
+      .set("Authorization", `Bearer ${tourEditorToken}`)
+      .send({
+        questionText: "Tour editor trying to add question?",
+        options: ["A", "B", "C", "D"],
+        correctIndex: 0,
+      })
+      .expect(403);
+
+    expect(tourEditorCreateRes.body.success).toBe(false);
+    expect(tourEditorCreateRes.body.error.code).toBe("FORBIDDEN");
+
+    // 3. Unauthenticated request -> 401
     await request(server).get("/api/v1/admin/questions").expect(401);
   });
 
@@ -616,5 +669,184 @@ describe("Question Bank Management Integration Suite (M6)", () => {
     const errRows = XLSX.utils.sheet_to_json<unknown[]>(errSheet, { header: 1 });
     // Header + 4 error/duplicate rows = 5 rows
     expect(errRows.length).toBe(5);
+  });
+
+  // --------------------------------------------------------------------------
+  // 13. M6 Remediation - Blocker 1: Server-Side Import Validation & Trust Boundary
+  // --------------------------------------------------------------------------
+  it("Test 13 [M6 Remediation - Blocker 1]: Enforces server-side import trust boundary, ignoring client validationStatus, validating rows, detecting DB race-condition duplicates, and recording accurate AuditLog", async () => {
+    // Scenario 1: Malicious client sends validationStatus: "VALID" on completely invalid / malformed items
+    const maliciousPayload = {
+      rows: [
+        // Malicious 1: questionText < 5 chars but client says VALID
+        {
+          rowNumber: 1,
+          questionText: "abc",
+          options: ["A", "B", "C", "D"],
+          correctIndex: 0,
+          validationStatus: "VALID",
+        },
+        // Malicious 2: missing options (< 4 options) but client says VALID
+        {
+          rowNumber: 2,
+          questionText: "Nội dung câu hỏi này dài hơn 5 ký tự",
+          options: ["Phương án A", "Phương án B"],
+          correctIndex: 0,
+          validationStatus: "VALID",
+        },
+        // Malicious 3: correctIndex = 99 but client says VALID
+        {
+          rowNumber: 3,
+          questionText: "Câu hỏi này có đáp án đúng ngoài phạm vi 0-3?",
+          options: ["A", "B", "C", "D"],
+          correctIndex: 99,
+          validationStatus: "VALID",
+        },
+        // Malicious 4: empty option item
+        {
+          rowNumber: 4,
+          questionText: "Câu hỏi này có phương án trả lời bị rỗng?",
+          options: ["A", "", "C", "D"],
+          correctIndex: 0,
+          validationStatus: "VALID",
+        },
+        // Row 5: The ONE AND ONLY truly valid row
+        {
+          rowNumber: 5,
+          questionText: "Câu hỏi duy nhất hợp lệ trong batch hỗn hợp này?",
+          options: ["Op1", "Op2", "Op3", "Op4"],
+          correctIndex: 1,
+          topic: "Bảo Mật",
+          difficulty: "HARD",
+          validationStatus: "VALID",
+        },
+        // Malicious 6: in-batch duplicate of Row 5 (must be skipped by server duplicate detection)
+        {
+          rowNumber: 6,
+          questionText: "Câu hỏi duy nhất hợp lệ trong batch hỗn hợp này?",
+          options: ["Op1", "Op2", "Op3", "Op4"],
+          correctIndex: 1,
+          validationStatus: "VALID",
+        },
+      ],
+    };
+
+    const confirmRes = await request(server)
+      .post("/api/v1/admin/questions/import/confirm")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send(maliciousPayload)
+      .expect(200);
+
+    expect(confirmRes.body.success).toBe(true);
+    // Out of 6 rows, exactly 1 valid was imported, 5 were skipped
+    expect(confirmRes.body.data.importedCount).toBe(1);
+    expect(confirmRes.body.data.skippedCount).toBe(5);
+
+    // Direct PostgreSQL verification:
+    // 1. "abc" must NOT exist
+    const dbAbc = await prisma.questionBankItem.findFirst({
+      where: { questionText: "abc", deletedAt: null },
+    });
+    expect(dbAbc).toBeNull();
+
+    // 2. "Câu hỏi này có đáp án đúng ngoài phạm vi 0-3?" must NOT exist
+    const dbIndex99 = await prisma.questionBankItem.findFirst({
+      where: {
+        questionText: "Câu hỏi này có đáp án đúng ngoài phạm vi 0-3?",
+        deletedAt: null,
+      },
+    });
+    expect(dbIndex99).toBeNull();
+
+    // 3. The valid row MUST exist with exact properties
+    const dbValidItem = await prisma.questionBankItem.findFirst({
+      where: {
+        questionText: "Câu hỏi duy nhất hợp lệ trong batch hỗn hợp này?",
+        deletedAt: null,
+      },
+    });
+    expect(dbValidItem).not.toBeNull();
+    expect(dbValidItem?.difficulty).toBe("HARD");
+    expect(dbValidItem?.topic).toBe("Bảo Mật");
+    expect(dbValidItem?.correctIndex).toBe(1);
+
+    // 4. AuditLog verification: importedCount must be 1
+    const auditRecord = await prisma.auditLog.findFirst({
+      where: {
+        action: "IMPORT_QUESTIONS",
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(auditRecord).not.toBeNull();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const diff = auditRecord?.diffJson as any;
+    expect(diff.importedCount).toBe(1);
+    expect(diff.totalReceived).toBe(6);
+
+    // Scenario 2: Race Condition — Question inserted into DB between preview and confirm
+    const raceQuestionText = "Câu hỏi bị thêm vào DB giữa preview và confirm?";
+
+    // Client prepared preview payload (simulating row was valid at preview time)
+    const racePayload = {
+      rows: [
+        {
+          rowNumber: 1,
+          questionText: raceQuestionText,
+          options: ["Opt 1", "Opt 2", "Opt 3", "Opt 4"],
+          correctIndex: 0,
+          topic: "Race Condition",
+          difficulty: "MEDIUM",
+          validationStatus: "VALID",
+        },
+      ],
+    };
+
+    // Another admin / process inserts this question directly into PostgreSQL right before confirm
+    await prisma.questionBankItem.create({
+      data: {
+        questionText: raceQuestionText,
+        optionsJson: ["Opt 1", "Opt 2", "Opt 3", "Opt 4"],
+        correctIndex: 0,
+        topic: "Race Condition",
+      },
+    });
+
+    // Now client calls confirm with the preview row
+    const raceConfirmRes = await request(server)
+      .post("/api/v1/admin/questions/import/confirm")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send(racePayload)
+      .expect(200);
+
+    // Backend must detect that it now exists in DB, and skip it!
+    expect(raceConfirmRes.body.data.importedCount).toBe(0);
+    expect(raceConfirmRes.body.data.skippedCount).toBe(1);
+
+    // Verify in PostgreSQL: still exactly ONE record exists, no duplicates created
+    const raceRecords = await prisma.questionBankItem.findMany({
+      where: { questionText: raceQuestionText, deletedAt: null },
+    });
+    expect(raceRecords.length).toBe(1);
+
+    // Scenario 3: Malicious payload with non-whitelisted properties rejected by DTO ValidationPipe (400)
+    const forbiddenPropsPayload = {
+      rows: [
+        {
+          questionText: "Câu hỏi chứa mã độc non-whitelisted?",
+          options: ["A", "B", "C", "D"],
+          correctIndex: 0,
+          evilInjectedProperty: "malicious_script",
+        },
+      ],
+    };
+
+    const forbiddenRes = await request(server)
+      .post("/api/v1/admin/questions/import/confirm")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send(forbiddenPropsPayload)
+      .expect(400);
+
+    expect(forbiddenRes.body.success).toBe(false);
+    expect(forbiddenRes.body.error.code).toBe("VALIDATION_ERROR");
   });
 });

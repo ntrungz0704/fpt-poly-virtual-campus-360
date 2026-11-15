@@ -10,7 +10,10 @@ import type {
 import { PrismaService } from "../../common/adapters/prisma.service";
 import type { AuthenticatedUser } from "../../common/decorators/auth.decorators";
 import { AuditLogService } from "../audit-log/audit-log.service";
-import type { QuestionImportConfirmDto } from "./dto/question-import.dto";
+import type {
+  QuestionImportConfirmDto,
+  QuestionImportRowItemDto,
+} from "./dto/question-import.dto";
 
 @Injectable()
 export class QuestionsImportService {
@@ -226,7 +229,7 @@ export class QuestionsImportService {
         rowNumber,
         questionText,
         options,
-        correctIndex: correctIndex ?? 0,
+        correctIndex: correctIndex ?? -1,
         explanation,
         topic: topic || "Chung",
         difficulty,
@@ -250,6 +253,108 @@ export class QuestionsImportService {
     };
   }
 
+  /**
+   * Authoritative server-side validator for a single import row at confirmation time.
+   * Completely independent of client-supplied validationStatus.
+   */
+  private validateRowForConfirm(row: QuestionImportRowItemDto): {
+    isValid: boolean;
+    sanitized?: {
+      questionText: string;
+      options: string[];
+      correctIndex: number;
+      explanation: string;
+      topic: string;
+      difficulty: QuestionDifficulty;
+      status: QuestionReviewStatus;
+      tags: string[];
+    };
+    error?: string;
+  } {
+    // 1. Validate questionText (min 5 chars, trimmed)
+    const rawText = typeof row.questionText === "string" ? row.questionText.trim() : "";
+    if (!rawText || rawText.length < 5 || rawText.length > 2000) {
+      return {
+        isValid: false,
+        error: "Nội dung câu hỏi không hợp lệ (tối thiểu 5 ký tự, tối đa 2000 ký tự).",
+      };
+    }
+
+    // 2. Validate options (must be an array of exactly 4 non-empty trimmed strings)
+    if (!Array.isArray(row.options) || row.options.length !== 4) {
+      return {
+        isValid: false,
+        error: "Cần đủ chính xác 4 phương án trả lời.",
+      };
+    }
+
+    const trimmedOptions = row.options.map((opt) => (typeof opt === "string" ? opt.trim() : ""));
+    const hasEmptyOption = trimmedOptions.some((opt) => opt.length === 0);
+    if (hasEmptyOption) {
+      return {
+        isValid: false,
+        error: "Các phương án trả lời không được để trống.",
+      };
+    }
+
+    // 3. Validate correctIndex (must be integer in 0..3)
+    if (
+      row.correctIndex === undefined ||
+      row.correctIndex === null ||
+      typeof row.correctIndex !== "number" ||
+      !Number.isInteger(row.correctIndex) ||
+      row.correctIndex < 0 ||
+      row.correctIndex > 3
+    ) {
+      return {
+        isValid: false,
+        error: "Đáp án đúng không hợp lệ. Phải là số nguyên từ 0 đến 3.",
+      };
+    }
+
+    // 4. Validate difficulty
+    const validDifficulties: QuestionDifficulty[] = ["EASY", "MEDIUM", "HARD"];
+    const difficulty: QuestionDifficulty =
+      typeof row.difficulty === "string" && validDifficulties.includes(row.difficulty as QuestionDifficulty)
+        ? (row.difficulty as QuestionDifficulty)
+        : "MEDIUM";
+
+    // 5. Validate status
+    const validStatuses: QuestionReviewStatus[] = ["DRAFT", "IN_REVIEW", "APPROVED", "REJECTED"];
+    const status: QuestionReviewStatus =
+      typeof row.status === "string" && validStatuses.includes(row.status as QuestionReviewStatus)
+        ? (row.status as QuestionReviewStatus)
+        : "APPROVED";
+
+    // 6. Topic & explanation & tags
+    const topic =
+      typeof row.topic === "string" && row.topic.trim().length > 0
+        ? row.topic.trim().slice(0, 120)
+        : "Chung";
+
+    const explanation = typeof row.explanation === "string" ? row.explanation.trim() : "";
+
+    const tags = Array.isArray(row.tags)
+      ? row.tags
+          .filter((t): t is string => typeof t === "string" && t.trim().length > 0)
+          .map((t) => t.trim())
+      : [];
+
+    return {
+      isValid: true,
+      sanitized: {
+        questionText: rawText,
+        options: trimmedOptions,
+        correctIndex: row.correctIndex,
+        explanation,
+        topic,
+        difficulty,
+        status,
+        tags,
+      },
+    };
+  }
+
   async confirmImport(
     dto: QuestionImportConfirmDto,
     user: AuthenticatedUser,
@@ -259,29 +364,79 @@ export class QuestionsImportService {
       throw new BadRequestException("Danh sách câu hỏi cần nhập trống.");
     }
 
-    const validRows = dto.rows.filter((r) => r.validationStatus === "VALID");
-    if (validRows.length === 0) {
+    // CRITICAL SECURITY FIX (M6 Remediation):
+    // Trust Boundary Protection: NEVER trust `row.validationStatus` sent by client.
+    // 1. Fetch fresh active questions from PostgreSQL at confirmation time to prevent race-condition duplicates.
+    const existingDbQuestions = await this.prisma.questionBankItem.findMany({
+      where: { deletedAt: null },
+      select: { questionText: true },
+    });
+    const dbSeenText = new Set(
+      existingDbQuestions.map((q) => q.questionText.trim().toLowerCase()),
+    );
+
+    // 2. Track duplicate within the incoming batch itself
+    const inBatchSeenText = new Set<string>();
+
+    interface ValidatedCandidate {
+      questionText: string;
+      options: string[];
+      correctIndex: number;
+      explanation: string;
+      topic: string;
+      difficulty: QuestionDifficulty;
+      status: QuestionReviewStatus;
+      tags: string[];
+    }
+
+    const trulyValidCandidates: ValidatedCandidate[] = [];
+
+    // 3. Re-validate each row independently on the server
+    for (const row of dto.rows) {
+      const validationResult = this.validateRowForConfirm(row);
+      if (!validationResult.isValid || !validationResult.sanitized) {
+        continue; // Discard invalid row
+      }
+
+      const normalizedKey = validationResult.sanitized.questionText.toLowerCase();
+
+      // Check duplicate within incoming batch
+      if (inBatchSeenText.has(normalizedKey)) {
+        continue; // Discard in-batch duplicate
+      }
+      inBatchSeenText.add(normalizedKey);
+
+      // Check duplicate with PostgreSQL at confirmation time
+      if (dbSeenText.has(normalizedKey)) {
+        continue; // Discard PostgreSQL duplicate
+      }
+      dbSeenText.add(normalizedKey);
+
+      trulyValidCandidates.push(validationResult.sanitized);
+    }
+
+    if (trulyValidCandidates.length === 0) {
       return {
         importedCount: 0,
         skippedCount: dto.rows.length,
         failedCount: 0,
-        message: "Không có dòng hợp lệ nào để nhập vào hệ thống.",
+        message: "Không có câu hỏi hợp lệ nào được nhập vào hệ thống.",
       };
     }
 
-    // Atomic transaction for data integrity
+    // 4. Commit truly valid questions within atomic Prisma transaction
     await this.prisma.$transaction(async (tx) => {
-      for (const row of validRows) {
+      for (const item of trulyValidCandidates) {
         await tx.questionBankItem.create({
           data: {
-            questionText: row.questionText.trim(),
-            optionsJson: row.options.map((o) => o.trim()),
-            correctIndex: row.correctIndex,
-            explanation: row.explanation?.trim() || "",
-            topic: row.topic?.trim() || "Chung",
-            difficulty: row.difficulty,
-            status: row.status || "APPROVED",
-            tags: row.tags || [],
+            questionText: item.questionText,
+            optionsJson: item.options,
+            correctIndex: item.correctIndex,
+            explanation: item.explanation,
+            topic: item.topic,
+            difficulty: item.difficulty,
+            status: item.status,
+            tags: item.tags,
             createdById: user.id,
           },
         });
@@ -293,26 +448,29 @@ export class QuestionsImportService {
         action: "IMPORT_QUESTIONS",
         resourceType: "QUESTION_BANK",
         diffJson: {
-          importedCount: validRows.length,
+          importedCount: trulyValidCandidates.length,
           totalReceived: dto.rows.length,
+          skippedCount: dto.rows.length - trulyValidCandidates.length,
         },
         ipAddress,
         tx,
       });
     });
 
-    const skippedCount = dto.rows.length - validRows.length;
+    const importedCount = trulyValidCandidates.length;
+    const skippedCount = dto.rows.length - importedCount;
+
     return {
-      importedCount: validRows.length,
+      importedCount,
       skippedCount,
       failedCount: 0,
-      message: `Nhập thành công ${validRows.length} câu hỏi vào Ngân hàng câu hỏi.${
+      message: `Nhập thành công ${importedCount} câu hỏi vào Ngân hàng câu hỏi.${
         skippedCount > 0 ? ` Đã bỏ qua ${skippedCount} dòng lỗi/trùng lặp.` : ""
       }`,
     };
   }
 
-  exportErrors(rows: QuestionImportPreviewRowDto[]): Buffer {
+  exportErrors(rows: QuestionImportRowItemDto[]): Buffer {
     const errorRows = rows.filter((r) => r.validationStatus !== "VALID");
     const wb = XLSX.utils.book_new();
 
@@ -331,17 +489,19 @@ export class QuestionsImportService {
         "Độ khó",
       ],
       ...errorRows.map((r) => [
-        r.rowNumber,
+        r.rowNumber ?? 0,
         r.validationStatus === "DUPLICATE" ? "Trùng lặp" : "Lỗi dữ liệu",
-        r.validationErrors.join("; "),
-        r.questionText,
-        r.options[0] || "",
-        r.options[1] || "",
-        r.options[2] || "",
-        r.options[3] || "",
-        ["A", "B", "C", "D"][r.correctIndex] || r.correctIndex,
-        r.topic,
-        r.difficulty,
+        (r.validationErrors || []).join("; "),
+        r.questionText || "",
+        (r.options && r.options[0]) || "",
+        (r.options && r.options[1]) || "",
+        (r.options && r.options[2]) || "",
+        (r.options && r.options[3]) || "",
+        r.correctIndex !== undefined && r.correctIndex >= 0 && r.correctIndex <= 3
+          ? ["A", "B", "C", "D"][r.correctIndex]
+          : r.correctIndex ?? "",
+        r.topic || "",
+        r.difficulty || "",
       ]),
     ];
 

@@ -86,3 +86,36 @@ export interface QuizConfigFilterQuery {
   status?: QuizConfigStatus;
   eventId?: string;
 }
+
+// ============================================================================
+// Milestone M7.2: Quiz Delivery Shared Contracts (Strict Allowlist / Zero Leak)
+// ============================================================================
+
+export interface PortalQuizQuestionDeliveryDto {
+  id: string;
+  sortOrder: number;
+  questionText: string;
+  options: string[];
+  topic: string;
+  difficulty: QuestionDifficulty;
+}
+
+export interface PortalQuizSummaryDto {
+  id: string;
+  title: string;
+  description: string | null;
+  eventId: string | null;
+  eventName: string | null;
+  timeLimitMinutes: number;
+  passingScore: number;
+  maxAttempts: number;
+  totalQuestions: number;
+  isShuffleQuestions: boolean;
+  isShuffleOptions: boolean;
+  publishedAt: string | null;
+}
+
+export interface PortalQuizDetailDeliveryDto extends PortalQuizSummaryDto {
+  questions: PortalQuizQuestionDeliveryDto[];
+}
+

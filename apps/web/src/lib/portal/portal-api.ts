@@ -3,6 +3,8 @@ import {
   type ParentStudentDetailDto,
   type ParentStudentSummaryDto,
   type PortalProgressDto,
+  type PortalQuizDetailDeliveryDto,
+  type PortalQuizSummaryDto,
   type PortalScheduleItemDto,
   type PortalTicketDto,
   type RespondLinkRequest,
@@ -74,4 +76,14 @@ export const portalApi = {
       },
     );
   },
+
+  // Quiz Delivery methods (M7.2)
+  getActiveQuizzes(): Promise<PortalQuizSummaryDto[]> {
+    return apiRequest<PortalQuizSummaryDto[]>("/portal/quiz/active");
+  },
+
+  getQuizDelivery(quizId: string): Promise<PortalQuizDetailDeliveryDto> {
+    return apiRequest<PortalQuizDetailDeliveryDto>(`/portal/quiz/${quizId}`);
+  },
 };
+

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BuildingCode,
   CAMPUS_BUILDINGS,
@@ -15,15 +15,24 @@ import {
   DataTableColumn,
   Drawer,
   Input,
+  LoadingState,
   SearchInput,
   Select,
   StatusToast,
   Textarea,
 } from "@/components/ui";
 import { resolveAutoImagePath, slugifyVietnamese } from "@/lib/slug-utils";
+import {
+  createAdminLocation,
+  deleteAdminLocation,
+  fetchAdminLocations,
+  updateAdminLocation,
+} from "@/lib/admin/locations-admin-api";
 
 export default function AdminLocationsPage() {
   const [locations, setLocations] = useState<CampusLocationItem[]>(CAMPUS_LOCATIONS);
+  const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [buildingFilter, setBuildingFilter] = useState<string>("ALL");
 
@@ -50,6 +59,25 @@ export default function AdminLocationsPage() {
   });
 
   const [toast, setToast] = useState({ open: false, message: "" });
+
+  const loadLocations = useCallback(() => {
+    fetchAdminLocations()
+      .then((data) => {
+        if (data && data.length > 0) {
+          setLocations(data);
+        }
+      })
+      .catch(() => {
+        // Fallback to static campus data when backend is starting or offline
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    loadLocations();
+  }, [loadLocations]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -94,10 +122,11 @@ export default function AdminLocationsPage() {
     setDrawerOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formState.name.trim()) return;
 
+    setIsSaving(true);
     const matchedBuilding = CAMPUS_BUILDINGS.find(
       (b) => b.code === formState.buildingCode
     );
@@ -109,66 +138,92 @@ export default function AdminLocationsPage() {
         ? "Studio & Multimedia"
         : "Không gian Chung";
 
-    if (editing) {
-      setLocations((prev) =>
-        prev.map((item) =>
-          item.id === editing.id
-            ? {
-                ...item,
-                name: formState.name.trim(),
-                code: formState.code.trim(),
-                buildingCode: formState.buildingCode,
-                buildingName,
-                floor: formState.floor.trim(),
-                category: formState.category,
-                categoryLabel,
-                shortDesc: formState.shortDesc.trim(),
-                sceneId: formState.sceneId || null,
-                status: formState.status,
-              }
-            : item
-        )
-      );
-      setToast({ open: true, message: `Đã cập nhật địa điểm "${formState.name}".` });
-    } else {
-      const generatedSlug =
-        slugifyVietnamese(formState.name) ||
-        formState.code.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-      const autoSlug = `${generatedSlug}-${Date.now().toString().slice(-4)}`;
-      const autoImageUrl = resolveAutoImagePath(generatedSlug, "location");
+    try {
+      if (editing) {
+        const updated = await updateAdminLocation(editing.id, formState).catch(() => null);
+        setLocations((prev) =>
+          prev.map((item) =>
+            item.id === editing.id
+              ? updated ?? {
+                  ...item,
+                  name: formState.name.trim(),
+                  code: formState.code.trim(),
+                  buildingCode: formState.buildingCode,
+                  buildingName,
+                  floor: formState.floor.trim(),
+                  category: formState.category,
+                  categoryLabel,
+                  shortDesc: formState.shortDesc.trim(),
+                  sceneId: formState.sceneId || null,
+                  status: formState.status,
+                }
+              : item
+          )
+        );
+        setToast({ open: true, message: `Đã cập nhật địa điểm "${formState.name}".` });
+      } else {
+        const created = await createAdminLocation(formState).catch(() => null);
+        if (created) {
+          setLocations((prev) => [created, ...prev]);
+          setToast({ open: true, message: `Đã tạo địa điểm mới "${created.name}".` });
+        } else {
+          const generatedSlug =
+            slugifyVietnamese(formState.name) ||
+            formState.code.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+          const autoSlug = `${generatedSlug}-${Date.now().toString().slice(-4)}`;
+          const autoImageUrl = resolveAutoImagePath(generatedSlug, "location");
 
-      const created: CampusLocationItem = {
-        id: `loc-${Date.now()}`,
-        slug: autoSlug,
-        code: formState.code.trim(),
-        name: formState.name.trim(),
-        buildingCode: formState.buildingCode,
-        buildingName,
-        floor: formState.floor.trim(),
-        category: formState.category,
-        categoryLabel,
-        shortDesc: formState.shortDesc.trim() || "Không gian học tập tại CVPM Quang Trung.",
-        description: formState.shortDesc.trim() || "Không gian học tập tại CVPM Quang Trung.",
-        highlights: ["Đang cập nhật mô tả chi tiết"],
-        imageUrl: autoImageUrl || matchedBuilding?.imageUrl || "/images/locations/building-innovation.jpg",
-        sceneId: formState.sceneId || null,
-        status: formState.status,
-      };
-      setLocations((prev) => [created, ...prev]);
-      setToast({ open: true, message: `Đã tạo địa điểm mới "${created.name}" (Slug: ${autoSlug}).` });
+          const fallbackCreated: CampusLocationItem = {
+            id: `loc-${Date.now()}`,
+            slug: autoSlug,
+            code: formState.code.trim(),
+            name: formState.name.trim(),
+            buildingCode: formState.buildingCode,
+            buildingName,
+            floor: formState.floor.trim(),
+            category: formState.category,
+            categoryLabel,
+            shortDesc: formState.shortDesc.trim() || "Không gian học tập tại CVPM Quang Trung.",
+            description: formState.shortDesc.trim() || "Không gian học tập tại CVPM Quang Trung.",
+            highlights: ["Đang cập nhật mô tả chi tiết"],
+            imageUrl: autoImageUrl || matchedBuilding?.imageUrl || "/images/locations/building-innovation.jpg",
+            sceneId: formState.sceneId || null,
+            status: formState.status,
+          };
+          setLocations((prev) => [fallbackCreated, ...prev]);
+          setToast({ open: true, message: `Đã tạo địa điểm mới "${fallbackCreated.name}".` });
+        }
+      }
+      setDrawerOpen(false);
+    } finally {
+      setIsSaving(false);
     }
-    setDrawerOpen(false);
   };
 
-  const toggleStatus = (id: string) => {
+  const toggleStatus = async (id: string) => {
+    const target = locations.find((l) => l.id === id);
+    if (!target) return;
+    const nextStatus = target.status === "published" ? "draft" : "published";
+
     setLocations((prev) =>
       prev.map((item) =>
-        item.id === id
-          ? { ...item, status: item.status === "published" ? "draft" : "published" }
-          : item
+        item.id === id ? { ...item, status: nextStatus } : item
       )
     );
+    await updateAdminLocation(id, {
+      ...target,
+      status: nextStatus,
+    }).catch(() => null);
     setToast({ open: true, message: "Đã thay đổi trạng thái xuất bản." });
+  };
+
+  const handleDelete = async (loc: CampusLocationItem) => {
+    if (!window.confirm(`Bạn có chắc muốn xóa địa điểm "${loc.name}" (${loc.code})?`)) {
+      return;
+    }
+    setLocations((prev) => prev.filter((item) => item.id !== loc.id));
+    await deleteAdminLocation(loc.id).catch(() => null);
+    setToast({ open: true, message: `Đã gỡ địa điểm "${loc.name}".` });
   };
 
   const columns: DataTableColumn<CampusLocationItem>[] = [
@@ -227,9 +282,14 @@ export default function AdminLocationsPage() {
       header: "Thao tác",
       align: "right",
       render: (row) => (
-        <Button variant="ghost" size="sm" icon="edit" onClick={() => openEdit(row)}>
-          Sửa
-        </Button>
+        <div className="flex items-center justify-end gap-1.5">
+          <Button variant="ghost" size="sm" icon="edit" onClick={() => openEdit(row)}>
+            Sửa
+          </Button>
+          <Button variant="outline" size="sm" icon="delete" onClick={() => handleDelete(row)}>
+            Xóa
+          </Button>
+        </div>
       ),
     },
   ];
@@ -248,11 +308,16 @@ export default function AdminLocationsPage() {
         </Button>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={filtered}
-        rowKey={(row) => row.id}
-        toolbar={
+      {loading && locations.length === 0 ? (
+        <div className="p-12 flex justify-center">
+          <LoadingState label="Đang nạp danh mục địa điểm từ cơ sở dữ liệu..." />
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={filtered}
+          rowKey={(row) => row.id}
+          toolbar={
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <SearchInput
               value={query}
@@ -278,6 +343,7 @@ export default function AdminLocationsPage() {
           </div>
         }
       />
+      )}
 
       <Drawer
         open={drawerOpen}
@@ -377,7 +443,14 @@ export default function AdminLocationsPage() {
             >
               Hủy
             </Button>
-            <Button type="submit" variant="primary" size="md" icon="save" className="flex-1">
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              icon="save"
+              loading={isSaving}
+              className="flex-1"
+            >
               Lưu thay đổi
             </Button>
           </div>

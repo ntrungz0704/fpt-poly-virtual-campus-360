@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BuildingCode,
-  CAMPUS_BUILDINGS,
   CampusLocationItem,
   TOUR_SCENES,
 } from "@/data/campus-data";
@@ -71,16 +70,16 @@ export default function AdminLocationsPage() {
     try {
       const [data, structData] = await Promise.all([
         fetchAdminLocations(),
-        fetchCampusStructure().catch(() => []),
+        fetchCampusStructure(),
       ]);
       setLocations(data);
-      if (structData.length > 0) setStructures(structData);
+      setStructures(structData);
       setFetchError(null);
     } catch (err) {
       const msg =
         err instanceof Error
           ? err.message
-          : "Không thể kết nối máy chủ API quản trị địa điểm.";
+          : "Không thể kết nối máy chủ API quản trị địa điểm và cấu trúc cơ sở.";
       setFetchError(msg);
     }
   }, []);
@@ -89,12 +88,12 @@ export default function AdminLocationsPage() {
     let active = true;
     Promise.all([
       fetchAdminLocations(),
-      fetchCampusStructure().catch(() => []),
+      fetchCampusStructure(),
     ])
       .then(([data, structData]) => {
         if (active) {
           setLocations(data);
-          if (structData.length > 0) setStructures(structData);
+          setStructures(structData);
           setFetchError(null);
         }
       })
@@ -103,7 +102,7 @@ export default function AdminLocationsPage() {
           const msg =
             err instanceof Error
               ? err.message
-              : "Không thể kết nối máy chủ API quản trị địa điểm.";
+              : "Không thể kết nối máy chủ API quản trị địa điểm và cấu trúc cơ sở.";
           setFetchError(msg);
         }
       })
@@ -136,11 +135,17 @@ export default function AdminLocationsPage() {
   }, [locations, query, buildingFilter]);
 
   const openCreate = () => {
+    if (structures.length === 0) {
+      setToast({
+        open: true,
+        message: "Chưa tải được danh mục tòa nhà từ PostgreSQL. Vui lòng thử lại.",
+        type: "error",
+      });
+      return;
+    }
     setEditing(null);
-    const initialBuilding: BuildingCode =
-      (structures[0]?.code as BuildingCode) || "INNOVATION";
-    const b = structures.find((s) => s.code === initialBuilding);
-    const initialFloor = b?.floors[0]?.name ?? "";
+    const initialBuilding = structures[0].code as BuildingCode;
+    const initialFloor = structures[0].floors[0]?.name ?? "";
     setFormState({
       name: "",
       code: `QTSC-${locations.length + 1}`,
@@ -155,6 +160,14 @@ export default function AdminLocationsPage() {
   };
 
   const openEdit = (loc: CampusLocationItem) => {
+    if (structures.length === 0) {
+      setToast({
+        open: true,
+        message: "Chưa tải được danh mục tòa nhà từ PostgreSQL. Vui lòng thử lại.",
+        type: "error",
+      });
+      return;
+    }
     setEditing(loc);
     setFormState({
       name: loc.name,
@@ -344,7 +357,14 @@ export default function AdminLocationsPage() {
             Cấu hình danh sách phòng học, Lab, Hội trường và liên kết sang cảnh 360° thực tế trong cơ sở dữ liệu.
           </p>
         </div>
-        <Button variant="primary" size="md" icon="add" onClick={openCreate}>
+        <Button
+          variant="primary"
+          size="md"
+          icon="add"
+          onClick={openCreate}
+          disabled={structures.length === 0}
+          title={structures.length === 0 ? "Chưa tải được danh mục tòa nhà từ PostgreSQL" : undefined}
+        >
           Thêm địa điểm
         </Button>
       </div>
@@ -380,7 +400,7 @@ export default function AdminLocationsPage() {
                 className="w-full sm:w-60"
               >
                 <option value="ALL">Tất cả tòa nhà</option>
-                {CAMPUS_BUILDINGS.map((b) => (
+                {structures.map((b) => (
                   <option key={b.code} value={b.code}>
                     {b.name}
                   </option>
@@ -436,17 +456,11 @@ export default function AdminLocationsPage() {
             value={formState.buildingCode}
             onChange={(e) => handleBuildingChange(e.target.value as BuildingCode)}
           >
-            {structures.length > 0
-              ? structures.map((b) => (
-                  <option key={b.code} value={b.code}>
-                    {b.name}
-                  </option>
-                ))
-              : CAMPUS_BUILDINGS.map((b) => (
-                  <option key={b.code} value={b.code}>
-                    {b.name}
-                  </option>
-                ))}
+            {structures.map((b) => (
+              <option key={b.code} value={b.code}>
+                {b.name}
+              </option>
+            ))}
           </Select>
           <Select
             label="Phân loại"

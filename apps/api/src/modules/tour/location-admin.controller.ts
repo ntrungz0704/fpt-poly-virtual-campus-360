@@ -28,6 +28,12 @@ export class LocationAdminController {
     return this.locationAdminService.listLocations();
   }
 
+  @Get("structure")
+  @RequirePermissions("tour:write")
+  getCampusStructure() {
+    return this.locationAdminService.getCampusStructure();
+  }
+
   @Post()
   @RequirePermissions("tour:write")
   createLocation(

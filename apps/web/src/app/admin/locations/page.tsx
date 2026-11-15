@@ -22,34 +22,17 @@ import {
   Textarea,
 } from "@/components/ui";
 import {
+  type BuildingStructureItem,
   createAdminLocation,
   deleteAdminLocation,
   fetchAdminLocations,
+  fetchCampusStructure,
   updateAdminLocation,
 } from "@/lib/admin/locations-admin-api";
 
-const BUILDING_FLOOR_OPTIONS: Record<BuildingCode, Array<{ code: string; label: string }>> = {
-  INNOVATION: [
-    { code: "Tầng Trệt", label: "Tầng Trệt" },
-    { code: "Tầng 1 — Hội trường Đa năng", label: "Tầng 1 — Hội trường Đa năng" },
-    { code: "Tầng 2 — Thư viện Số & Co-working", label: "Tầng 2 — Thư viện Số & Co-working" },
-  ],
-  "TOA-T": [
-    { code: "Tầng 3 — Cụm Phòng Lab CNTT", label: "Tầng 3 — Cụm Phòng Lab CNTT" },
-  ],
-  "TOA-F": [
-    { code: "Tầng 4 — Studio Đồ họa iMac", label: "Tầng 4 — Studio Đồ họa iMac" },
-  ],
-  "TOA-P": [
-    { code: "Tầng 1 — Khu Giảng đường Mở rộng", label: "Tầng 1 — Khu Giảng đường Mở rộng" },
-  ],
-  SPORTS: [
-    { code: "Khu vực ngoài trời", label: "Khu vực ngoài trời" },
-  ],
-};
-
 export default function AdminLocationsPage() {
   const [locations, setLocations] = useState<CampusLocationItem[]>([]);
+  const [structures, setStructures] = useState<BuildingStructureItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -86,8 +69,12 @@ export default function AdminLocationsPage() {
 
   const refreshLocations = useCallback(async () => {
     try {
-      const data = await fetchAdminLocations();
+      const [data, structData] = await Promise.all([
+        fetchAdminLocations(),
+        fetchCampusStructure().catch(() => []),
+      ]);
       setLocations(data);
+      if (structData.length > 0) setStructures(structData);
       setFetchError(null);
     } catch (err) {
       const msg =
@@ -100,10 +87,14 @@ export default function AdminLocationsPage() {
 
   useEffect(() => {
     let active = true;
-    fetchAdminLocations()
-      .then((data) => {
+    Promise.all([
+      fetchAdminLocations(),
+      fetchCampusStructure().catch(() => []),
+    ])
+      .then(([data, structData]) => {
         if (active) {
           setLocations(data);
+          if (structData.length > 0) setStructures(structData);
           setFetchError(null);
         }
       })
@@ -125,6 +116,12 @@ export default function AdminLocationsPage() {
     };
   }, []);
 
+  const currentBuildingFloors = useMemo(() => {
+    const b = structures.find((s) => s.code === formState.buildingCode);
+    if (!b || b.floors.length === 0) return [];
+    return b.floors.map((f) => ({ code: f.name, label: f.name }));
+  }, [structures, formState.buildingCode]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return locations.filter((loc) => {
@@ -140,8 +137,10 @@ export default function AdminLocationsPage() {
 
   const openCreate = () => {
     setEditing(null);
-    const initialBuilding: BuildingCode = "INNOVATION";
-    const initialFloor = BUILDING_FLOOR_OPTIONS[initialBuilding][0]?.code ?? "Tầng Trệt";
+    const initialBuilding: BuildingCode =
+      (structures[0]?.code as BuildingCode) || "INNOVATION";
+    const b = structures.find((s) => s.code === initialBuilding);
+    const initialFloor = b?.floors[0]?.name ?? "";
     setFormState({
       name: "",
       code: `QTSC-${locations.length + 1}`,
@@ -171,12 +170,12 @@ export default function AdminLocationsPage() {
   };
 
   const handleBuildingChange = (newBuildingCode: BuildingCode) => {
-    const validFloors = BUILDING_FLOOR_OPTIONS[newBuildingCode] ?? [];
-    const newFloor = validFloors[0]?.code ?? "";
+    const b = structures.find((s) => s.code === newBuildingCode);
+    const firstFloor = b?.floors[0]?.name ?? "";
     setFormState((s) => ({
       ...s,
       buildingCode: newBuildingCode,
-      floor: newFloor,
+      floor: firstFloor,
     }));
   };
 
@@ -418,11 +417,18 @@ export default function AdminLocationsPage() {
               value={formState.floor}
               onChange={(e) => setFormState((s) => ({ ...s, floor: e.target.value }))}
             >
-              {(BUILDING_FLOOR_OPTIONS[formState.buildingCode] ?? []).map((fl) => (
-                <option key={fl.code} value={fl.code}>
-                  {fl.label}
-                </option>
-              ))}
+              {currentBuildingFloors.length > 0 ? (
+                <>
+                  <option value="">-- Không gắn tầng (Ngoài trời / Độc lập) --</option>
+                  {currentBuildingFloors.map((fl) => (
+                    <option key={fl.code} value={fl.code}>
+                      {fl.label}
+                    </option>
+                  ))}
+                </>
+              ) : (
+                <option value="">Tòa nhà không phân tầng</option>
+              )}
             </Select>
           </div>
           <Select
@@ -430,11 +436,17 @@ export default function AdminLocationsPage() {
             value={formState.buildingCode}
             onChange={(e) => handleBuildingChange(e.target.value as BuildingCode)}
           >
-            {CAMPUS_BUILDINGS.map((b) => (
-              <option key={b.code} value={b.code}>
-                {b.name}
-              </option>
-            ))}
+            {structures.length > 0
+              ? structures.map((b) => (
+                  <option key={b.code} value={b.code}>
+                    {b.name}
+                  </option>
+                ))
+              : CAMPUS_BUILDINGS.map((b) => (
+                  <option key={b.code} value={b.code}>
+                    {b.name}
+                  </option>
+                ))}
           </Select>
           <Select
             label="Phân loại"

@@ -127,16 +127,11 @@ export class LocationAdminService {
         },
       });
       if (!floorRecord) {
-        const floorCountInBuilding = await this.prisma.floor.count({
-          where: { buildingId: building.id, deletedAt: null },
-        });
-        if (floorCountInBuilding > 0) {
-          throw new BadRequestException(
-            `Tầng "${dto.floor}" không thuộc tòa nhà "${building.name}".`,
-          );
-        }
+        throw new BadRequestException(
+          `Tầng "${dto.floor}" không tồn tại hoặc không thuộc tòa nhà "${building.name}".`,
+        );
       }
-      floorId = floorRecord ? floorRecord.id : null;
+      floorId = floorRecord.id;
     }
 
     // 4. Strict category & locationType resolution
@@ -295,6 +290,12 @@ export class LocationAdminService {
 
     // 3. Strict floor resolution
     let floorId: string | null = existing.floorId;
+
+    // If building changed and no floor provided, reset floorId to null (cannot inherit old building's floor)
+    if (building.id !== existing.buildingId && dto.floor === undefined) {
+      floorId = null;
+    }
+
     if (dto.floor !== undefined) {
       if (dto.floor && dto.floor.trim()) {
         const normalizedFloor = dto.floor.trim();
@@ -310,16 +311,11 @@ export class LocationAdminService {
           },
         });
         if (!floorRecord) {
-          const floorCountInBuilding = await this.prisma.floor.count({
-            where: { buildingId: building.id, deletedAt: null },
-          });
-          if (floorCountInBuilding > 0) {
-            throw new BadRequestException(
-              `Tầng "${dto.floor}" không thuộc tòa nhà "${building.name}".`,
-            );
-          }
+          throw new BadRequestException(
+            `Tầng "${dto.floor}" không tồn tại hoặc không thuộc tòa nhà "${building.name}".`,
+          );
         }
-        floorId = floorRecord ? floorRecord.id : null;
+        floorId = floorRecord.id;
       } else {
         floorId = null;
       }
@@ -431,6 +427,36 @@ export class LocationAdminService {
       sceneId: updated.primaryNode?.slug ?? null,
       status: updated.status === PublishStatus.PUBLISHED ? "published" : "draft",
     };
+  }
+
+  async getCampusStructure(): Promise<
+    Array<{
+      code: string;
+      name: string;
+      floors: Array<{ id: string; code: string; name: string }>;
+    }>
+  > {
+    const buildings = await this.prisma.building.findMany({
+      where: { deletedAt: null },
+      orderBy: { sortOrder: "asc" },
+      include: {
+        floors: {
+          where: { deletedAt: null },
+          orderBy: { levelIndex: "asc" },
+          select: { id: true, code: true, name: true },
+        },
+      },
+    });
+
+    return buildings.map((b) => ({
+      code: b.code,
+      name: b.name,
+      floors: b.floors.map((f) => ({
+        id: f.id,
+        code: f.code,
+        name: f.name,
+      })),
+    }));
   }
 
   async deleteLocation(

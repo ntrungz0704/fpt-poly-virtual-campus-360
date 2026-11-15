@@ -133,15 +133,32 @@ describe("GIS & Locations Admin CRUD Integration Suite (Module 4)", () => {
     expect(res.body.error.message).toContain("không tồn tại");
   });
 
-  it("4. Reject invalid floor not belonging to building with 400 Bad Request", async () => {
+  it("4a. Reject real floor belonging to ANOTHER building with 400 Bad Request", async () => {
+    // "Tầng Trệt" belongs to INNOVATION, not TOA-F
     const res = await request(server)
       .post("/api/v1/admin/locations")
       .set("Authorization", `Bearer ${adminToken}`)
       .send({
-        name: "Phòng Lỗi Tầng",
-        code: "ERR-FLR-01",
+        name: "Phòng Sai Tòa",
+        code: "ERR-FLR-XBLD",
         buildingCode: "TOA-F",
-        floor: "Tầng 99 Không Tồn Tại",
+        floor: "Tầng Trệt",
+        category: "common",
+      })
+      .expect(400);
+
+    expect(res.body.error.message).toContain("không thuộc tòa nhà");
+  });
+
+  it("4b. Reject invalid floor on building with no floors (SPORTS) with 400 Bad Request", async () => {
+    const res = await request(server)
+      .post("/api/v1/admin/locations")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: "Sân Bóng Lỗi Tầng",
+        code: "ERR-FLR-NOFLR",
+        buildingCode: "SPORTS",
+        floor: "Tầng 5 Không Tồn Tại",
         category: "common",
       })
       .expect(400);
@@ -222,6 +239,58 @@ describe("GIS & Locations Admin CRUD Integration Suite (Module 4)", () => {
     expect(auditUpdate).not.toBeNull();
   });
 
+  it("7b. PATCH changing buildingCode without new floor resets floorId to null", async () => {
+    // Look up real records to connect
+    const innovBuilding = await prisma.building.findFirstOrThrow({
+      where: { code: "INNOVATION", deletedAt: null },
+    });
+    const innovFloor = await prisma.floor.findFirstOrThrow({
+      where: { buildingId: innovBuilding.id, deletedAt: null },
+    });
+    const classType = await prisma.locationType.findFirstOrThrow({
+      where: { code: "CLASSROOM" },
+    });
+
+    // Create a location with a floor in INNOVATION
+    const created = await prisma.location.create({
+      data: {
+        code: "LOC-TEST-XBLD",
+        name: "Phòng Thử Đổi Tòa Nhà",
+        slug: "phong-thu-doi-toa-nha",
+        buildingId: innovBuilding.id,
+        floorId: innovFloor.id,
+        locationTypeId: classType.id,
+        categoryLabel: "Không gian Chung",
+        shortSummary: "Test reset floor on building change",
+        description: "Test description",
+        status: "PUBLISHED",
+      },
+    });
+
+    // PATCH to SPORTS without passing floor
+    await request(server)
+      .patch(`/api/v1/admin/locations/${created.id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: "Sân Thể Thao Mới",
+        code: "LOC-TEST-XBLD",
+        buildingCode: "SPORTS",
+        // floor is omitted
+      })
+      .expect(200);
+
+    // Verify in DB that floorId is reset to null
+    const updated = await prisma.location.findUniqueOrThrow({
+      where: { id: created.id },
+      include: { building: true },
+    });
+    expect(updated.building.code).toBe("SPORTS");
+    expect(updated.floorId).toBeNull();
+
+    // Clean up
+    await prisma.location.delete({ where: { id: created.id } });
+  });
+
   it("8. Public endpoint /api/v1/public/locations reflects the new location", async () => {
     const res = await request(server)
       .get("/api/v1/public/locations")
@@ -258,5 +327,32 @@ describe("GIS & Locations Admin CRUD Integration Suite (Module 4)", () => {
       (l: { code: string }) => l.code === "LAB-AI-M4",
     );
     expect(stillInPublic).toBe(false);
+  });
+
+  it("10. GET /api/v1/admin/locations/structure returns dynamic buildings and floors from PostgreSQL", async () => {
+    const res = await request(server)
+      .get("/api/v1/admin/locations/structure")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+
+    const structures = res.body.data;
+    expect(Array.isArray(structures)).toBe(true);
+    expect(structures.length).toBeGreaterThanOrEqual(4);
+
+    const innovation = structures.find((s: { code: string }) => s.code === "INNOVATION");
+    expect(innovation).toBeDefined();
+    expect(innovation.floors.length).toBeGreaterThanOrEqual(2);
+    expect(innovation.floors[0]).toHaveProperty("name");
+  });
+
+  it("11. API rejects unauthorized requests (no token returns 401)", async () => {
+    await request(server)
+      .get("/api/v1/admin/locations")
+      .expect(401);
+
+    await request(server)
+      .post("/api/v1/admin/locations")
+      .send({ name: "Hacker Room", code: "HACK", buildingCode: "INNOVATION" })
+      .expect(401);
   });
 });

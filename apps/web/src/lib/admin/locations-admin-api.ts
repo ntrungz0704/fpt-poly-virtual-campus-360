@@ -52,6 +52,22 @@ export async function updateAdminLocation(
   );
 }
 
+export interface BuildingStructureItem {
+  code: string;
+  name: string;
+  floors: Array<{ id: string; code: string; name: string }>;
+}
+
+/**
+ * Fetch dynamic building and floor structure from PostgreSQL.
+ * GET /api/v1/admin/locations/structure
+ */
+export async function fetchCampusStructure(): Promise<BuildingStructureItem[]> {
+  return apiRequest<BuildingStructureItem[]>("/admin/locations/structure", {
+    auth: true,
+  });
+}
+
 /**
  * Soft delete a location in PostgreSQL.
  * DELETE /api/v1/admin/locations/:id

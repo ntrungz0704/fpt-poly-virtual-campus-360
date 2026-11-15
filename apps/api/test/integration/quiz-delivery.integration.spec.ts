@@ -426,24 +426,150 @@ describe("Quiz Delivery Integration Suite (M7.2)", () => {
   });
 
   // ============================================================================
-  // Test 5: Event Eligibility Enforcement
+  // Test 5: Event Eligibility Enforcement & All Participation Statuses (B01)
   // ============================================================================
-  it("Test 5 [Event Eligibility]: Student not registered for event is rejected (403)", async () => {
-    // Student 2 has NOT registered for testEventId
-    const res = await request(server)
+  it("Test 5 [Event Eligibility]: Enforces participation status across CONFIRMED, CHECKED_IN, INVITED, CANCELLED, and unregistered", async () => {
+    const jwtService = ctx.app.get(JwtService);
+
+    // 1. Student with CHECKED_IN status
+    const checkedInUser = await prisma.user.create({
+      data: {
+        username: "student_checkedin_m72",
+        fullName: "Sinh Viên Checkin M72",
+        email: "student_checkedin_m72@poly.edu.vn",
+        userType: "STUDENT",
+        accountStatus: "ACTIVE",
+        activationStatus: "ACTIVATED",
+        provisioningMethod: "BOOTSTRAP",
+        passwordHash: "some-hash",
+      },
+    });
+    const checkedInToken = jwtService.sign({
+      sub: checkedInUser.id,
+      username: checkedInUser.username,
+      roles: ["STUDENT"],
+      pwdRequired: false,
+      jti: "test-jti-checkedin",
+    });
+    await prisma.eventParticipation.create({
+      data: {
+        userId: checkedInUser.id,
+        eventId: testEventId,
+        ticketCode: "TICKET-CHECKEDIN-M72",
+        participationStatus: "CHECKED_IN",
+      },
+    });
+
+    // 2. Student with INVITED status
+    const invitedUser = await prisma.user.create({
+      data: {
+        username: "student_invited_m72",
+        fullName: "Sinh Viên Invited M72",
+        email: "student_invited_m72@poly.edu.vn",
+        userType: "STUDENT",
+        accountStatus: "ACTIVE",
+        activationStatus: "ACTIVATED",
+        provisioningMethod: "BOOTSTRAP",
+        passwordHash: "some-hash",
+      },
+    });
+    const invitedToken = jwtService.sign({
+      sub: invitedUser.id,
+      username: invitedUser.username,
+      roles: ["STUDENT"],
+      pwdRequired: false,
+      jti: "test-jti-invited",
+    });
+    await prisma.eventParticipation.create({
+      data: {
+        userId: invitedUser.id,
+        eventId: testEventId,
+        ticketCode: "TICKET-INVITED-M72",
+        participationStatus: "INVITED",
+      },
+    });
+
+    // 3. Student with CANCELLED status
+    const cancelledUser = await prisma.user.create({
+      data: {
+        username: "student_cancelled_m72",
+        fullName: "Sinh Viên Cancelled M72",
+        email: "student_cancelled_m72@poly.edu.vn",
+        userType: "STUDENT",
+        accountStatus: "ACTIVE",
+        activationStatus: "ACTIVATED",
+        provisioningMethod: "BOOTSTRAP",
+        passwordHash: "some-hash",
+      },
+    });
+    const cancelledToken = jwtService.sign({
+      sub: cancelledUser.id,
+      username: cancelledUser.username,
+      roles: ["STUDENT"],
+      pwdRequired: false,
+      jti: "test-jti-cancelled",
+    });
+    await prisma.eventParticipation.create({
+      data: {
+        userId: cancelledUser.id,
+        eventId: testEventId,
+        ticketCode: "TICKET-CANCELLED-M72",
+        participationStatus: "CANCELLED",
+      },
+    });
+
+    // --- Case 5.1: CONFIRMED student (studentToken) accesses event quiz: 200 OK
+    const confirmedRes = await request(server)
+      .get(`/api/v1/portal/quiz/${eventPublishedQuizId}`)
+      .set("Authorization", `Bearer ${studentToken}`)
+      .expect(200);
+    expect(confirmedRes.body.data.id).toBe(eventPublishedQuizId);
+
+    // --- Case 5.2: CHECKED_IN student accesses event quiz: 200 OK
+    const checkedInRes = await request(server)
+      .get(`/api/v1/portal/quiz/${eventPublishedQuizId}`)
+      .set("Authorization", `Bearer ${checkedInToken}`)
+      .expect(200);
+    expect(checkedInRes.body.data.id).toBe(eventPublishedQuizId);
+
+    // --- Case 5.3: INVITED student accesses event quiz: 200 OK (under { not: 'CANCELLED' })
+    const invitedRes = await request(server)
+      .get(`/api/v1/portal/quiz/${eventPublishedQuizId}`)
+      .set("Authorization", `Bearer ${invitedToken}`)
+      .expect(200);
+    expect(invitedRes.body.data.id).toBe(eventPublishedQuizId);
+
+    // --- Case 5.4: CANCELLED student is REJECTED (403 Forbidden) and excluded from /active
+    const cancelledRes = await request(server)
+      .get(`/api/v1/portal/quiz/${eventPublishedQuizId}`)
+      .set("Authorization", `Bearer ${cancelledToken}`)
+      .expect(403);
+    const cancelMsg = cancelledRes.body.error?.message || cancelledRes.body.message || "";
+    expect(cancelMsg).toContain("đăng ký tham gia sự kiện");
+
+    const cancelledActiveRes = await request(server)
+      .get("/api/v1/portal/quiz/active")
+      .set("Authorization", `Bearer ${cancelledToken}`)
+      .expect(200);
+    const cancelledActiveIds = (cancelledActiveRes.body.data as PortalQuizSummaryDto[]).map((q) => q.id);
+    expect(cancelledActiveIds).not.toContain(eventPublishedQuizId);
+    expect(cancelledActiveIds).toContain(generalPublishedQuizId); // Still has access to general quiz!
+
+    // --- Case 5.5: Non-registered student (student2Token) is REJECTED (403) and excluded from /active
+    const unregRes = await request(server)
       .get(`/api/v1/portal/quiz/${eventPublishedQuizId}`)
       .set("Authorization", `Bearer ${student2Token}`)
       .expect(403);
+    const unregMsg = unregRes.body.error?.message || unregRes.body.message || "";
+    expect(unregMsg).toContain("đăng ký tham gia sự kiện");
 
-    const msg = res.body.error?.message || res.body.message || "";
-    expect(msg).toContain("đăng ký tham gia sự kiện");
-
-    // Student 2 CAN access general quiz
-    const generalRes = await request(server)
-      .get(`/api/v1/portal/quiz/${generalPublishedQuizId}`)
+    const unregActiveRes = await request(server)
+      .get("/api/v1/portal/quiz/active")
       .set("Authorization", `Bearer ${student2Token}`)
       .expect(200);
-    expect(generalRes.body.data.id).toBe(generalPublishedQuizId);
+    const unregActiveIds = (unregActiveRes.body.data as PortalQuizSummaryDto[]).map((q) => q.id);
+    expect(unregActiveIds).not.toContain(eventPublishedQuizId);
+    expect(unregActiveIds).toContain(generalPublishedQuizId);
   });
 
   // ============================================================================

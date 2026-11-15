@@ -515,6 +515,7 @@ model User {
   updatedQuestions        QuestionBankItem[]           @relation("QuestionUpdatedBy")
   createdQuizConfigs      QuizConfiguration[]          @relation("QuizConfigCreatedBy")
   updatedQuizConfigs      QuizConfiguration[]          @relation("QuizConfigUpdatedBy")
+  quizConfigAttempts      QuizConfigAttempt[]          @relation("UserQuizConfigAttempts")
 
   @@map("users")
 }
@@ -992,6 +993,7 @@ model QuizConfiguration {
   createdBy User?                @relation("QuizConfigCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy User?                @relation("QuizConfigUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   questions QuizConfigQuestion[]
+  attempts  QuizConfigAttempt[]
 
   @@index([status], map: "idx_quiz_configs_status")
   @@index([eventId], map: "idx_quiz_configs_event_id")
@@ -1014,13 +1016,68 @@ model QuizConfigQuestion {
   createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  quizConfig       QuizConfiguration @relation(fields: [quizConfigId], references: [id], onDelete: Cascade)
-  questionBankItem QuestionBankItem? @relation(fields: [questionBankItemId], references: [id], onDelete: SetNull)
+  quizConfig       QuizConfiguration         @relation(fields: [quizConfigId], references: [id], onDelete: Cascade)
+  questionBankItem QuestionBankItem?         @relation(fields: [questionBankItemId], references: [id], onDelete: SetNull)
+  attemptAnswers   QuizConfigAttemptAnswer[]
 
   @@unique([quizConfigId, questionBankItemId], map: "uq_quiz_config_question_bank_item")
   @@index([quizConfigId, sortOrder], map: "idx_quiz_config_questions_order")
   @@map("quiz_config_questions")
 }
+
+// ============================================================================
+// Milestone M7.3: Quiz Attempt & Real-time Delivery Engine Domain
+// ============================================================================
+
+enum QuizAttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  EXPIRED
+}
+
+model QuizConfigAttempt {
+  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String            @map("user_id") @db.Uuid
+  quizConfigId  String            @map("quiz_config_id") @db.Uuid
+  attemptNumber Int               @map("attempt_number")
+  status        QuizAttemptStatus @default(IN_PROGRESS)
+  startedAt     DateTime          @default(now()) @map("started_at") @db.Timestamptz(6)
+  expiresAt     DateTime          @map("expires_at") @db.Timestamptz(6)
+  submittedAt   DateTime?         @map("submitted_at") @db.Timestamptz(6)
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user       User                      @relation("UserQuizConfigAttempts", fields: [userId], references: [id], onDelete: Cascade)
+  quizConfig QuizConfiguration         @relation(fields: [quizConfigId], references: [id], onDelete: Cascade)
+  answers    QuizConfigAttemptAnswer[]
+
+  @@unique([userId, quizConfigId, attemptNumber], map: "uq_quiz_config_attempt_user_quiz_number")
+  @@index([userId], map: "idx_quiz_config_attempts_user_id")
+  @@index([quizConfigId], map: "idx_quiz_config_attempts_quiz_config_id")
+  @@index([status], map: "idx_quiz_config_attempts_status")
+  @@index([expiresAt], map: "idx_quiz_config_attempts_expires_at")
+  @@map("quiz_config_attempts")
+}
+
+model QuizConfigAttemptAnswer {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId            String             @map("attempt_id") @db.Uuid
+  quizConfigQuestionId String             @map("quiz_config_question_id") @db.Uuid
+  displayedOrder       Int                @map("displayed_order")
+  optionOrderJson      Json               @map("option_order_json") @db.JsonB
+  selectedOptionIndex  Int?               @map("selected_option_index")
+  answeredAt           DateTime?          @map("answered_at") @db.Timestamptz(6)
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  attempt            QuizConfigAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  quizConfigQuestion QuizConfigQuestion @relation(fields: [quizConfigQuestionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, quizConfigQuestionId], map: "uq_quiz_config_attempt_answer_attempt_question")
+  @@index([attemptId, displayedOrder], map: "idx_quiz_config_attempt_answers_order")
+  @@map("quiz_config_attempt_answers")
+}
+
 
 
 

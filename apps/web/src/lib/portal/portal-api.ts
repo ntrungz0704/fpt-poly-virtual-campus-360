@@ -3,11 +3,15 @@ import {
   type ParentStudentDetailDto,
   type ParentStudentSummaryDto,
   type PortalProgressDto,
+  type PortalQuizAttemptDto,
   type PortalQuizDetailDeliveryDto,
   type PortalQuizSummaryDto,
   type PortalScheduleItemDto,
   type PortalTicketDto,
   type RespondLinkRequest,
+  type SaveQuizProgressDto,
+  type SaveQuizProgressItemDto,
+  type SaveQuizProgressResponseDto,
   type StudentLinkRequestItemDto,
   type StudentProfileDto,
   type UpdateStudentProfileRequest,
@@ -84,6 +88,31 @@ export const portalApi = {
 
   getQuizDelivery(quizId: string): Promise<PortalQuizDetailDeliveryDto> {
     return apiRequest<PortalQuizDetailDeliveryDto>(`/portal/quiz/${quizId}`);
+  },
+
+  // Quiz Attempt methods (M7.3)
+  startOrResumeQuizAttempt(quizConfigId: string): Promise<PortalQuizAttemptDto> {
+    return apiRequest<PortalQuizAttemptDto>(`/portal/quiz/${quizConfigId}/attempts`, {
+      method: "POST",
+    });
+  },
+
+  getQuizAttempt(attemptId: string): Promise<PortalQuizAttemptDto> {
+    return apiRequest<PortalQuizAttemptDto>(`/portal/quiz/attempts/${attemptId}`);
+  },
+
+  saveQuizProgress(
+    attemptId: string,
+    answers: SaveQuizProgressItemDto[],
+  ): Promise<SaveQuizProgressResponseDto> {
+    const payload: SaveQuizProgressDto = { answers };
+    return apiRequest<SaveQuizProgressResponseDto>(
+      `/portal/quiz/attempts/${attemptId}/progress`,
+      {
+        method: "PUT",
+        body: payload,
+      },
+    );
   },
 };
 

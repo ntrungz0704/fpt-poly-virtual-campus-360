@@ -1,14 +1,20 @@
 import {
+  Body,
   Controller,
   ForbiddenException,
   Get,
   Param,
   ParseUUIDPipe,
+  Post,
+  Put,
   UseGuards,
 } from "@nestjs/common";
 import type {
+  PortalQuizAttemptDto,
   PortalQuizDetailDeliveryDto,
   PortalQuizSummaryDto,
+  SaveQuizProgressDto,
+  SaveQuizProgressResponseDto,
 } from "@fpt-campus/shared";
 import {
   CurrentUser,
@@ -40,6 +46,42 @@ export class PortalQuizController {
     return this.portalQuizService.getActiveQuizzes(user.id);
   }
 
+  // ============================================================================
+  // M7.3: Quiz Attempt Endpoints (Đặt trước :id để tránh match nhầm route)
+  // ============================================================================
+
+  @Get("attempts/:attemptId")
+  async getAttemptById(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("attemptId", new ParseUUIDPipe()) attemptId: string,
+  ): Promise<PortalQuizAttemptDto> {
+    this.enforceStudentRole(user);
+    return this.portalQuizService.getAttemptById(user.id, attemptId);
+  }
+
+  @Put("attempts/:attemptId/progress")
+  async saveProgress(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("attemptId", new ParseUUIDPipe()) attemptId: string,
+    @Body() body: SaveQuizProgressDto,
+  ): Promise<SaveQuizProgressResponseDto> {
+    this.enforceStudentRole(user);
+    return this.portalQuizService.saveProgress(user.id, attemptId, body);
+  }
+
+  @Post(":quizConfigId/attempts")
+  async startOrResumeAttempt(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("quizConfigId", new ParseUUIDPipe()) quizConfigId: string,
+  ): Promise<PortalQuizAttemptDto> {
+    this.enforceStudentRole(user);
+    return this.portalQuizService.startOrResumeAttempt(user.id, quizConfigId);
+  }
+
+  // ============================================================================
+  // M7.2: Quiz Delivery Detail
+  // ============================================================================
+
   @Get(":id")
   async getQuizDeliveryById(
     @CurrentUser() user: AuthenticatedUser,
@@ -49,3 +91,4 @@ export class PortalQuizController {
     return this.portalQuizService.getQuizDeliveryById(user.id, quizId);
   }
 }
+

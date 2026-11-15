@@ -24,7 +24,7 @@ describe("Quiz Delivery Integration Suite (M7.2)", () => {
   let studentToken = "";
   let studentUser: { id: string; username: string | null };
   let student2Token = "";
-  let student2User: { id: string; username: string | null };
+  let _student2User: { id: string; username: string | null };
   let parentToken = "";
 
   let testEventId = "";
@@ -100,7 +100,7 @@ describe("Quiz Delivery Integration Suite (M7.2)", () => {
         passwordHash,
       },
     });
-    student2User = { id: s2.id, username: s2.username };
+    _student2User = { id: s2.id, username: s2.username };
     student2Token = jwtService.sign({
       sub: s2.id,
       username: s2.username,
@@ -660,7 +660,7 @@ describe("Quiz Delivery Integration Suite (M7.2)", () => {
       .set("Authorization", `Bearer ${studentToken}`)
       .expect(200);
 
-    const question1 = res.body.data.questions.find((q: any) => q.sortOrder === 1);
+    const question1 = res.body.data.questions.find((q: { sortOrder: number }) => q.sortOrder === 1);
     expect(question1).toBeDefined();
     // Snapshot in published quiz preserves original text!
     expect(question1.questionText).toBe("Framework nào phát triển bởi Vercel dựa trên React?");

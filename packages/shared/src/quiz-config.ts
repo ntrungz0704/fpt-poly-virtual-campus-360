@@ -119,3 +119,56 @@ export interface PortalQuizDetailDeliveryDto extends PortalQuizSummaryDto {
   questions: PortalQuizQuestionDeliveryDto[];
 }
 
+// ============================================================================
+// Milestone M7.3: Quiz Attempt Shared Contracts
+// ============================================================================
+
+export type QuizAttemptStatus = "IN_PROGRESS" | "SUBMITTED" | "EXPIRED";
+
+export interface PortalAttemptQuestionDto {
+  id: string; // quizConfigQuestionId
+  displayedOrder: number;
+  questionText: string;
+  options: string[]; // displayed options in shuffled/assigned order
+  topic: string;
+  difficulty: QuestionDifficulty;
+  selectedOptionIndex: number | null; // index according to displayed options
+}
+
+export interface PortalQuizAttemptDto {
+  id: string;
+  quizConfigId: string;
+  quizTitle: string;
+  attemptNumber: number;
+  maxAttempts: number;
+  status: QuizAttemptStatus;
+  startedAt: string;
+  expiresAt: string;
+  serverTime: string;
+  timeLimitMinutes: number;
+  remainingSeconds: number;
+  totalQuestions: number;
+  answeredQuestions: number;
+  questions: PortalAttemptQuestionDto[];
+}
+
+export interface SaveQuizProgressItemDto {
+  quizConfigQuestionId: string;
+  selectedOptionIndex: number | null;
+}
+
+export interface SaveQuizProgressDto {
+  answers: SaveQuizProgressItemDto[];
+}
+
+export interface SaveQuizProgressResponseDto {
+  attemptId: string;
+  status: QuizAttemptStatus;
+  savedCount: number;
+  answeredQuestions: number;
+  totalQuestions: number;
+  remainingSeconds: number;
+  isExpired: boolean;
+}
+
+

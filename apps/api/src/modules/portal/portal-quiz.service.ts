@@ -1,12 +1,17 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
 import type {
+  PortalAttemptQuestionDto,
+  PortalQuizAttemptDto,
   PortalQuizDetailDeliveryDto,
   PortalQuizQuestionDeliveryDto,
   PortalQuizSummaryDto,
+  SaveQuizProgressDto,
+  SaveQuizProgressResponseDto,
 } from "@fpt-campus/shared";
 import { PrismaService } from "../../common/adapters/prisma.service";
 
@@ -161,5 +166,426 @@ export class PortalQuizService {
       publishedAt: quiz.publishedAt ? quiz.publishedAt.toISOString() : null,
       questions,
     };
+  }
+
+  // ============================================================================
+  // Milestone M7.3: Quiz Attempt Engine Core Logic
+  // ============================================================================
+
+  /**
+   * Bắt đầu hoặc tiếp tục (Resume) lượt thi:
+   * - Nếu sinh viên đang có attempt IN_PROGRESS còn hạn -> Resume lại attempt đó.
+   * - Nếu attempt cũ đã quá expiresAt -> Đánh dấu EXPIRED.
+   * - Kiểm soát số lượt thi (maxAttempts) với advisory lock giao dịch chống race condition.
+   * - Xáo trộn câu hỏi và các phương án nếu cấu hình isShuffleQuestions / isShuffleOptions = true.
+   * - Lưu snapshot thứ tự hiển thị và mapping options vào PostgreSQL.
+   */
+  async startOrResumeAttempt(
+    userId: string,
+    quizConfigId: string,
+  ): Promise<PortalQuizAttemptDto> {
+    // 1. Kiểm tra cấu hình bài thi
+    const quiz = await this.prisma.quizConfiguration.findFirst({
+      where: {
+        id: quizConfigId,
+        status: "PUBLISHED",
+        deletedAt: null,
+      },
+      include: {
+        event: {
+          select: { id: true, title: true },
+        },
+      },
+    });
+
+    if (!quiz) {
+      throw new NotFoundException({
+        code: "QUIZ_NOT_FOUND",
+        message: "Bài thi không tồn tại hoặc chưa được phát hành.",
+      });
+    }
+
+    // 2. Kiểm tra điều kiện tham gia sự kiện (nếu bài thi gắn với sự kiện)
+    if (quiz.eventId) {
+      const participation = await this.prisma.eventParticipation.findFirst({
+        where: {
+          userId,
+          eventId: quiz.eventId,
+          participationStatus: { not: "CANCELLED" },
+        },
+      });
+
+      if (!participation) {
+        throw new ForbiddenException({
+          code: "FORBIDDEN_NOT_ELIGIBLE",
+          message:
+            "Bạn chưa đăng ký tham gia sự kiện tương ứng với bài thi này.",
+        });
+      }
+    }
+
+    // 3. Thực hiện tạo hoặc resume attempt trong transaction nguyên tử
+    const attemptId = await this.prisma.$transaction(async (tx) => {
+      // Khóa advisory lock theo user và quiz để chống đồng thời vượt maxAttempts
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`quiz_attempt_${userId}_${quizConfigId}`}))`;
+
+      // Kiểm tra attempt đang làm dở (IN_PROGRESS)
+      const activeAttempt = await tx.quizConfigAttempt.findFirst({
+        where: {
+          userId,
+          quizConfigId,
+          status: "IN_PROGRESS",
+        },
+      });
+
+      const now = new Date();
+      if (activeAttempt) {
+        if (now < activeAttempt.expiresAt) {
+          // Còn hạn: Resume lượt thi hiện tại
+          return activeAttempt.id;
+        }
+        // Quá hạn: Chuyển sang EXPIRED
+        await tx.quizConfigAttempt.update({
+          where: { id: activeAttempt.id },
+          data: { status: "EXPIRED" },
+        });
+      }
+
+      // Đếm số lượt đã tạo (bao gồm cả EXPIRED và SUBMITTED)
+      const existingAttemptsCount = await tx.quizConfigAttempt.count({
+        where: {
+          userId,
+          quizConfigId,
+        },
+      });
+
+      if (existingAttemptsCount >= quiz.maxAttempts) {
+        throw new BadRequestException({
+          code: "MAX_ATTEMPTS_EXCEEDED",
+          message: `Bạn đã sử dụng hết số lượt thi cho phép (${quiz.maxAttempts} lượt).`,
+        });
+      }
+
+      // Lấy danh sách câu hỏi của bài thi
+      const questions = await tx.quizConfigQuestion.findMany({
+        where: { quizConfigId },
+        orderBy: { sortOrder: "asc" },
+      });
+
+      if (questions.length === 0) {
+        throw new BadRequestException({
+          code: "QUIZ_EMPTY_QUESTIONS",
+          message: "Bài thi chưa có câu hỏi nào để bắt đầu.",
+        });
+      }
+
+      // Xáo trộn câu hỏi nếu cấu hình bật
+      let orderedQuestions = [...questions];
+      if (quiz.isShuffleQuestions) {
+        orderedQuestions = this.shuffleArray(orderedQuestions);
+      }
+
+      const startedAt = now;
+      const expiresAt = new Date(startedAt.getTime() + quiz.timeLimitMinutes * 60 * 1000);
+      const attemptNumber = existingAttemptsCount + 1;
+
+      // Tạo attempt mới
+      const newAttempt = await tx.quizConfigAttempt.create({
+        data: {
+          userId,
+          quizConfigId,
+          attemptNumber,
+          status: "IN_PROGRESS",
+          startedAt,
+          expiresAt,
+        },
+      });
+
+      // Tạo các bản ghi câu hỏi và mapping xáo trộn phương án cho attempt
+      for (let i = 0; i < orderedQuestions.length; i++) {
+        const q = orderedQuestions[i];
+        const rawOptions = Array.isArray(q.optionsJson)
+          ? (q.optionsJson as string[])
+          : typeof q.optionsJson === "string"
+            ? JSON.parse(q.optionsJson)
+            : [];
+
+        let optionOrder = rawOptions.map((_: string, idx: number) => idx);
+        if (quiz.isShuffleOptions) {
+          optionOrder = this.shuffleArray(optionOrder);
+        }
+
+        await tx.quizConfigAttemptAnswer.create({
+          data: {
+            attemptId: newAttempt.id,
+            quizConfigQuestionId: q.id,
+            displayedOrder: i + 1,
+            optionOrderJson: optionOrder,
+            selectedOptionIndex: null,
+          },
+        });
+      }
+
+      return newAttempt.id;
+    });
+
+    return this.formatAttemptDto(attemptId, userId);
+  }
+
+  /**
+   * Lấy chi tiết lượt thi theo attemptId:
+   * - Bảo vệ quyền sở hữu (chỉ đúng sinh viên sở hữu mới được xem).
+   * - Tự động cập nhật EXPIRED nếu đã quá hạn.
+   * - Zero-leak: Tuyệt đối không trả về correctIndex, explanation.
+   */
+  async getAttemptById(
+    userId: string,
+    attemptId: string,
+  ): Promise<PortalQuizAttemptDto> {
+    return this.formatAttemptDto(attemptId, userId);
+  }
+
+  /**
+   * Lưu tiến độ làm bài (Save Progress):
+   * - Chỉ cho phép lưu khi attempt IN_PROGRESS và chưa quá expiresAt.
+   * - Kiểm tra câu hỏi thuộc đúng lượt thi.
+   * - Kiểm tra chỉ số phương án trong phạm vi hợp lệ.
+   */
+  async saveProgress(
+    userId: string,
+    attemptId: string,
+    dto: SaveQuizProgressDto,
+  ): Promise<SaveQuizProgressResponseDto> {
+    const attempt = await this.prisma.quizConfigAttempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        answers: {
+          include: {
+            quizConfigQuestion: {
+              select: {
+                id: true,
+                optionsJson: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!attempt) {
+      throw new NotFoundException({
+        code: "ATTEMPT_NOT_FOUND",
+        message: "Lượt thi không tồn tại.",
+      });
+    }
+
+    if (attempt.userId !== userId) {
+      throw new ForbiddenException({
+        code: "FORBIDDEN_ATTEMPT_OWNERSHIP",
+        message: "Bạn không có quyền chỉnh sửa lượt thi của sinh viên khác.",
+      });
+    }
+
+    const now = new Date();
+    if (attempt.status !== "IN_PROGRESS" || now >= attempt.expiresAt) {
+      if (attempt.status === "IN_PROGRESS" && now >= attempt.expiresAt) {
+        await this.prisma.quizConfigAttempt.update({
+          where: { id: attempt.id },
+          data: { status: "EXPIRED" },
+        });
+      }
+      throw new BadRequestException({
+        code: "ATTEMPT_EXPIRED_OR_CLOSED",
+        message: "Lượt thi đã hết thời gian hoặc không còn hiệu lực làm bài.",
+      });
+    }
+
+    let savedCount = 0;
+    for (const item of dto.answers) {
+      const matchingAnswer = attempt.answers.find(
+        (a) => a.quizConfigQuestionId === item.quizConfigQuestionId,
+      );
+      if (!matchingAnswer) {
+        throw new BadRequestException({
+          code: "INVALID_QUESTION_IN_ATTEMPT",
+          message: `Câu hỏi ${item.quizConfigQuestionId} không thuộc lượt thi này.`,
+        });
+      }
+
+      const rawOptions = Array.isArray(matchingAnswer.quizConfigQuestion.optionsJson)
+        ? (matchingAnswer.quizConfigQuestion.optionsJson as string[])
+        : [];
+
+      if (
+        item.selectedOptionIndex !== null &&
+        (item.selectedOptionIndex < 0 || item.selectedOptionIndex >= rawOptions.length)
+      ) {
+        throw new BadRequestException({
+          code: "INVALID_OPTION_INDEX",
+          message: `Phương án chọn không hợp lệ cho câu hỏi ${item.quizConfigQuestionId}.`,
+        });
+      }
+
+      await this.prisma.quizConfigAttemptAnswer.update({
+        where: { id: matchingAnswer.id },
+        data: {
+          selectedOptionIndex: item.selectedOptionIndex,
+          answeredAt: new Date(),
+        },
+      });
+      savedCount++;
+    }
+
+    const totalQuestions = attempt.answers.length;
+    const answeredQuestions = await this.prisma.quizConfigAttemptAnswer.count({
+      where: {
+        attemptId,
+        selectedOptionIndex: { not: null },
+      },
+    });
+
+    const remainingSeconds = Math.max(
+      0,
+      Math.floor((attempt.expiresAt.getTime() - now.getTime()) / 1000),
+    );
+
+    return {
+      attemptId: attempt.id,
+      status: attempt.status,
+      savedCount,
+      answeredQuestions,
+      totalQuestions,
+      remainingSeconds,
+      isExpired: false,
+    };
+  }
+
+  /**
+   * Helper định dạng dữ liệu lượt thi an toàn (Allowlist / Zero Leak)
+   */
+  private async formatAttemptDto(
+    attemptId: string,
+    userId: string,
+  ): Promise<PortalQuizAttemptDto> {
+    const attempt = await this.prisma.quizConfigAttempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        quizConfig: {
+          select: {
+            id: true,
+            title: true,
+            timeLimitMinutes: true,
+            maxAttempts: true,
+          },
+        },
+        answers: {
+          orderBy: { displayedOrder: "asc" },
+          include: {
+            quizConfigQuestion: {
+              select: {
+                id: true,
+                questionText: true,
+                optionsJson: true,
+                topic: true,
+                difficulty: true,
+                // TUYỆT ĐỐI KHÔNG SELECT: correctIndex, explanation, questionBankItemId
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!attempt) {
+      throw new NotFoundException({
+        code: "ATTEMPT_NOT_FOUND",
+        message: "Lượt thi không tồn tại.",
+      });
+    }
+
+    if (attempt.userId !== userId) {
+      throw new ForbiddenException({
+        code: "FORBIDDEN_ATTEMPT_OWNERSHIP",
+        message: "Bạn không có quyền truy cập lượt thi của sinh viên khác.",
+      });
+    }
+
+    const now = new Date();
+    let currentStatus = attempt.status;
+    if (attempt.status === "IN_PROGRESS" && now >= attempt.expiresAt) {
+      currentStatus = "EXPIRED";
+      await this.prisma.quizConfigAttempt.update({
+        where: { id: attempt.id },
+        data: { status: "EXPIRED" },
+      });
+    }
+
+    const remainingSeconds = Math.max(
+      0,
+      Math.floor((attempt.expiresAt.getTime() - now.getTime()) / 1000),
+    );
+
+    let answeredCount = 0;
+    const questions: PortalAttemptQuestionDto[] = attempt.answers.map((ans) => {
+      if (ans.selectedOptionIndex !== null) {
+        answeredCount++;
+      }
+
+      const q = ans.quizConfigQuestion;
+      const rawOptions = Array.isArray(q.optionsJson)
+        ? (q.optionsJson as string[])
+        : typeof q.optionsJson === "string"
+          ? JSON.parse(q.optionsJson)
+          : [];
+
+      const optionOrder = Array.isArray(ans.optionOrderJson)
+        ? (ans.optionOrderJson as number[])
+        : [];
+
+      // Sắp xếp các lựa chọn theo đúng thứ tự hiển thị đã được chốt cho attempt
+      const displayedOptions =
+        optionOrder.length === rawOptions.length
+          ? optionOrder.map((origIdx) => rawOptions[origIdx])
+          : rawOptions;
+
+      return {
+        id: q.id,
+        displayedOrder: ans.displayedOrder,
+        questionText: q.questionText,
+        options: displayedOptions,
+        topic: q.topic,
+        difficulty: q.difficulty,
+        selectedOptionIndex: ans.selectedOptionIndex,
+      };
+    });
+
+    return {
+      id: attempt.id,
+      quizConfigId: attempt.quizConfigId,
+      quizTitle: attempt.quizConfig.title,
+      attemptNumber: attempt.attemptNumber,
+      maxAttempts: attempt.quizConfig.maxAttempts,
+      status: currentStatus,
+      startedAt: attempt.startedAt.toISOString(),
+      expiresAt: attempt.expiresAt.toISOString(),
+      serverTime: now.toISOString(),
+      timeLimitMinutes: attempt.quizConfig.timeLimitMinutes,
+      remainingSeconds: currentStatus === "IN_PROGRESS" ? remainingSeconds : 0,
+      totalQuestions: questions.length,
+      answeredQuestions: answeredCount,
+      questions,
+    };
+  }
+
+  /**
+   * Helper xáo trộn mảng thuật toán Fisher-Yates
+   */
+  private shuffleArray<T>(array: T[]): T[] {
+    const result = [...array];
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
   }
 }

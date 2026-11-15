@@ -1,8 +1,25 @@
 "use client";
 
 import React, { useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { TOUR_SCENES, TourHotspotItem, TourSceneItem } from "@/data/campus-data";
-import { PanoramaStage, PanoramaStageHandle } from "@/components/tour/PanoramaStage";
+import type { PanoramaStageHandle } from "@/components/tour/PanoramaStage";
+
+const PanoramaStage = dynamic(
+  () =>
+    import("@/components/tour/PanoramaStage").then(
+      (mod) => mod.PanoramaStage
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-full bg-slate-900 flex items-center justify-center text-slate-400">
+        <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin mr-3" />
+        <span>Đang tải không gian 360°...</span>
+      </div>
+    ),
+  }
+);
 import {
   Badge,
   Button,

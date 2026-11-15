@@ -3,8 +3,26 @@
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { OFFICIAL_CAMPUS_INFO, TOUR_SCENES } from "@/data/campus-data";
-import { PanoramaStage } from "@/components/tour/PanoramaStage";
+
+const PanoramaStage = dynamic(
+  () =>
+    import("@/components/tour/PanoramaStage").then(
+      (mod) => mod.PanoramaStage
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center text-slate-400">
+        <div className="w-10 h-10 border-2 border-primary-500 border-t-transparent rounded-full animate-spin mb-3" />
+        <span className="text-xs uppercase tracking-widest font-semibold text-slate-300">
+          Đang tải không gian 360°...
+        </span>
+      </div>
+    ),
+  }
+);
 
 const HERO_SCENE =
   TOUR_SCENES.find((s) => s.id === "cong-chao-qtsc") ?? TOUR_SCENES[0];

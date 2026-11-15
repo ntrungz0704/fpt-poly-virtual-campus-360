@@ -3,18 +3,22 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  HttpStatus,
   Param,
   ParseUUIDPipe,
   Post,
   Put,
+  Res,
   UseGuards,
 } from "@nestjs/common";
+import type { Response } from "express";
 import type {
   PortalQuizAttemptDto,
   PortalQuizDetailDeliveryDto,
   PortalQuizSummaryDto,
   SaveQuizProgressDto,
   SaveQuizProgressResponseDto,
+  SubmitQuizAttemptResponseDto,
 } from "@fpt-campus/shared";
 import {
   CurrentUser,
@@ -67,6 +71,24 @@ export class PortalQuizController {
   ): Promise<SaveQuizProgressResponseDto> {
     this.enforceStudentRole(user);
     return this.portalQuizService.saveProgress(user.id, attemptId, body);
+  }
+
+  // ============================================================================
+  // M7.4: Quiz Submission & Scoring Endpoint
+  // ============================================================================
+
+  @Post("attempts/:attemptId/submit")
+  async submitAttempt(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("attemptId", new ParseUUIDPipe()) attemptId: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SubmitQuizAttemptResponseDto> {
+    this.enforceStudentRole(user);
+    const result = await this.portalQuizService.submitAttempt(user.id, attemptId);
+    if (result.isRepeat) {
+      res.status(HttpStatus.OK);
+    }
+    return result.data;
   }
 
   @Post(":quizConfigId/attempts")

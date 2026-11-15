@@ -14,6 +14,7 @@ import {
   type SaveQuizProgressResponseDto,
   type StudentLinkRequestItemDto,
   type StudentProfileDto,
+  type SubmitQuizAttemptResponseDto,
   type UpdateStudentProfileRequest,
 } from "@fpt-campus/shared";
 import { apiRequest } from "../auth/api-client";
@@ -111,6 +112,15 @@ export const portalApi = {
       {
         method: "PUT",
         body: payload,
+      },
+    );
+  },
+
+  submitQuizAttempt(attemptId: string): Promise<SubmitQuizAttemptResponseDto> {
+    return apiRequest<SubmitQuizAttemptResponseDto>(
+      `/portal/quiz/attempts/${attemptId}/submit`,
+      {
+        method: "POST",
       },
     );
   },

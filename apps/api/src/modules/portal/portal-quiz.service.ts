@@ -10,8 +10,11 @@ import type {
   PortalQuizDetailDeliveryDto,
   PortalQuizQuestionDeliveryDto,
   PortalQuizSummaryDto,
+  QuizAttemptQuestionResultDto,
+  QuizAttemptStatus,
   SaveQuizProgressDto,
   SaveQuizProgressResponseDto,
+  SubmitQuizAttemptResponseDto,
 } from "@fpt-campus/shared";
 import { PrismaService } from "../../common/adapters/prisma.service";
 
@@ -489,6 +492,325 @@ export class PortalQuizService {
     }
 
     return txResult.data!;
+  }
+
+  /**
+   * Nộp bài thi (Quiz Submission & Real-time Scoring Engine) - Milestone M7.4:
+   * - Thực thi trong PostgreSQL transaction nguyên tử với khóa hàng FOR UPDATE trên attempt.
+   * - Kiểm tra quyền sở hữu IDOR và tính hợp lệ thời gian máy chủ (now < expiresAt).
+   * - Idempotency: Lượt thi đã SUBMITTED sẽ trả lại kết quả đã lưu (HTTP 200), không chấm lại và không cấp XP lần 2.
+   * - Chấm điểm 100% phía Server từ snapshot câu hỏi và ánh xạ optionOrderJson.
+   * - Công thức điểm: scorePercent = round(C / N * 100); passed = scorePercent >= passingScore.
+   * - Công thức XP: baseXp = correctCount * 10; bonusXp = passed ? 20 : 0.
+   * - Chính sách XP 1 lần duy nhất cho mỗi Quiz Configuration: bảo vệ bằng Idempotency Key unique constraint trên XpLedger.
+   * - Cập nhật trạng thái SUBMITTED cùng bảng tổng hợp điểm và XP trong 1 transaction nguyên tử duy nhất.
+   */
+  async submitAttempt(
+    userId: string,
+    attemptId: string,
+  ): Promise<{ data: SubmitQuizAttemptResponseDto; isRepeat: boolean }> {
+    const result = await this.prisma.$transaction(async (tx) => {
+      // 1. Khóa hàng bản ghi attempt
+      await tx.$queryRaw`SELECT id FROM quiz_config_attempts WHERE id = ${attemptId}::uuid FOR UPDATE`;
+
+      // 2. Tải chi tiết attempt, quizConfig, câu hỏi snapshot và câu trả lời
+      const attempt = await tx.quizConfigAttempt.findUnique({
+        where: { id: attemptId },
+        include: {
+          quizConfig: {
+            include: {
+              questions: {
+                orderBy: { sortOrder: "asc" },
+              },
+            },
+          },
+          answers: {
+            include: {
+              quizConfigQuestion: true,
+            },
+            orderBy: { displayedOrder: "asc" },
+          },
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              username: true,
+            },
+          },
+        },
+      });
+
+      if (!attempt) {
+        throw new NotFoundException({
+          code: "ATTEMPT_NOT_FOUND",
+          message: "Lượt thi không tồn tại.",
+        });
+      }
+
+      if (attempt.userId !== userId) {
+        throw new ForbiddenException({
+          code: "FORBIDDEN_ATTEMPT_OWNERSHIP",
+          message: "Bạn không có quyền nộp lượt thi của sinh viên khác.",
+        });
+      }
+
+      // Khóa advisory lock theo user và quiz để tuần tự hóa các attempt đồng thời của cùng một sinh viên
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`quiz_submit_${userId}_${attempt.quizConfigId}`}))`;
+
+      // 3. Idempotent check: Nếu attempt đã SUBMITTED, trả ngay kết quả đã lưu mà không chấm lại hay cấp XP
+      if (attempt.status === "SUBMITTED") {
+        return {
+          expired: false,
+          isRepeat: true,
+          data: this.formatSubmittedResult(attempt),
+        };
+      }
+
+      // 4. Kiểm tra thời hạn làm bài (Server-side Timer Guard)
+      const now = new Date();
+      if (attempt.status === "EXPIRED" || now >= attempt.expiresAt) {
+        if (attempt.status === "IN_PROGRESS") {
+          await tx.quizConfigAttempt.update({
+            where: { id: attempt.id },
+            data: { status: "EXPIRED" },
+          });
+        }
+        return {
+          expired: true,
+          data: null,
+        };
+      }
+
+      if (attempt.status !== "IN_PROGRESS") {
+        throw new BadRequestException({
+          code: "INVALID_ATTEMPT_STATUS",
+          message: "Lượt thi không ở trạng thái hợp lệ để nộp bài.",
+        });
+      }
+
+      // 5. Chấm điểm phía Server (Server-side Scoring)
+      const totalQuestions = attempt.answers.length;
+      let answeredCount = 0;
+      let correctCount = 0;
+      const results: QuizAttemptQuestionResultDto[] = [];
+
+      for (const ans of attempt.answers) {
+        const q = ans.quizConfigQuestion;
+        const optionOrder = Array.isArray(ans.optionOrderJson)
+          ? (ans.optionOrderJson as number[])
+          : typeof ans.optionOrderJson === "string"
+            ? JSON.parse(ans.optionOrderJson)
+            : [];
+
+        const correctDisplayedIndex = optionOrder.indexOf(q.correctIndex);
+        const selectedIdx = ans.selectedOptionIndex;
+        const isAnswered = selectedIdx !== null && selectedIdx !== undefined;
+
+        if (isAnswered) {
+          answeredCount++;
+        }
+
+        const isCorrect = isAnswered && selectedIdx === correctDisplayedIndex;
+        if (isCorrect) {
+          correctCount++;
+        }
+
+        results.push({
+          questionId: q.id,
+          selectedOptionIndex: selectedIdx,
+          correctOptionIndex: correctDisplayedIndex,
+          isCorrect,
+          explanation: q.explanation || null,
+        });
+      }
+
+      const scorePercent =
+        totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+      const passed = scorePercent >= attempt.quizConfig.passingScore;
+
+      // 6. Tính toán điểm XP và Chính sách cấp XP 1 lần duy nhất
+      const baseXp = correctCount * 10;
+      const bonusXp = passed ? 20 : 0;
+      const calculatedXp = baseXp + bonusXp;
+
+      const idempotencyKey = `quiz:first-submit:${userId}:${attempt.quizConfigId}`;
+
+      const existingXpLedger = await tx.xpLedger.findUnique({
+        where: { idempotencyKey },
+      });
+
+      let awardedXp = 0;
+      let isXpAwarded = false;
+      let xpReason = "ALREADY_AWARDED_OR_RETAKE";
+
+      if (!existingXpLedger && calculatedXp > 0) {
+        awardedXp = calculatedXp;
+        isXpAwarded = true;
+        xpReason = "FIRST_QUIZ_SUBMISSION";
+
+        await tx.xpLedger.create({
+          data: {
+            userId,
+            ticketCode: null,
+            attendeeName:
+              attempt.user.fullName || attempt.user.username || "Sinh viên",
+            amountXp: awardedXp,
+            source: "QUIZ_CONFIG_FIRST_SUBMIT",
+            referenceId: attempt.quizConfigId,
+            idempotencyKey,
+            metadataJson: {
+              attemptId: attempt.id,
+              quizConfigId: attempt.quizConfigId,
+              attemptNumber: attempt.attemptNumber,
+              totalQuestions,
+              correctCount,
+              scorePercent,
+              passed,
+              baseXp,
+              bonusXp,
+              awardedXp,
+            },
+          },
+        });
+      }
+
+      // 7. Cập nhật attempt sang SUBMITTED kèm toàn bộ dữ liệu kết quả chấm
+      const updatedAttempt = await tx.quizConfigAttempt.update({
+        where: { id: attempt.id },
+        data: {
+          status: "SUBMITTED",
+          submittedAt: now,
+          totalQuestions,
+          answeredCount,
+          correctCount,
+          scorePercent,
+          passed,
+          baseXp,
+          bonusXp,
+          awardedXp,
+        },
+      });
+
+      return {
+        expired: false,
+        isRepeat: false,
+        data: {
+          attemptId: updatedAttempt.id,
+          status: updatedAttempt.status,
+          submittedAt: updatedAttempt.submittedAt!.toISOString(),
+          summary: {
+            totalQuestions,
+            answeredCount,
+            correctCount,
+            scorePercent,
+            passingScore: attempt.quizConfig.passingScore,
+            passed,
+          },
+          xp: {
+            baseXp,
+            bonusXp,
+            awardedXp,
+            isXpAwarded,
+            reason: xpReason,
+          },
+          results,
+        },
+      };
+    });
+
+    if (result.expired) {
+      throw new BadRequestException({
+        code: "ATTEMPT_EXPIRED",
+        message: "Lượt thi đã hết thời gian hoặc không còn hiệu lực làm bài.",
+      });
+    }
+
+    return {
+      data: result.data!,
+      isRepeat: result.isRepeat ?? false,
+    };
+  }
+
+  /**
+   * Helper định dạng kết quả nộp bài đã lưu (Idempotent / Cached View)
+   */
+  private formatSubmittedResult(attempt: {
+    id: string;
+    status: QuizAttemptStatus;
+    submittedAt: Date | null;
+    totalQuestions?: number | null;
+    answeredCount?: number | null;
+    correctCount?: number | null;
+    scorePercent?: number | null;
+    passed?: boolean | null;
+    baseXp?: number | null;
+    bonusXp?: number | null;
+    awardedXp?: number | null;
+    quizConfig?: { passingScore: number };
+    answers?: Array<{
+      selectedOptionIndex: number | null;
+      optionOrderJson: unknown;
+      quizConfigQuestion: {
+        id: string;
+        correctIndex: number;
+        explanation?: string | null;
+      };
+    }>;
+  }): SubmitQuizAttemptResponseDto {
+    const results: QuizAttemptQuestionResultDto[] = (attempt.answers || []).map(
+      (ans) => {
+        const q = ans.quizConfigQuestion;
+        const optionOrder = Array.isArray(ans.optionOrderJson)
+          ? (ans.optionOrderJson as number[])
+          : typeof ans.optionOrderJson === "string"
+            ? (JSON.parse(ans.optionOrderJson) as number[])
+            : [];
+
+        const correctDisplayedIndex = optionOrder.indexOf(q.correctIndex);
+        const selectedIdx = ans.selectedOptionIndex;
+        const isCorrect =
+          selectedIdx !== null &&
+          selectedIdx !== undefined &&
+          selectedIdx === correctDisplayedIndex;
+
+        return {
+          questionId: q.id,
+          selectedOptionIndex: selectedIdx,
+          correctOptionIndex: correctDisplayedIndex,
+          isCorrect,
+          explanation: q.explanation || null,
+        };
+      },
+    );
+
+    const isXpAwarded = (attempt.awardedXp ?? 0) > 0;
+    const xpReason = isXpAwarded
+      ? "FIRST_QUIZ_SUBMISSION"
+      : "ALREADY_AWARDED_OR_RETAKE";
+
+    return {
+      attemptId: attempt.id,
+      status: attempt.status,
+      submittedAt: attempt.submittedAt
+        ? attempt.submittedAt.toISOString()
+        : new Date().toISOString(),
+      summary: {
+        totalQuestions: attempt.totalQuestions ?? (attempt.answers?.length ?? 0),
+        answeredCount: attempt.answeredCount ?? 0,
+        correctCount: attempt.correctCount ?? 0,
+        scorePercent: attempt.scorePercent ?? 0,
+        passingScore: attempt.quizConfig?.passingScore ?? 70,
+        passed: attempt.passed ?? false,
+      },
+      xp: {
+        baseXp: attempt.baseXp ?? 0,
+        bonusXp: attempt.bonusXp ?? 0,
+        awardedXp: attempt.awardedXp ?? 0,
+        isXpAwarded,
+        reason: xpReason,
+      },
+      results,
+    };
   }
 
   /**

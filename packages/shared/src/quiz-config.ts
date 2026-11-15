@@ -150,6 +150,7 @@ export interface PortalQuizAttemptDto {
   totalQuestions: number;
   answeredQuestions: number;
   questions: PortalAttemptQuestionDto[];
+  submissionResult?: SubmitQuizAttemptResponseDto;
 }
 
 export interface SaveQuizProgressItemDto {
@@ -213,5 +214,44 @@ export interface AdminQuizAttemptListResponseDto {
   limit: number;
   totalPages: number;
 }
+
+// ============================================================================
+// Milestone M7.4: Quiz Submission, Scoring & XP Award Contracts
+// ============================================================================
+
+export interface QuizAttemptQuestionResultDto {
+  questionId: string;
+  selectedOptionIndex: number | null;
+  correctOptionIndex: number;
+  isCorrect: boolean;
+  explanation?: string | null;
+}
+
+export interface QuizAttemptSummaryDto {
+  totalQuestions: number;
+  answeredCount: number;
+  correctCount: number;
+  scorePercent: number;
+  passingScore: number;
+  passed: boolean;
+}
+
+export interface QuizAttemptXpAwardDto {
+  baseXp: number;
+  bonusXp: number;
+  awardedXp: number;
+  isXpAwarded: boolean;
+  reason: string;
+}
+
+export interface SubmitQuizAttemptResponseDto {
+  attemptId: string;
+  status: QuizAttemptStatus;
+  submittedAt: string;
+  summary: QuizAttemptSummaryDto;
+  xp: QuizAttemptXpAwardDto;
+  results: QuizAttemptQuestionResultDto[];
+}
+
 
 

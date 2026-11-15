@@ -817,15 +817,16 @@ model QuizAttempt {
 }
 
 model XpLedger {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId       String?  @map("user_id") @db.Uuid
-  ticketCode   String?  @map("ticket_code") @db.VarChar(64)
-  attendeeName String   @map("attendee_name") @db.VarChar(160)
-  amountXp     Int      @map("amount_xp")
-  source       String   @db.VarChar(64)
-  referenceId  String?  @map("reference_id") @db.VarChar(128)
-  metadataJson Json?    @map("metadata_json") @db.JsonB
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
+  ticketCode     String?  @map("ticket_code") @db.VarChar(64)
+  attendeeName   String   @map("attendee_name") @db.VarChar(160)
+  amountXp       Int      @map("amount_xp")
+  source         String   @db.VarChar(64)
+  referenceId    String?  @map("reference_id") @db.VarChar(128)
+  idempotencyKey String?  @unique @map("idempotency_key") @db.VarChar(160)
+  metadataJson   Json?    @map("metadata_json") @db.JsonB
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
@@ -1044,6 +1045,14 @@ model QuizConfigAttempt {
   startedAt     DateTime          @default(now()) @map("started_at") @db.Timestamptz(6)
   expiresAt     DateTime          @map("expires_at") @db.Timestamptz(6)
   submittedAt   DateTime?         @map("submitted_at") @db.Timestamptz(6)
+  totalQuestions Int?              @map("total_questions")
+  answeredCount  Int?              @map("answered_count")
+  correctCount   Int?              @map("correct_count")
+  scorePercent   Int?              @map("score_percent")
+  passed         Boolean?          @map("passed")
+  baseXp         Int?              @map("base_xp")
+  bonusXp        Int?              @map("bonus_xp")
+  awardedXp      Int?              @map("awarded_xp")
   createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 

@@ -977,9 +977,9 @@ model QuizConfiguration {
   eventId            String?          @map("event_id") @db.Uuid
   timeLimitMinutes   Int              @default(15) @map("time_limit_minutes")
   passingScore       Int              @default(70) @map("passing_score")
-  maxAttempts        Int              @default(1) @map("max_attempts")
-  isShuffleQuestions Boolean          @default(false) @map("is_shuffle_questions")
-  isShuffleOptions   Boolean          @default(false) @map("is_shuffle_options")
+  maxAttempts        Int              @default(3) @map("max_attempts")
+  isShuffleQuestions Boolean          @default(true) @map("is_shuffle_questions")
+  isShuffleOptions   Boolean          @default(true) @map("is_shuffle_options")
   status             QuizConfigStatus @default(DRAFT)
   createdById        String?          @map("created_by_id") @db.Uuid
   updatedById        String?          @map("updated_by_id") @db.Uuid

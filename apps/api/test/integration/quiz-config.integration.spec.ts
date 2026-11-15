@@ -548,4 +548,150 @@ describe("Quiz Configuration Management Integration Suite (M7.1)", () => {
     expect(fetchLegacy?.questionText).toBe("Câu hỏi Open Day truyền thống?");
     expect(fetchLegacy?.correctIndex).toBe(1);
   });
+
+  // --------------------------------------------------------------------------
+  // 10. B01: Published & Archived Configuration Immutability Guard
+  // --------------------------------------------------------------------------
+  it("Test 10 [Configuration Immutability (B01)]: PUBLISHED and ARCHIVED quizzes reject PATCH; DB and AuditLog remain untainted", async () => {
+    // 1. Create a valid quiz and snapshot questions
+    const createRes = await request(server)
+      .post("/api/v1/admin/quiz-configs")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Bài thi chuẩn bị xuất bản để khóa",
+        timeLimitMinutes: 15,
+        passingScore: 70,
+        maxAttempts: 3,
+        questionIds: [approvedQuestion1Id],
+      })
+      .expect(201);
+
+    const lockQuizId = createRes.body.data.id;
+
+    // 2. Publish the quiz
+    await request(server)
+      .post(`/api/v1/admin/quiz-configs/${lockQuizId}/publish`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+
+    // 3. Attempt to PATCH published configuration -> MUST FAIL WITH 400
+    const rejectedPatch = await request(server)
+      .patch(`/api/v1/admin/quiz-configs/${lockQuizId}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        passingScore: 99,
+        timeLimitMinutes: 60,
+        maxAttempts: 10,
+        isShuffleQuestions: false,
+      })
+      .expect(400);
+
+    expect(rejectedPatch.body.success).toBe(false);
+    const errorMsg = rejectedPatch.body.error?.message || rejectedPatch.body.message || "";
+    expect(errorMsg).toContain("PUBLISHED");
+
+    // 4. Verify PostgreSQL directly: values MUST REMAIN 100% UNCHANGED
+    const dbCheckAfterReject = await prisma.quizConfiguration.findUnique({
+      where: { id: lockQuizId },
+    });
+    expect(dbCheckAfterReject?.passingScore).toBe(70);
+    expect(dbCheckAfterReject?.timeLimitMinutes).toBe(15);
+    expect(dbCheckAfterReject?.maxAttempts).toBe(3);
+    expect(dbCheckAfterReject?.status).toBe("PUBLISHED");
+
+    // 5. Verify AuditLog: NO UPDATE_QUIZ_CONFIG recorded for the rejected patch
+    const auditRejected = await prisma.auditLog.findMany({
+      where: {
+        resourceId: lockQuizId,
+        action: "UPDATE_QUIZ_CONFIG",
+      },
+    });
+    expect(auditRejected).toHaveLength(0);
+
+    // 6. Archive the quiz
+    await request(server)
+      .post(`/api/v1/admin/quiz-configs/${lockQuizId}/archive`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+
+    // 7. Attempt to PATCH archived configuration -> MUST FAIL WITH 400
+    const rejectedArchivePatch = await request(server)
+      .patch(`/api/v1/admin/quiz-configs/${lockQuizId}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ title: "Hacker attempt on archived" })
+      .expect(400);
+
+    expect(rejectedArchivePatch.body.success).toBe(false);
+    const archiveErrorMsg = rejectedArchivePatch.body.error?.message || rejectedArchivePatch.body.message || "";
+    expect(archiveErrorMsg).toContain("ARCHIVED");
+
+    // 8. Confirm DRAFT quiz can still be updated normally
+    const draftRes = await request(server)
+      .post("/api/v1/admin/quiz-configs")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ title: "Bài thi nháp hợp lệ" })
+      .expect(201);
+
+    const draftId = draftRes.body.data.id;
+    const updateDraftRes = await request(server)
+      .patch(`/api/v1/admin/quiz-configs/${draftId}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ title: "Bài thi nháp đã sửa", passingScore: 85 })
+      .expect(200);
+
+    expect(updateDraftRes.body.success).toBe(true);
+    expect(updateDraftRes.body.data.title).toBe("Bài thi nháp đã sửa");
+    expect(updateDraftRes.body.data.passingScore).toBe(85);
+  });
+
+  // --------------------------------------------------------------------------
+  // 11. B02: Unified Default Values (3 / true / true)
+  // --------------------------------------------------------------------------
+  it("Test 11 [Unified Defaults (B02)]: API create with omitted optional fields receives default maxAttempts=3, isShuffleQuestions=true, isShuffleOptions=true", async () => {
+    // 1. Create omitting maxAttempts, isShuffleQuestions, isShuffleOptions
+    const defaultRes = await request(server)
+      .post("/api/v1/admin/quiz-configs")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Bài thi kiểm tra Defaults",
+      })
+      .expect(201);
+
+    expect(defaultRes.body.success).toBe(true);
+    const data = defaultRes.body.data;
+    expect(data.maxAttempts).toBe(3);
+    expect(data.isShuffleQuestions).toBe(true);
+    expect(data.isShuffleOptions).toBe(true);
+
+    // Verify in PostgreSQL directly
+    const dbDefault = await prisma.quizConfiguration.findUnique({
+      where: { id: data.id },
+    });
+    expect(dbDefault?.maxAttempts).toBe(3);
+    expect(dbDefault?.isShuffleQuestions).toBe(true);
+    expect(dbDefault?.isShuffleOptions).toBe(true);
+
+    // 2. Explicitly supplied values are accurately persisted
+    const explicitRes = await request(server)
+      .post("/api/v1/admin/quiz-configs")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Bài thi với giá trị tùy biến",
+        maxAttempts: 5,
+        isShuffleQuestions: false,
+        isShuffleOptions: false,
+      })
+      .expect(201);
+
+    expect(explicitRes.body.data.maxAttempts).toBe(5);
+    expect(explicitRes.body.data.isShuffleQuestions).toBe(false);
+    expect(explicitRes.body.data.isShuffleOptions).toBe(false);
+
+    const dbExplicit = await prisma.quizConfiguration.findUnique({
+      where: { id: explicitRes.body.data.id },
+    });
+    expect(dbExplicit?.maxAttempts).toBe(5);
+    expect(dbExplicit?.isShuffleQuestions).toBe(false);
+    expect(dbExplicit?.isShuffleOptions).toBe(false);
+  });
 });

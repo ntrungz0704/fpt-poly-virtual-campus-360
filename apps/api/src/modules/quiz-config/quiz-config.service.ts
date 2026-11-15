@@ -244,9 +244,9 @@ export class QuizConfigService {
           eventId: dto.eventId || null,
           timeLimitMinutes: dto.timeLimitMinutes ?? 15,
           passingScore: dto.passingScore ?? 70,
-          maxAttempts: dto.maxAttempts ?? 1,
-          isShuffleQuestions: dto.isShuffleQuestions ?? false,
-          isShuffleOptions: dto.isShuffleOptions ?? false,
+          maxAttempts: dto.maxAttempts ?? 3,
+          isShuffleQuestions: dto.isShuffleQuestions ?? true,
+          isShuffleOptions: dto.isShuffleOptions ?? true,
           status: "DRAFT",
           createdById: user.id,
           questions: {
@@ -305,8 +305,10 @@ export class QuizConfigService {
       throw new NotFoundException(`Không tìm thấy cấu hình bài thi với ID: ${id}`);
     }
 
-    if (existing.status === "ARCHIVED") {
-      throw new BadRequestException("Không thể chỉnh sửa cấu hình bài thi đã lưu trữ (ARCHIVED).");
+    if (existing.status !== "DRAFT") {
+      throw new BadRequestException(
+        `Không thể chỉnh sửa cấu hình bài thi ở trạng thái ${existing.status}. Cấu hình đã xuất bản (PUBLISHED) hoặc đã lưu trữ (ARCHIVED) là bất biến để đảm bảo tính toàn vẹn cho phòng thi và học viên.`,
+      );
     }
 
     if (dto.eventId) {
@@ -371,9 +373,9 @@ export class QuizConfigService {
       throw new NotFoundException(`Không tìm thấy cấu hình bài thi với ID: ${id}`);
     }
 
-    if (quiz.status === "PUBLISHED") {
+    if (quiz.status !== "DRAFT") {
       throw new BadRequestException(
-        "Không thể chỉnh sửa danh sách câu hỏi của bài thi đã xuất bản. Vui lòng tạo bản nháp mới hoặc hủy xuất bản.",
+        `Không thể chỉnh sửa danh sách câu hỏi khi bài thi ở trạng thái ${quiz.status}. Chỉ có thể cập nhật câu hỏi khi bài thi ở trạng thái BẢN NHÁP (DRAFT).`,
       );
     }
 

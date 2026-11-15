@@ -153,6 +153,10 @@ export function QuizConfigManager({
 
   // Open Edit Modal
   const handleOpenEditModal = (cfg: QuizConfigurationDto) => {
+    if (cfg.status !== "DRAFT") {
+      onShowToast("Không thể chỉnh sửa cấu hình bài thi đã xuất bản hoặc đã lưu trữ.", "error");
+      return;
+    }
     setEditingConfigId(cfg.id);
     setConfigForm({
       title: cfg.title,
@@ -472,17 +476,19 @@ export function QuizConfigManager({
             onClick={() => handleOpenQuestionManager(row)}
             title="Quản lý câu hỏi & Đóng gói Snapshot"
           >
-            Câu hỏi ({row.questionsCount})
+            {row.status === "DRAFT" ? "Sửa câu hỏi" : "Xem câu hỏi"} ({row.questionsCount})
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            icon="edit"
-            onClick={() => handleOpenEditModal(row)}
-            title="Sửa cấu hình bài thi"
-          >
-            Sửa
-          </Button>
+          {row.status === "DRAFT" && (
+            <Button
+              size="sm"
+              variant="outline"
+              icon="edit"
+              onClick={() => handleOpenEditModal(row)}
+              title="Sửa cấu hình bài thi"
+            >
+              Sửa
+            </Button>
+          )}
           {row.status === "DRAFT" && (
             <Button
               size="sm"
@@ -767,17 +773,26 @@ export function QuizConfigManager({
                     {activeConfig?.status === "PUBLISHED" && (
                       <Badge variant="success">ĐÃ KHÓA</Badge>
                     )}
+                    {activeConfig?.status === "ARCHIVED" && (
+                      <Badge variant="neutral">LƯU TRỮ</Badge>
+                    )}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    icon="save"
-                    loading={isSavingQuestions}
-                    disabled={isSavingQuestions}
-                    onClick={handleSaveQuestionsSnapshot}
-                  >
-                    Lưu danh sách ({selectedQuestions.length})
-                  </Button>
+                  {activeConfig?.status === "DRAFT" ? (
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      icon="save"
+                      loading={isSavingQuestions}
+                      disabled={isSavingQuestions}
+                      onClick={handleSaveQuestionsSnapshot}
+                    >
+                      Lưu danh sách ({selectedQuestions.length})
+                    </Button>
+                  ) : (
+                    <span className="text-[11px] text-secondary font-semibold italic">
+                      Chế độ chỉ đọc (Đã khóa)
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto space-y-2 pr-1">
@@ -808,40 +823,42 @@ export function QuizConfigManager({
                               {q.questionText}
                             </p>
                           </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              disabled={idx === 0}
-                              onClick={() => handleMoveQuestion(idx, "up")}
-                              className="p-1 rounded text-secondary hover:text-on-surface hover:bg-surface-container disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                              title="Di chuyển lên trên"
-                            >
-                              <span className="material-symbols-outlined text-[16px]">
-                                arrow_upward
-                              </span>
-                            </button>
-                            <button
-                              type="button"
-                              disabled={idx === selectedQuestions.length - 1}
-                              onClick={() => handleMoveQuestion(idx, "down")}
-                              className="p-1 rounded text-secondary hover:text-on-surface hover:bg-surface-container disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                              title="Di chuyển xuống dưới"
-                            >
-                              <span className="material-symbols-outlined text-[16px]">
-                                arrow_downward
-                              </span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveQuestion(idx)}
-                              className="p-1 rounded text-error hover:bg-error-container/20 cursor-pointer"
-                              title="Xóa khỏi bài thi"
-                            >
-                              <span className="material-symbols-outlined text-[16px]">
-                                close
-                              </span>
-                            </button>
-                          </div>
+                          {activeConfig?.status === "DRAFT" && (
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => handleMoveQuestion(idx, "up")}
+                                className="p-1 rounded text-secondary hover:text-on-surface hover:bg-surface-container disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                                title="Di chuyển lên trên"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">
+                                  arrow_upward
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === selectedQuestions.length - 1}
+                                onClick={() => handleMoveQuestion(idx, "down")}
+                                className="p-1 rounded text-secondary hover:text-on-surface hover:bg-surface-container disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                                title="Di chuyển xuống dưới"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">
+                                  arrow_downward
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveQuestion(idx)}
+                                className="p-1 rounded text-error hover:bg-error-container/20 cursor-pointer"
+                                title="Xóa khỏi bài thi"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">
+                                  close
+                                </span>
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-1.5 text-[10px]">
@@ -944,10 +961,10 @@ export function QuizConfigManager({
                               size="sm"
                               variant={isAlreadySelected ? "ghost" : "outline"}
                               icon={isAlreadySelected ? "check" : "add"}
-                              disabled={isAlreadySelected}
+                              disabled={isAlreadySelected || activeConfig?.status !== "DRAFT"}
                               onClick={() => handleAddQuestion(q)}
                             >
-                              {isAlreadySelected ? "Đã chọn" : "Chọn"}
+                              {activeConfig?.status !== "DRAFT" ? "Đã khóa" : isAlreadySelected ? "Đã chọn" : "Chọn"}
                             </Button>
                           </div>
                           <div className="flex items-center gap-1.5 text-[10px]">

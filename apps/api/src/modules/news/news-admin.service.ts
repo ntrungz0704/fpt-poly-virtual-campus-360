@@ -37,7 +37,7 @@ export class NewsAdminService {
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
     const skip = (page - 1) * limit;
 
-    const where: any = { deletedAt: null };
+    const where: Prisma.NewsArticleWhereInput = { deletedAt: null };
 
     if (query.status && query.status !== "ALL") {
       where.status =
@@ -84,7 +84,7 @@ export class NewsAdminService {
     ]);
 
     return {
-      items: items.map((art: any) => ({
+      items: items.map((art) => ({
         id: art.id,
         title: art.title,
         slug: art.slug,
@@ -134,12 +134,19 @@ export class NewsAdminService {
       throw new BadRequestException("Slug bài viết không thể để trống hoặc chỉ chứa ký tự đặc biệt.");
     }
 
-    // Check duplicate slug
+    // Check duplicate slug across ALL articles (active and soft-deleted) to prevent DB constraint failure
     const duplicate = await this.prisma.newsArticle.findFirst({
-      where: { slug: rawSlug, deletedAt: null },
+      where: { slug: rawSlug },
     });
     if (duplicate) {
-      throw new ConflictException(`Slug "${rawSlug}" đã được sử dụng bởi bài viết "${duplicate.title}".`);
+      if (duplicate.deletedAt !== null) {
+        throw new ConflictException(
+          `Slug "${rawSlug}" đã từng được sử dụng bởi bài viết đã xóa lưu trữ "${duplicate.title}". Vui lòng chọn slug khác.`,
+        );
+      }
+      throw new ConflictException(
+        `Slug "${rawSlug}" đã được sử dụng bởi bài viết "${duplicate.title}".`,
+      );
     }
 
     // Verify coverMedia if supplied
@@ -217,10 +224,15 @@ export class NewsAdminService {
       nextSlug = slugify(dto.slug);
       if (nextSlug !== existing.slug) {
         const dup = await this.prisma.newsArticle.findFirst({
-          where: { slug: nextSlug, id: { not: id }, deletedAt: null },
+          where: { slug: nextSlug, id: { not: id } },
         });
         if (dup) {
-          throw new ConflictException(`Slug "${nextSlug}" đã được sử dụng.`);
+          if (dup.deletedAt !== null) {
+            throw new ConflictException(
+              `Slug "${nextSlug}" đã từng được sử dụng bởi bài viết đã xóa lưu trữ "${dup.title}". Vui lòng chọn slug khác.`,
+            );
+          }
+          throw new ConflictException(`Slug "${nextSlug}" đã được sử dụng bởi bài viết "${dup.title}".`);
         }
       }
     }

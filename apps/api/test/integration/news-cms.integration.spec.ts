@@ -1,4 +1,5 @@
 import request from "supertest";
+import { JwtService } from "@nestjs/jwt";
 import { PrismaService } from "../../src/common/adapters/prisma.service";
 import {
   createIntegrationApiApp,
@@ -13,6 +14,7 @@ describe("News Content CMS Integration Suite", () => {
   let dbHandle: ScratchDbHandle;
   let ctx: ApiTestContext;
   let adminToken = "";
+  let studentToken = "";
   let prisma: PrismaService;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let server: any;
@@ -44,6 +46,29 @@ describe("News Content CMS Integration Suite", () => {
       .send({ identifier: "admin", password: adminNewPw })
       .expect(200);
     adminToken = adminLogin.body.data.accessToken;
+
+    // Create a regular student user without campus:write permission
+    const studentUser = await prisma.user.create({
+      data: {
+        username: "test_regular_student",
+        fullName: "Sinh Viên Thử Nghiệm",
+        email: "student.regular@fpt.edu.vn",
+        accountStatus: "ACTIVE",
+        activationStatus: "ACTIVATED",
+        provisioningMethod: "ADMIN_DIRECT",
+        userType: "STUDENT",
+        mustChangePassword: false,
+      },
+    });
+
+    const jwtService = ctx.app.get(JwtService);
+    studentToken = jwtService.sign({
+      sub: studentUser.id,
+      username: studentUser.username,
+      roles: ["STUDENT"],
+      pwdRequired: false,
+      jti: "test-jti-student-forbidden-001",
+    });
   });
 
   afterAll(async () => {
@@ -166,7 +191,7 @@ describe("News Content CMS Integration Suite", () => {
     expect(article.contentJson[0]).toContain("FPT Polytechnic");
   });
 
-  it("8. POST /api/v1/admin/news rejects duplicate slug with 409 Conflict", async () => {
+  it("8. POST /api/v1/admin/news rejects duplicate active slug with 409 Conflict", async () => {
     const payload = {
       title: "Trùng lặp Slug",
       slug: testSlug,
@@ -234,6 +259,11 @@ describe("News Content CMS Integration Suite", () => {
     });
     expect(dbRecord?.deletedAt).not.toBeNull();
 
+    // Verify public get by slug returns 404 for soft-deleted article
+    await request(server)
+      .get(`/api/v1/public/news/${testSlug}`)
+      .expect(404);
+
     // Verify AuditLog
     const auditRecord = await prisma.auditLog.findFirst({
       where: {
@@ -244,7 +274,52 @@ describe("News Content CMS Integration Suite", () => {
     expect(auditRecord).not.toBeNull();
   });
 
-  it("12. Rejects unauthorized access without JWT (401) or insufficient permissions", async () => {
+  it("12. POST /api/v1/admin/news rejects reusing slug of soft-deleted article with 409 Conflict", async () => {
+    const payload = {
+      title: "Tái sử dụng slug đã xóa",
+      slug: testSlug,
+      excerpt: "Thử nghiệm tái sử dụng slug đã xóa",
+      content: "Nội dung...",
+    };
+
+    const res = await request(server)
+      .post("/api/v1/admin/news")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send(payload)
+      .expect(409);
+
+    expect(res.body.error.message).toContain("đã xóa lưu trữ");
+  });
+
+  it("13. Public Pagination: GET /api/v1/public/news supports page and limit properly", async () => {
+    // 3 canonical articles are already seeded in DB
+    const resPage1 = await request(server)
+      .get("/api/v1/public/news?page=1&limit=2")
+      .expect(200);
+
+    expect(resPage1.body.data.page).toBe(1);
+    expect(resPage1.body.data.limit).toBe(2);
+    expect(resPage1.body.data.items).toHaveLength(2);
+    expect(resPage1.body.data.total).toBeGreaterThanOrEqual(3);
+
+    const resPage2 = await request(server)
+      .get("/api/v1/public/news?page=2&limit=2")
+      .expect(200);
+
+    expect(resPage2.body.data.page).toBe(2);
+    expect(resPage2.body.data.limit).toBe(2);
+    expect(resPage2.body.data.items.length).toBeGreaterThanOrEqual(1);
+
+    // Page 1 and Page 2 should not share items
+    const page1Slugs = resPage1.body.data.items.map((i: { slug: string }) => i.slug);
+    const page2Slugs = resPage2.body.data.items.map((i: { slug: string }) => i.slug);
+    for (const slug of page1Slugs) {
+      expect(page2Slugs).not.toContain(slug);
+    }
+  });
+
+  it("14. RBAC: Rejects access without token (401) or without campus:write permission (403)", async () => {
+    // 1. Without token -> 401
     await request(server)
       .get("/api/v1/admin/news")
       .expect(401);
@@ -253,5 +328,17 @@ describe("News Content CMS Integration Suite", () => {
       .post("/api/v1/admin/news")
       .send({ title: "Hack" })
       .expect(401);
+
+    // 2. With student token (no campus:write) -> 403
+    await request(server)
+      .get("/api/v1/admin/news")
+      .set("Authorization", `Bearer ${studentToken}`)
+      .expect(403);
+
+    await request(server)
+      .post("/api/v1/admin/news")
+      .set("Authorization", `Bearer ${studentToken}`)
+      .send({ title: "Hack" })
+      .expect(403);
   });
 });

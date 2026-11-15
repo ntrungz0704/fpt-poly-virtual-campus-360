@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { Prisma, PublishStatus } from "@prisma/client";
+import { PublishStatus } from "@prisma/client";
 import { PrismaService } from "../../common/adapters/prisma.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import type { AuthenticatedUser } from "../../common/decorators/auth.decorators";

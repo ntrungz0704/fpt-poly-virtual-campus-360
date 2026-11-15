@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../common/adapters/prisma.service";
-import { PublishStatus } from "@prisma/client";
+import { Prisma, PublishStatus } from "@prisma/client";
 
 @Injectable()
 export class NewsPublicService {
@@ -11,7 +11,7 @@ export class NewsPublicService {
     const limit = Math.min(50, Math.max(1, Number(query.limit) || 12));
     const skip = (page - 1) * limit;
 
-    const where: any = {
+    const where: Prisma.NewsArticleWhereInput = {
       deletedAt: null,
       status: PublishStatus.PUBLISHED,
     };

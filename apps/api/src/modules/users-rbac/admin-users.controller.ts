@@ -21,6 +21,7 @@ import type {
   UserImportConfirmRequest,
   UserImportConfirmResultDto,
   UserImportPreviewResponse,
+  UserImportPreviewRowDto,
 } from "@fpt-campus/shared";
 import {
   CurrentUser,
@@ -86,7 +87,7 @@ export class AdminUsersController {
   @HttpCode(HttpStatus.OK)
   @RequirePermissions("users:manage")
   async downloadErrorReport(
-    @Body() body: { rows: any[] },
+    @Body() body: { rows: UserImportPreviewRowDto[] },
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
     const buffer = this.usersImportService.generateErrorReport(body.rows || []);

@@ -5,8 +5,6 @@ import {
 } from "@nestjs/common";
 import * as XLSX from "xlsx";
 import type {
-  ImportReasonCode,
-  ImportRowResolutionStatus,
   UserImportConfirmRequest,
   UserImportConfirmResultDto,
   UserImportPreviewResponse,
@@ -164,7 +162,6 @@ export class UsersImportService {
 
     const seenEmails = new Set<string>();
     const seenPhones = new Set<string>();
-    const seenUsernames = new Set<string>();
 
     const previewRows: UserImportPreviewRowDto[] = [];
     let validCount = 0;

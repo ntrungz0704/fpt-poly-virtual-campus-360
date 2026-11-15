@@ -834,18 +834,18 @@ describe("Quiz Attempt Integration Suite (M7.3)", () => {
   });
 
   // ============================================================================
-  // Test 16: B01-T03: Concurrent save requests around expiry cannot write answers after expiration
+  // Test 16: B01-T03: Deterministic Lock Contention - Save started before expiry waits on lock, acquires after expiry, gets rejected (400)
   // ============================================================================
-  it("Test 16 [B01-T03 Concurrent Expiry]: Concurrent save requests on an expiring attempt cannot write answers after expiry", async () => {
-    // Attempt expires in 50ms
+  it("Test 16 [B01-T03 Deterministic Lock Contention]: Save request in-flight before expiry is held by row lock until past expiresAt, then rejected (400) and committed as EXPIRED", async () => {
+    // 1. Create an attempt whose expiresAt is 600ms in the future
     const expiringAttempt = await prisma.quizConfigAttempt.create({
       data: {
         userId: studentUser.id,
         quizConfigId: generalPublishedQuizId,
         attemptNumber: 16,
         status: "IN_PROGRESS",
-        startedAt: new Date(Date.now() - 1000 * 60 * 15),
-        expiresAt: new Date(Date.now() - 50), // Already passed by the time query runs
+        startedAt: new Date(),
+        expiresAt: new Date(Date.now() + 600), // Expires in 600ms
       },
     });
 
@@ -863,35 +863,69 @@ describe("Quiz Attempt Integration Suite (M7.3)", () => {
       },
     });
 
-    // Fire 4 concurrent save requests
-    const concurrentSaves = Array.from({ length: 4 }).map((_, idx) =>
-      request(server)
-        .put(`/api/v1/portal/quiz/attempts/${expiringAttempt.id}/progress`)
-        .set("Authorization", `Bearer ${studentToken}`)
-        .send({
-          answers: [
-            {
-              quizConfigQuestionId: quizQuestions[0].id,
-              selectedOptionIndex: (idx % 3) + 1,
-            },
-          ],
-        }),
-    );
+    // 2. Open an independent Prisma transaction to acquire and hold the row lock (FOR UPDATE)
+    let releaseHoldingLock: () => void;
+    const lockWaitPromise = new Promise<void>((resolve) => {
+      releaseHoldingLock = resolve;
+    });
 
-    const responses = await Promise.all(concurrentSaves);
+    let lockAcquiredSignal: () => void;
+    const lockAcquiredPromise = new Promise<void>((resolve) => {
+      lockAcquiredSignal = resolve;
+    });
 
-    // All must be rejected with 400 because expiresAt has passed
-    for (const res of responses) {
-      expect(res.status).toBe(400);
+    // Run the holding transaction in background
+    const holdingTxPromise = prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT id FROM quiz_config_attempts WHERE id = ${expiringAttempt.id}::uuid FOR UPDATE`;
+      lockAcquiredSignal(); // Signal that row lock is firmly held
+      await lockWaitPromise; // Hold lock until released
+    });
+
+    // Wait until holding transaction has firmly acquired the row lock
+    await lockAcquiredPromise;
+
+    // 3. Confirm that attempt is STILL VALID (now < expiresAt) at the time save request is fired
+    expect(Date.now()).toBeLessThan(expiringAttempt.expiresAt.getTime());
+
+    // Fire the save request: it will immediately block waiting for the row lock held by holdingTx!
+    const saveRequestPromise = request(server)
+      .put(`/api/v1/portal/quiz/attempts/${expiringAttempt.id}/progress`)
+      .set("Authorization", `Bearer ${studentToken}`)
+      .send({
+        answers: [
+          {
+            quizConfigQuestionId: quizQuestions[0].id,
+            selectedOptionIndex: 3,
+          },
+        ],
+      });
+
+    // 4. Wait until expiresAt has passed deterministically
+    const remainingToExpiry = expiringAttempt.expiresAt.getTime() - Date.now();
+    if (remainingToExpiry > 0) {
+      await new Promise((r) => setTimeout(r, remainingToExpiry + 150));
+    } else {
+      await new Promise((r) => setTimeout(r, 150));
     }
+    expect(Date.now()).toBeGreaterThan(expiringAttempt.expiresAt.getTime());
 
-    // Attempt in DB must be EXPIRED
+    // 5. Release the holding lock!
+    releaseHoldingLock!();
+    await holdingTxPromise;
+
+    // 6. Save request unblocks, acquires row lock, re-checks now >= expiresAt under lock, returns 400!
+    const saveRes = await saveRequestPromise;
+    expect(saveRes.status).toBe(400);
+    const msg = saveRes.body.error?.message || saveRes.body.message || "";
+    expect(msg).toContain("hết thời gian");
+
+    // 7. Verify in PostgreSQL: status was COMMITTED as EXPIRED
     const postCheckAttempt = await prisma.quizConfigAttempt.findUniqueOrThrow({
       where: { id: expiringAttempt.id },
     });
     expect(postCheckAttempt.status).toBe("EXPIRED");
 
-    // Answer in DB must remain null
+    // 8. Verify answer was NOT written (remains null)
     const postCheckAnswer = await prisma.quizConfigAttemptAnswer.findUniqueOrThrow({
       where: {
         attemptId_quizConfigQuestionId: {

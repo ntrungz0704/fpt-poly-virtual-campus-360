@@ -673,7 +673,20 @@ export class QuizConfigService {
       where.quizConfigId = query.quizConfigId;
     }
 
-    if (query.status) {
+    // B03.1 Remediation: Lọc trạng thái kết hợp mốc thời gian now, bảo đảm 100% nhất quán
+    // kể cả khi attempt vừa chạm mốc hết hạn giữa lúc updateMany và truy vấn findMany.
+    if (query.status === "IN_PROGRESS") {
+      where.status = "IN_PROGRESS";
+      where.expiresAt = { gt: now };
+    } else if (query.status === "EXPIRED") {
+      where.OR = [
+        { status: "EXPIRED" },
+        {
+          status: "IN_PROGRESS",
+          expiresAt: { lte: now },
+        },
+      ];
+    } else if (query.status) {
       where.status = query.status;
     }
 
@@ -725,7 +738,7 @@ export class QuizConfigService {
         (a) => a.selectedOptionIndex !== null,
       ).length;
       const totalQuestions = att.answers.length;
-      const isExpired = att.status === "IN_PROGRESS" && now >= att.expiresAt;
+      const isExpired = att.status === "EXPIRED" || (att.status === "IN_PROGRESS" && now >= att.expiresAt);
       const effectiveStatus: QuizAttemptStatus = isExpired ? "EXPIRED" : att.status;
       const remainingSeconds =
         effectiveStatus === "IN_PROGRESS"

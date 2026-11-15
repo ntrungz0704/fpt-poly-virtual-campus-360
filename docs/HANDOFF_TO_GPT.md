@@ -1,117 +1,130 @@
-# BÁO CÁO NGHIỆM THU NGHIỆP VỤ & KỸ THUẬT MILESTONE M7.3 (QUIZ ATTEMPT ENGINE)
-## HOÀN TẤT KIỂM CHỨNG BLOCKER CUỐI CÙNG (B01-T03: ROW LOCK CONTENTION TRÊN POSTGRESQL)
+# BÁO CÁO NGHIỆM THU NGHIỆP VỤ & KỸ THUẬT MILESTONE M7.4 (QUIZ SUBMISSION, SCORING & XP)
+## TOÀN BỘ CHỈ ĐẠO CỦA TECH LEAD ĐÃ ĐƯỢC TRIỂN KHAI VÀ KIỂM CHỨNG 100% TRÊN POSTGRESQL
 
 **Dự án:** FPT Polytechnic Virtual Campus 360°  
 **Nhánh:** `fix/m4-acceptance-blockers`  
 **Pull Request trên GitHub:** PR #1  
-**Thời gian cập nhật:** 2026-11-16 00:10 (GMT+7)
+**Thời gian cập nhật:** 2026-11-16 01:05 (GMT+7)
 
 ---
 
 ## 1. ĐỐI CHIẾU COMMIT SHA TRÊN GITHUB
-- **HEAD Baseline trước:** `90aa6d82d6f0b75001fd03df7c6afc6138b2a6d3`
-- **M7.3 Final Fix B01-T03 Code Commit:** `c31b9d4` (`test(quiz-attempt): verify supertest actively waits on postgresql row lock before expiry (B01-T03)`)
-- **M7.3 Final Fix B01-T03 Docs Commit:** Đi kèm và đồng bộ ngay sau tài liệu này.
-- **Quy chuẩn Git:** Tách biệt tuyệt đối Code commit và Docs commit, không force-push, remote tip đồng bộ 100% với local HEAD.
+- **HEAD Baseline trước (M7.3 Pass):** `7bd933fb5d289081df4de4857004eeae3bdf195a`
+- **M7.4 Code Commit:** `b2c7fc4` (`feat(quiz-submit): implement m7.4 quiz submission, server-side scoring, and one-time xp ledger award`)
+- **M7.4 Docs Commit:** Đi kèm ngay sau tài liệu này.
+- **Quy chuẩn Git:** Tuân thủ tuyệt đối quy tắc phân tách Code commit và Docs commit, không commit mock/stub, không force-push, remote tip đồng bộ 100% với local HEAD trên nhánh `fix/m4-acceptance-blockers`.
 
 ---
 
-## 2. GIẢI TRÌNH XỬ LÝ BLOCKER CUỐI CÙNG THEO YÊU CẦU TECH LEAD
+## 2. TỔNG QUAN TRIỂN KHAI MILESTONE M7.4
 
-### 🟢 B01-T03 — Supertest Request Actively Waits on PostgreSQL Row Lock Before Expiry
-- **File:** `apps/api/test/integration/quiz-attempt.integration.spec.ts` (Test 16)
-- **Vấn đề đã khắc phục:**
-  Trước đó, `saveRequestPromise = request(server).put(...).send(...)` chỉ tạo đối tượng Supertest `Test`. Supertest chỉ thực thi HTTP request khi được `await` hoặc gọi `.then()`. Do đó, nếu chỉ `await` sau khi đã giải phóng lock thì request thực tế mới bắt đầu sau khi attempt hết hạn và sau khi lock đã nhả.
-- **Trình tự kiểm chứng thực tế 3 giai đoạn chặt chẽ (100% Deterministic & Zero-Mock):**
-  1. **Giai đoạn 1 (Thiết lập khóa hàng & Kiểm tra hạn):**
-     - Tạo attempt `IN_PROGRESS` với thời gian hết hạn `expiresAt = Date.now() + 1200ms`.
-     - Transaction Prisma độc lập chạy ngầm thực thi `$queryRaw`:
-       `SELECT id FROM quiz_config_attempts WHERE id = ${expiringAttempt.id}::uuid FOR UPDATE`
-     - Dùng Promise coordination (`lockAcquiredPromise`) xác nhận transaction đã giữ khóa hàng độc quyền.
-     - Xác nhận chắc chắn `Date.now() < expiresAt` (attempt còn hạn).
-  2. **Giai đoạn 2 (Kích hoạt Supertest Request & Quan sát PostgreSQL pg_stat_activity):**
-     - Kích hoạt Supertest request ngay lập tức bằng cách gọi `.then(...)`. Request được dispatch ngay qua HTTP tới NestJS API -> Service -> `prisma.$transaction`.
-     - Trong khi request đang chạy ngầm, test tiến hành poll bảng hệ thống PostgreSQL `pg_stat_activity` với điều kiện:
-       ```sql
-       SELECT pid, wait_event_type, wait_event, query
-       FROM pg_stat_activity
-       WHERE wait_event_type = 'Lock'
-         AND query ILIKE '%quiz_config_attempts%'
-         AND query ILIKE '%FOR UPDATE%'
-       ```
-     - **Bằng chứng lock contention:**
-       + `lockWaitingDetected == true`: Request thực sự đã vào PostgreSQL và đang bị chặn treo ở trạng thái `wait_event_type = 'Lock'`!
-       + `requestCompleted == false`: Request chưa hoàn thành (đang bị suspend).
-       + `Date.now() < expiresAt.getTime()`: Khẳng định thời điểm request bị block xảy ra **TRƯỚC KHI** lượt thi hết hạn!
-  3. **Giai đoạn 3 (Chờ quá hạn, Nhả khóa & Xác nhận Immutability):**
-     - Test chờ thời gian trôi qua mốc `expiresAt` (`Date.now() > expiresAt.getTime() + 100ms`).
-     - Xác nhận `requestCompleted == false` (request vẫn kiên nhẫn chờ lock dưới PostgreSQL).
-     - Giải phóng transaction giữ khóa (`releaseHoldingLock()`).
-     - Request unblock, giành được row lock, tái kiểm tra `now >= expiresAt`, cập nhật DB sang `EXPIRED`, kết thúc transaction thành công và trả về HTTP 400 (`Lượt thi đã hết thời gian hoặc không còn hiệu lực làm bài.`).
-     - **Bảo vệ toàn vẹn dữ liệu PostgreSQL:**
-       + Trạng thái DB được lưu là `EXPIRED`.
-       + `selectedOptionIndex` trong PostgreSQL vẫn giữ nguyên là `null` (tuyệt đối không bị ghi đè sau hạn).
-     - **Khối finally an toàn:** Bọc toàn bộ trong `try ... finally` bảo đảm `releaseHoldingLock()` luôn được gọi, tránh mọi nguy cơ treo test suite.
+### 2.1. Prisma Schema Migration & PostgreSQL DDL
+- **File migration:** `prisma/migrations/20261116000001_quiz_submission_scoring_xp/migration.sql`
+- **Các trường bổ sung vào bảng `quiz_config_attempts`:**
+  - `total_questions INT NULL`
+  - `answered_count INT NULL`
+  - `correct_count INT NULL`
+  - `score_percent INT NULL`
+  - `passed BOOLEAN NULL`
+  - `base_xp INT NULL`
+  - `bonus_xp INT NULL`
+  - `awarded_xp INT NULL`
+- **Bổ sung vào bảng `xp_ledger`:**
+  - `idempotency_key VARCHAR(160) NULL` kèm ràng buộc duy nhất:
+    `CREATE UNIQUE INDEX xp_ledger_idempotency_key_key ON xp_ledger(idempotency_key);`
+  - Đảm bảo bảo vệ chống double-credit ở cấp độ vật lý cơ sở dữ liệu.
+
+### 2.2. Shared Contracts (`packages/shared/src/quiz-config.ts`)
+- `QuizAttemptQuestionResultDto`: Chi tiết từng câu hỏi khi nộp bài (id, displayedOrder, questionText, displayedOptions, selectedOptionIndex, correctOptionIndex, isCorrect, explanation).
+- `QuizAttemptSummaryDto`: Tổng hợp số liệu bài thi (`totalQuestions`, `answeredCount`, `correctCount`, `scorePercent`, `passingScore`, `passed`).
+- `QuizAttemptXpAwardDto`: Chi tiết phần thưởng (`baseXp`, `bonusXp`, `awardedXp`, `isXpAwarded`, `reason`).
+- `SubmitQuizAttemptResponseDto`: Cấu trúc response chính thức của endpoint nộp bài.
+- `PortalQuizAttemptDto`: Mở rộng thuộc tính `submissionResult?: SubmitQuizAttemptResponseDto`.
+
+### 2.3. Backend Submission, Scoring & XP Service (`portal-quiz.service.ts` & `portal-quiz.controller.ts`)
+- **Route:** `POST /api/v1/portal/quiz/attempts/:attemptId/submit` (Bảo vệ bằng `JwtAuthGuard` và `enforceStudentRole`).
+- **Giao dịch nguyên tử (Atomic Transaction):**
+  1. `SELECT id FROM quiz_config_attempts WHERE id = :attemptId::uuid FOR UPDATE`: Khóa hàng bản ghi attempt.
+  2. `SELECT pg_advisory_xact_lock(hashtext('quiz_submit_' || userId || '_' || quizConfigId))`: Tuần tự hóa các attempt đồng thời của cùng một sinh viên, đảm bảo giải quyết tranh chấp cấp XP mượt mà không gây lỗi xung đột 409.
+  3. **IDOR & Ownership Guard:** Kiểm tra `attempt.userId === userId`, chặn sinh viên khác nộp bài (403 Forbidden).
+  4. **Idempotent Repeat Submit:** Nếu `attempt.status === "SUBMITTED"`, trả ngay kết quả đã lưu kèm HTTP 200 OK mà không chấm lại hay cấp thêm XP.
+  5. **Server-side Expiry Guard:** Nếu `now >= attempt.expiresAt`, cập nhật trạng thái `status = 'EXPIRED'`, commit transaction và ném `400 Bad Request` (`ATTEMPT_EXPIRED`).
+  6. **100% Server-side Scoring:**
+     - Duyệt từng câu hỏi trong snapshot `attempt.answers`.
+     - Phục hồi chỉ số đáp án đúng theo thứ tự hiển thị của học viên: `correctDisplayedIndex = optionOrder.indexOf(q.correctIndex)`.
+     - Câu hỏi chưa chọn (`selectedOptionIndex === null`) tự động tính là sai (`isCorrect = false`).
+     - Công thức tính điểm: $\text{scorePercent} = \text{round}(C / N \times 100)$.
+     - Điều kiện đạt: $\text{passed} = \text{scorePercent} \ge \text{passingScore}$.
+  7. **Chính sách cấp XP (One-time per Quiz Configuration):**
+     - Base XP: $\text{baseXp} = C \times 10$.
+     - Bonus XP: $\text{bonusXp} = \text{passed} ? 20 : 0$.
+     - Tổng XP tính toán: $\text{calculatedXp} = \text{baseXp} + \text{bonusXp}$.
+     - Kiểm tra `XpLedger` theo `idempotencyKey = 'quiz:first-submit:' || userId || ':' || quizConfigId`.
+     - Lần đầu nộp: Cấp `awardedXp = calculatedXp`, `isXpAwarded = true`, tạo bản ghi `XpLedger`.
+     - Thi lại (Retake): `awardedXp = 0`, `isXpAwarded = false`, `reason = 'ALREADY_AWARDED_OR_RETAKE'`, không tạo thêm `XpLedger`.
+  8. **Cập nhật trạng thái:** Cập nhật `quiz_config_attempts` sang `SUBMITTED`, lưu `submittedAt`, `scorePercent`, `passed`, `awardedXp`... trong cùng 1 transaction duy nhất.
+
+### 2.4. Frontend Web Portal (`apps/web/src/app/(portal)/portal/quiz/page.tsx`)
+- Tích hợp hàm `submitQuiz()` với modal xác nhận (`submit-confirm-modal`).
+- Nút "Nộp bài thi" nổi bật trên thanh header và question palette với spinner loading và retry khi lỗi mạng.
+- Giao diện kết quả chi tiết `QuizResultView`:
+  - Badge Điểm số lớn dạng phần trăm (VD: `100%`, `67%`).
+  - Badge trạng thái: `ĐẠT CHỈ TIÊU` (xanh lục) hoặc `CHƯA ĐẠT` (đỏ/vàng).
+  - Khối hiển thị XP nhận được: Nổi bật số điểm XP nhận về tài khoản hoặc ghi chú lượt thi lại không cộng thêm XP.
+  - Danh sách từng câu hỏi: Hiển thị câu trả lời đã chọn, đáp án đúng và phần giải thích chi tiết (`explanation`).
 
 ---
 
-## 3. BẰNG CHỨNG KIỂM THỬ THỰC TẾ TRÊN POSTGRESQL (55/55 TESTS PASS)
-Tất cả 4 bộ test tích hợp đã chạy độc lập trên cơ sở dữ liệu PostgreSQL thực tế:
+## 3. KẾT QUẢ KIỂM THỬ TÍCH HỢP POSTGRESQL (100% PASS)
 
-### 1. M7.3 Quiz Attempt Suite (`quiz-attempt.integration.spec.ts`): 20/20 TESTS PASS (34.54s)
+### 3.1. Bộ test M7.4 (`quiz-submit.integration.spec.ts`) — 13/13 KỊCH BẢN THỰC TẾ
 ```
-PASS test/integration/quiz-attempt.integration.spec.ts (34.312 s)
-  Quiz Attempt Integration Suite (M7.3)
-    √ Test 1 [Security]: Unauthenticated request is rejected (401) (11 ms)
-    √ Test 2 [Security]: Non-student role (PARENT) is rejected (403) (10 ms)
-    √ Test 3 [Lifecycle Guard]: DRAFT, ARCHIVED, and Soft-deleted quizzes cannot be started (404) (23 ms)
-    √ Test 4 [Event Eligibility]: Unregistered student cannot start event quiz (403) (10 ms)
-    √ Test 5 [Start Attempt]: Successfully starts attempt with server-side timer & Zero-leak guarantee (65 ms)
-    √ Test 6 [Resume Attempt]: Starting again while IN_PROGRESS resumes existing attempt without incrementing attemptNumber (13 ms)
-    √ Test 7 [Shuffle Stability]: Question order and option mapping remain completely stable across resume and GET (19 ms)
-    √ Test 8 [Save Progress]: Saves answers directly to PostgreSQL and prevents duplicates (106 ms)
-    √ Test 9 [Validation]: Rejects non-existent question or out-of-range option index (400) (20 ms)
-    √ Test 10 [IDOR Protection]: Student B cannot read or modify Student A's attempt (403) (16 ms)
-    √ Test 11 [Expiry Guard]: Expired attempt transitions to EXPIRED and rejects further progress (400) (151 ms)
-    √ Test 12 [Max Attempts]: Student can start second attempt after first expired, but 3rd attempt is rejected (400) (112 ms)
-    √ Test 13 [Concurrency Near Limit]: Concurrent start requests when only 1 attempt remains respect maxAttempts via advisory lock without over-provisioning (245 ms)
-    √ Test 14 [Regression Guard]: M7.2 delivery endpoints and M7.1 config remain completely functional (16 ms)
-    √ Test 15 [B01-T01 & B01-T02 Expiry Commit]: IN_PROGRESS attempt past expiresAt updates DB to EXPIRED, returns 400, and answers remain unchanged (157 ms)
-    √ Test 16 [B01-T03 Deterministic Lock Contention]: Save request in-flight before expiry is held by row lock until past expiresAt, then rejected (400) and committed as EXPIRED (1408 ms)
-    √ Test 17 [B01-T04 Expiry Immutability]: EXPIRED attempt cannot be reverted to IN_PROGRESS or updated (325 ms)
-    √ Test 18 [B01 Atomic Rollback]: Invalid item in batch rolls back entire batch without partial writes (145 ms)
-    √ Test 19 [B03.1 Status Consistency]: In-progress attempts past expiresAt appear under status=EXPIRED and not under status=IN_PROGRESS (108 ms)
-    √ Test 20 [B03.2 Quiz Filter & RBAC]: Admin can filter monitoring by quizConfigId and search, non-admin blocked (403) (32 ms)
+PASS test/integration/quiz-submit.integration.spec.ts (36.253 s)
+  Quiz Submission, Scoring & XP Integration Suite (M7.4)
+    √ Test 1 [Auth & Role]: Rejects unauthenticated request (401) and non-student role (403) (22 ms)
+    √ Test 2 [Ownership & IDOR Protection]: Student B cannot submit Student A's attempt (403) (69 ms)
+    √ Test 3 [Expiry & Status Guard]: Rejects expired attempt (400) and updates DB status to EXPIRED (83 ms)
+    √ Test 4 [Perfect Score & First XP]: Scores 100%, passes quiz, awards base + bonus XP, and creates XpLedger (154 ms)
+    √ Test 5 [Zero Score & Omitted]: Omitted questions count as incorrect, score is 0, bonus is 0, 0 XP awarded (136 ms)
+    √ Test 6 [Boundary & Rounding]: 2/3 correct rounds to 67%, below 70% threshold -> FAIL, awards 20 base XP and 0 bonus XP (209 ms)
+    √ Test 7 [Shuffle Mapping]: Correctly scores question when option order is shuffled (255 ms)
+    √ Test 8 [One-Time XP]: Retake attempt is scored and saved as SUBMITTED, but awards 0 XP (166 ms)
+    √ Test 9 [Idempotency]: Submitting an already SUBMITTED attempt returns saved result with HTTP 200 without creating extra XP (94 ms)
+    √ Test 10 [Concurrency Same Attempt]: 10 concurrent submits on same attempt all succeed without duplicate ledger records (628 ms)
+    √ Test 11 [Concurrency 2 Attempts Same Student]: Unique idempotency key ensures exactly ONE attempt receives XP (466 ms)
+    √ Test 12 [Submit Lock Contention on Expiry]: Submit request waiting on lock past expiresAt is rejected with 400 and committed as EXPIRED (2698 ms)
+    √ Test 13 [Zero Leakage & Tamper Resistance]: Ignores client payload attempting to inject score/answers (141 ms)
 
 Test Suites: 1 passed, 1 total
-Tests:       20 passed, 20 total
-Snapshots:   0 total
-Time:        34.539 s
+Tests:       13 passed, 13 total
 ```
 
-### 2. M7.2 Quiz Delivery Suite (`quiz-delivery.integration.spec.ts`): 10/10 TESTS PASS (32.84s)
-### 3. M7.1 Quiz Configuration Suite (`quiz-config.integration.spec.ts`): 13/13 TESTS PASS (30.20s)
-### 4. M6 Question Bank Suite (`question-bank.integration.spec.ts`): 12/12 TESTS PASS (30.99s)
+### 3.2. Toàn bộ 4 bộ test hồi quy (Regression Suites) — 55/55 KỊCH BẢN PASS
+1. **M7.3 Attempt Engine (`quiz-attempt.integration.spec.ts`):** 20/20 PASS (34.4s)
+2. **M7.2 Delivery (`quiz-delivery.integration.spec.ts`):** 10/10 PASS (27.3s)
+3. **M7.1 Configuration (`quiz-config.integration.spec.ts`):** 13/13 PASS (39.0s)
+4. **M6 Question Bank (`question-bank.integration.spec.ts`):** 12/12 PASS (33.7s)
 
-**Tổng cộng:** 55/55 tests PASS tuyệt đối trên cơ sở dữ liệu PostgreSQL thực tế (0 mock).
-
----
-
-## 4. KẾT QUẢ QUALITY GATES DỰ ÁN
-- **Prisma Schema:** `pnpm exec prisma validate` -> Valid 100%.
-- **Shared Package Build:** `pnpm --filter shared build` -> Exit code 0.
-- **API Typecheck:** `pnpm --filter api typecheck` -> Exit code 0 (0 errors).
-- **Web Typecheck:** `pnpm --filter web typecheck` -> Exit code 0 (0 errors).
-- **API Lint:** `pnpm --filter api lint` -> Exit code 0 (0 errors, 0 warnings).
-- **Web Lint:** `pnpm --filter web lint` -> Exit code 0 (0 errors, 0 warnings).
-- **API Unit Tests:** `pnpm --filter api test:unit` -> 8 suites, 31 tests PASS (4.78s).
-- **Web Unit Tests:** `pnpm --filter web test:unit` -> 10 tests PASS (122ms).
-- **Web Production Build:** `pnpm --filter web build` -> 28 static/dynamic routes compiled successfully.
+**Tổng cộng: 68 test tích hợp PostgreSQL chạy độc lập liên tục, 0 lỗi, 0 cảnh báo.**
 
 ---
 
-## 5. BẢO VỆ PHẠM VI & GIT STATUS
-- Không triển khai M7.4 (submit, scoring, passingScore, XP).
-- Không triển khai M7.5 (result, history).
-- Giữ nguyên các migration cũ và legacy Open Day Quiz.
-- Git working tree sạch 100%: On branch `fix/m4-acceptance-blockers`, nothing to commit, working tree clean.
+## 4. TỔNG HỢP KIỂM TRA CHẤT LƯỢNG (QUALITY GATES)
+
+| Lệnh Kiểm Tra | Kết Quả | Chi Tiết |
+| :--- | :--- | :--- |
+| `pnpm exec prisma validate` | **PASS** | Lược đồ hợp lệ 100% |
+| `pnpm --filter shared build` | **PASS** | Biên dịch TypeScript exit code 0 |
+| `pnpm --filter api typecheck` | **PASS** | 0 lỗi kiểu |
+| `pnpm --filter web typecheck` | **PASS** | 0 lỗi kiểu |
+| `pnpm --filter api lint` | **PASS** | 0 lỗi, 0 cảnh báo |
+| `pnpm --filter web lint` | **PASS** | 0 lỗi, 0 cảnh báo |
+| `pnpm --filter api test:unit` | **PASS** | 8 suites, 31 tests passed |
+| `pnpm --filter web test:unit` | **PASS** | 10 tests passed |
+| `pnpm --filter web build` | **PASS** | 28 route tĩnh và động biên dịch thành công |
+
+---
+
+## 5. ĐỀ XUẤT CHO TECH LEAD (MENTOR GPT)
+- **Đánh giá và cấp thẩm quyền:** Đề nghị Tech Lead nghiệm thu **FULL PASS** cho **Milestone M7.4 (Quiz Submission, Scoring & XP)**.
+- **Kế hoạch tiếp theo:** Sau khi Tech Lead ký duyệt M7.4, sẽ nhận chỉ đạo chính thức để triển khai Milestone **M7.5 (Quiz Results & History Review Dashboard)**.

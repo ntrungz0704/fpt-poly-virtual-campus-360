@@ -33,9 +33,10 @@ import {
 } from "@/lib/admin/events-admin-api";
 import { ApiClientError } from "@/lib/auth/api-client";
 import { cn } from "@/lib/utils";
+import { QuizConfigManager } from "./components/quiz-config-manager";
 
 export default function AdminEventsPage() {
-  const [tab, setTab] = useState<"schedule" | "checkin" | "quiz" | "results">("schedule");
+  const [tab, setTab] = useState<"schedule" | "checkin" | "quiz-config" | "quiz" | "results">("schedule");
   const [events, setEvents] = useState<AdminOpenDayEventDto[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
@@ -599,6 +600,20 @@ export default function AdminEventsPage() {
         <button
           type="button"
           role="tab"
+          aria-selected={tab === "quiz-config"}
+          onClick={() => setTab("quiz-config")}
+          className={cn(
+            "min-h-[40px] px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer",
+            tab === "quiz-config"
+              ? "bg-primary text-white shadow-xs"
+              : "text-secondary hover:text-on-surface",
+          )}
+        >
+          Cấu hình Bài thi (M7.1)
+        </button>
+        <button
+          type="button"
+          role="tab"
           aria-selected={tab === "quiz"}
           onClick={() => setTab("quiz")}
           className={cn(
@@ -708,6 +723,17 @@ export default function AdminEventsPage() {
             />
           )}
         </div>
+      )}
+
+      {/* Tab Panel: Quiz Config (M7.1) */}
+      {tab === "quiz-config" && (
+        <QuizConfigManager
+          selectedEventId={selectedEventId}
+          events={events}
+          onShowToast={(message, type) =>
+            setToast({ open: true, message, type: type ?? "info" })
+          }
+        />
       )}
 
       {/* Tab Panel: Quiz Bank */}

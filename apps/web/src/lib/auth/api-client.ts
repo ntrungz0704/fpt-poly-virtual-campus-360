@@ -17,6 +17,11 @@ import {
   type QuestionListResponseDto,
   type UpdateQuestionInputDto,
   type UpdateQuestionStatusDto,
+  type CreateQuizConfigInputDto,
+  type QuizConfigFilterQuery,
+  type QuizConfigListResponseDto,
+  type QuizConfigurationDto,
+  type UpdateQuizConfigInputDto,
 } from "@fpt-campus/shared";
 
 const DEFAULT_API_BASE_URL = "http://localhost:4000/api/v1";
@@ -572,6 +577,74 @@ export const questionsApi = {
       throw new Error(`Xuất báo cáo lỗi thất bại (${res.status})`);
     }
     return res.blob();
+  },
+};
+
+export const quizConfigApi = {
+  async list(params?: QuizConfigFilterQuery): Promise<QuizConfigListResponseDto> {
+    const sp = new URLSearchParams();
+    if (params?.page) sp.set("page", String(params.page));
+    if (params?.limit) sp.set("limit", String(params.limit));
+    if (params?.q) sp.set("q", params.q);
+    if (params?.status) sp.set("status", params.status);
+    if (params?.eventId) sp.set("eventId", params.eventId);
+    const qs = sp.toString();
+    return apiRequest<QuizConfigListResponseDto>(`/admin/quiz-configs${qs ? `?${qs}` : ""}`, {
+      method: "GET",
+      auth: true,
+    });
+  },
+
+  async getById(id: string): Promise<QuizConfigurationDto> {
+    return apiRequest<QuizConfigurationDto>(`/admin/quiz-configs/${id}`, {
+      method: "GET",
+      auth: true,
+    });
+  },
+
+  async create(dto: CreateQuizConfigInputDto): Promise<QuizConfigurationDto> {
+    return apiRequest<QuizConfigurationDto>("/admin/quiz-configs", {
+      method: "POST",
+      body: dto,
+      auth: true,
+    });
+  },
+
+  async update(id: string, dto: UpdateQuizConfigInputDto): Promise<QuizConfigurationDto> {
+    return apiRequest<QuizConfigurationDto>(`/admin/quiz-configs/${id}`, {
+      method: "PATCH",
+      body: dto,
+      auth: true,
+    });
+  },
+
+  async manageQuestions(id: string, questionIds: string[]): Promise<QuizConfigurationDto> {
+    return apiRequest<QuizConfigurationDto>(`/admin/quiz-configs/${id}/questions`, {
+      method: "PUT",
+      body: { questionIds },
+      auth: true,
+    });
+  },
+
+  async publish(id: string): Promise<QuizConfigurationDto> {
+    return apiRequest<QuizConfigurationDto>(`/admin/quiz-configs/${id}/publish`, {
+      method: "POST",
+      auth: true,
+    });
+  },
+
+  async archive(id: string): Promise<QuizConfigurationDto> {
+    return apiRequest<QuizConfigurationDto>(`/admin/quiz-configs/${id}/archive`, {
+      method: "POST",
+      auth: true,
+    });
+  },
+
+  async delete(id: string): Promise<{ success: boolean; message: string }> {
+    return apiRequest<{ success: boolean; message: string }>(`/admin/quiz-configs/${id}`, {
+      method: "DELETE",
+      auth: true,
+    });
   },
 };
 

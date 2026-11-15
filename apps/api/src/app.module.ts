@@ -27,6 +27,7 @@ import { TourAdminModule } from "./modules/tour/tour-admin.module";
 import { UsersRbacModule } from "./modules/users-rbac/users-rbac.module";
 import { NewsModule } from "./modules/news/news.module";
 import { QuestionsModule } from "./modules/questions/questions.module";
+import { QuizConfigModule } from "./modules/quiz-config/quiz-config.module";
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { QuestionsModule } from "./modules/questions/questions.module";
     PortalModule,
     NewsModule,
     QuestionsModule,
+    QuizConfigModule,
   ],
   providers: [
     {

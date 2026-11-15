@@ -513,6 +513,8 @@ model User {
   authoredNews            NewsArticle[]                @relation("NewsArticleAuthor")
   createdQuestions        QuestionBankItem[]           @relation("QuestionCreatedBy")
   updatedQuestions        QuestionBankItem[]           @relation("QuestionUpdatedBy")
+  createdQuizConfigs      QuizConfiguration[]          @relation("QuizConfigCreatedBy")
+  updatedQuizConfigs      QuizConfiguration[]          @relation("QuizConfigUpdatedBy")
 
   @@map("users")
 }
@@ -684,8 +686,9 @@ model OpenDayEvent {
   sessions       OpenDaySession[]
   faqs           OpenDayFaq[]
   participations EventParticipation[]
-  quizItems      OpenDayQuizItem[]
-  quizAttempts   QuizAttempt[]
+  quizItems          OpenDayQuizItem[]
+  quizAttempts       QuizAttempt[]
+  quizConfigurations QuizConfiguration[]
 
   @@map("open_day_events")
 }
@@ -947,6 +950,7 @@ model QuestionBankItem {
 
   createdBy User? @relation("QuestionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy User? @relation("QuestionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  quizQuestions QuizConfigQuestion[]
 
   @@index([status], map: "idx_question_bank_status")
   @@index([difficulty], map: "idx_question_bank_difficulty")
@@ -955,5 +959,68 @@ model QuestionBankItem {
   @@index([createdAt], map: "idx_question_bank_created_at")
   @@map("question_bank_items")
 }
+
+// ============================================================================
+// Milestone M7.1: Quiz Configuration & Question Snapshot Domain
+// ============================================================================
+
+enum QuizConfigStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model QuizConfiguration {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title              String           @db.VarChar(200)
+  description        String?          @db.Text
+  eventId            String?          @map("event_id") @db.Uuid
+  timeLimitMinutes   Int              @default(15) @map("time_limit_minutes")
+  passingScore       Int              @default(70) @map("passing_score")
+  maxAttempts        Int              @default(1) @map("max_attempts")
+  isShuffleQuestions Boolean          @default(false) @map("is_shuffle_questions")
+  isShuffleOptions   Boolean          @default(false) @map("is_shuffle_options")
+  status             QuizConfigStatus @default(DRAFT)
+  createdById        String?          @map("created_by_id") @db.Uuid
+  updatedById        String?          @map("updated_by_id") @db.Uuid
+  publishedAt        DateTime?        @map("published_at") @db.Timestamptz(6)
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?        @map("deleted_at") @db.Timestamptz(6)
+
+  event     OpenDayEvent?        @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  createdBy User?                @relation("QuizConfigCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?                @relation("QuizConfigUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  questions QuizConfigQuestion[]
+
+  @@index([status], map: "idx_quiz_configs_status")
+  @@index([eventId], map: "idx_quiz_configs_event_id")
+  @@index([deletedAt], map: "idx_quiz_configs_deleted_at")
+  @@index([createdAt], map: "idx_quiz_configs_created_at")
+  @@map("quiz_configurations")
+}
+
+model QuizConfigQuestion {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quizConfigId       String             @map("quiz_config_id") @db.Uuid
+  questionBankItemId String?            @map("question_bank_item_id") @db.Uuid
+  sortOrder          Int                @default(0) @map("sort_order")
+  questionText       String             @map("question_text") @db.Text
+  optionsJson        Json               @map("options_json") @db.JsonB
+  correctIndex       Int                @map("correct_index")
+  explanation        String?            @db.Text
+  topic              String             @default("Chung") @db.VarChar(120)
+  difficulty         QuestionDifficulty @default(MEDIUM)
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  quizConfig       QuizConfiguration @relation(fields: [quizConfigId], references: [id], onDelete: Cascade)
+  questionBankItem QuestionBankItem? @relation(fields: [questionBankItemId], references: [id], onDelete: SetNull)
+
+  @@unique([quizConfigId, questionBankItemId], map: "uq_quiz_config_question_bank_item")
+  @@index([quizConfigId, sortOrder], map: "idx_quiz_config_questions_order")
+  @@map("quiz_config_questions")
+}
+
 
 

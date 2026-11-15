@@ -1,0 +1,592 @@
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import type {
+  QuestionDifficulty,
+  QuizConfigListResponseDto,
+  QuizConfigurationDto,
+  QuizConfigQuestionDto,
+} from "@fpt-campus/shared";
+import { PrismaService } from "../../common/adapters/prisma.service";
+import type { AuthenticatedUser } from "../../common/decorators/auth.decorators";
+import { AuditLogService } from "../audit-log/audit-log.service";
+import type {
+  CreateQuizConfigDto,
+  ManageQuizQuestionsDto,
+  QuizConfigQueryDto,
+  UpdateQuizConfigDto,
+} from "./dto/quiz-config.dto";
+
+@Injectable()
+export class QuizConfigService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLog: AuditLogService,
+  ) {}
+
+  private mapQuestionDto(q: {
+    id: string;
+    quizConfigId: string;
+    questionBankItemId: string | null;
+    sortOrder: number;
+    questionText: string;
+    optionsJson: unknown;
+    correctIndex: number;
+    explanation: string | null;
+    topic: string;
+    difficulty: QuestionDifficulty;
+    createdAt: Date;
+    updatedAt: Date;
+  }): QuizConfigQuestionDto {
+    return {
+      id: q.id,
+      quizConfigId: q.quizConfigId,
+      questionBankItemId: q.questionBankItemId,
+      sortOrder: q.sortOrder,
+      questionText: q.questionText,
+      options: Array.isArray(q.optionsJson) ? (q.optionsJson as string[]) : [],
+      correctIndex: q.correctIndex,
+      explanation: q.explanation || "",
+      topic: q.topic,
+      difficulty: q.difficulty,
+      createdAt: q.createdAt.toISOString(),
+      updatedAt: q.updatedAt.toISOString(),
+    };
+  }
+
+  private mapConfigDto(
+    c: {
+      id: string;
+      title: string;
+      description: string | null;
+      eventId: string | null;
+      timeLimitMinutes: number;
+      passingScore: number;
+      maxAttempts: number;
+      isShuffleQuestions: boolean;
+      isShuffleOptions: boolean;
+      status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+      createdById: string | null;
+      updatedById: string | null;
+      publishedAt: Date | null;
+      createdAt: Date;
+      updatedAt: Date;
+      event?: { title: string } | null;
+      createdBy?: { fullName: string; username: string | null } | null;
+      updatedBy?: { fullName: string; username: string | null } | null;
+      questions?: Array<{
+        id: string;
+        quizConfigId: string;
+        questionBankItemId: string | null;
+        sortOrder: number;
+        questionText: string;
+        optionsJson: unknown;
+        correctIndex: number;
+        explanation: string | null;
+        topic: string;
+        difficulty: QuestionDifficulty;
+        createdAt: Date;
+        updatedAt: Date;
+      }>;
+      _count?: { questions: number };
+    },
+    includeQuestions = true,
+  ): QuizConfigurationDto {
+    return {
+      id: c.id,
+      title: c.title,
+      description: c.description,
+      eventId: c.eventId,
+      eventTitle: c.event?.title ?? null,
+      timeLimitMinutes: c.timeLimitMinutes,
+      passingScore: c.passingScore,
+      maxAttempts: c.maxAttempts,
+      isShuffleQuestions: c.isShuffleQuestions,
+      isShuffleOptions: c.isShuffleOptions,
+      status: c.status,
+      questionsCount: c._count?.questions ?? (c.questions?.length || 0),
+      questions: includeQuestions && c.questions
+        ? c.questions.map((q) => this.mapQuestionDto(q))
+        : undefined,
+      createdById: c.createdById,
+      creatorName: c.createdBy ? c.createdBy.fullName || c.createdBy.username : null,
+      updatedById: c.updatedById,
+      updaterName: c.updatedBy ? c.updatedBy.fullName || c.updatedBy.username : null,
+      publishedAt: c.publishedAt ? c.publishedAt.toISOString() : null,
+      createdAt: c.createdAt.toISOString(),
+      updatedAt: c.updatedAt.toISOString(),
+    };
+  }
+
+  async listConfigurations(query: QuizConfigQueryDto): Promise<QuizConfigListResponseDto> {
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.min(100, Math.max(1, query.limit || 20));
+    const skip = (page - 1) * limit;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = { deletedAt: null };
+
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    if (query.eventId) {
+      where.eventId = query.eventId;
+    }
+
+    if (query.q) {
+      const kw = query.q.trim();
+      where.OR = [
+        { title: { contains: kw, mode: "insensitive" } },
+        { description: { contains: kw, mode: "insensitive" } },
+      ];
+    }
+
+    const [total, items] = await Promise.all([
+      this.prisma.quizConfiguration.count({ where }),
+      this.prisma.quizConfiguration.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: [{ createdAt: "desc" }],
+        include: {
+          event: { select: { title: true } },
+          createdBy: { select: { fullName: true, username: true } },
+          updatedBy: { select: { fullName: true, username: true } },
+          _count: { select: { questions: true } },
+        },
+      }),
+    ]);
+
+    return {
+      items: items.map((item) => this.mapConfigDto(item, false)),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
+
+  async getConfigurationById(id: string): Promise<QuizConfigurationDto> {
+    const item = await this.prisma.quizConfiguration.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        event: { select: { title: true } },
+        createdBy: { select: { fullName: true, username: true } },
+        updatedBy: { select: { fullName: true, username: true } },
+        questions: {
+          orderBy: { sortOrder: "asc" },
+        },
+      },
+    });
+
+    if (!item) {
+      throw new NotFoundException(`Không tìm thấy cấu hình bài thi với ID: ${id}`);
+    }
+
+    return this.mapConfigDto(item, true);
+  }
+
+  async createConfiguration(
+    dto: CreateQuizConfigDto,
+    user: AuthenticatedUser,
+    ipAddress?: string,
+  ): Promise<QuizConfigurationDto> {
+    // 1. Validate event if provided
+    if (dto.eventId) {
+      const event = await this.prisma.openDayEvent.findFirst({
+        where: { id: dto.eventId, deletedAt: null },
+      });
+      if (!event) {
+        throw new BadRequestException("Sự kiện liên kết không tồn tại hoặc đã bị xóa.");
+      }
+    }
+
+    // 2. Validate Question Bank items if provided
+    const questionIds = dto.questionIds || [];
+    let validatedQuestions: Array<{
+      id: string;
+      questionText: string;
+      optionsJson: unknown;
+      correctIndex: number;
+      explanation: string | null;
+      topic: string;
+      difficulty: QuestionDifficulty;
+    }> = [];
+
+    if (questionIds.length > 0) {
+      const foundQuestions = await this.prisma.questionBankItem.findMany({
+        where: {
+          id: { in: questionIds },
+          deletedAt: null,
+          status: "APPROVED",
+        },
+      });
+
+      if (foundQuestions.length !== questionIds.length) {
+        throw new BadRequestException(
+          "Một hoặc nhiều câu hỏi không tồn tại, đã bị xóa hoặc chưa được phê duyệt.",
+        );
+      }
+
+      const qMap = new Map(foundQuestions.map((q) => [q.id, q]));
+      validatedQuestions = questionIds.map((qId) => qMap.get(qId)!);
+    }
+
+    // 3. Create inside transaction
+    const createdConfig = await this.prisma.$transaction(async (tx) => {
+      const config = await tx.quizConfiguration.create({
+        data: {
+          title: dto.title.trim(),
+          description: dto.description?.trim() || null,
+          eventId: dto.eventId || null,
+          timeLimitMinutes: dto.timeLimitMinutes ?? 15,
+          passingScore: dto.passingScore ?? 70,
+          maxAttempts: dto.maxAttempts ?? 1,
+          isShuffleQuestions: dto.isShuffleQuestions ?? false,
+          isShuffleOptions: dto.isShuffleOptions ?? false,
+          status: "DRAFT",
+          createdById: user.id,
+          questions: {
+            create: validatedQuestions.map((q, idx) => ({
+              questionBankItemId: q.id,
+              sortOrder: idx,
+              questionText: q.questionText,
+              optionsJson: q.optionsJson as never,
+              correctIndex: q.correctIndex,
+              explanation: q.explanation,
+              topic: q.topic,
+              difficulty: q.difficulty,
+            })),
+          },
+        },
+        include: {
+          event: { select: { title: true } },
+          createdBy: { select: { fullName: true, username: true } },
+          updatedBy: { select: { fullName: true, username: true } },
+          questions: { orderBy: { sortOrder: "asc" } },
+        },
+      });
+
+      await this.auditLog.record({
+        actorUserId: user.id,
+        actorUsername: user.username || user.fullName,
+        action: "CREATE_QUIZ_CONFIG",
+        resourceType: "QUIZ_CONFIGURATION",
+        resourceId: config.id,
+        diffJson: {
+          title: config.title,
+          status: config.status,
+          questionsCount: validatedQuestions.length,
+        },
+        ipAddress,
+        tx,
+      });
+
+      return config;
+    });
+
+    return this.mapConfigDto(createdConfig, true);
+  }
+
+  async updateConfiguration(
+    id: string,
+    dto: UpdateQuizConfigDto,
+    user: AuthenticatedUser,
+    ipAddress?: string,
+  ): Promise<QuizConfigurationDto> {
+    const existing = await this.prisma.quizConfiguration.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Không tìm thấy cấu hình bài thi với ID: ${id}`);
+    }
+
+    if (existing.status === "ARCHIVED") {
+      throw new BadRequestException("Không thể chỉnh sửa cấu hình bài thi đã lưu trữ (ARCHIVED).");
+    }
+
+    if (dto.eventId) {
+      const event = await this.prisma.openDayEvent.findFirst({
+        where: { id: dto.eventId, deletedAt: null },
+      });
+      if (!event) {
+        throw new BadRequestException("Sự kiện liên kết không tồn tại hoặc đã bị xóa.");
+      }
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const config = await tx.quizConfiguration.update({
+        where: { id },
+        data: {
+          title: dto.title !== undefined ? dto.title.trim() : undefined,
+          description: dto.description !== undefined ? dto.description.trim() || null : undefined,
+          eventId: dto.eventId !== undefined ? dto.eventId : undefined,
+          timeLimitMinutes: dto.timeLimitMinutes,
+          passingScore: dto.passingScore,
+          maxAttempts: dto.maxAttempts,
+          isShuffleQuestions: dto.isShuffleQuestions,
+          isShuffleOptions: dto.isShuffleOptions,
+          updatedById: user.id,
+        },
+        include: {
+          event: { select: { title: true } },
+          createdBy: { select: { fullName: true, username: true } },
+          updatedBy: { select: { fullName: true, username: true } },
+          questions: { orderBy: { sortOrder: "asc" } },
+        },
+      });
+
+      await this.auditLog.record({
+        actorUserId: user.id,
+        actorUsername: user.username || user.fullName,
+        action: "UPDATE_QUIZ_CONFIG",
+        resourceType: "QUIZ_CONFIGURATION",
+        resourceId: id,
+        diffJson: dto as Record<string, unknown>,
+        ipAddress,
+        tx,
+      });
+
+      return config;
+    });
+
+    return this.mapConfigDto(updated, true);
+  }
+
+  async manageQuestions(
+    id: string,
+    dto: ManageQuizQuestionsDto,
+    user: AuthenticatedUser,
+    ipAddress?: string,
+  ): Promise<QuizConfigurationDto> {
+    const quiz = await this.prisma.quizConfiguration.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!quiz) {
+      throw new NotFoundException(`Không tìm thấy cấu hình bài thi với ID: ${id}`);
+    }
+
+    if (quiz.status === "PUBLISHED") {
+      throw new BadRequestException(
+        "Không thể chỉnh sửa danh sách câu hỏi của bài thi đã xuất bản. Vui lòng tạo bản nháp mới hoặc hủy xuất bản.",
+      );
+    }
+
+    // Validate that every questionId exists, is not deleted, and is APPROVED
+    const foundQuestions = await this.prisma.questionBankItem.findMany({
+      where: {
+        id: { in: dto.questionIds },
+        deletedAt: null,
+        status: "APPROVED",
+      },
+    });
+
+    if (foundQuestions.length !== dto.questionIds.length) {
+      throw new BadRequestException(
+        "Một hoặc nhiều câu hỏi không tồn tại, đã bị xóa hoặc chưa được phê duyệt.",
+      );
+    }
+
+    const qMap = new Map(foundQuestions.map((q) => [q.id, q]));
+    const orderedQuestions = dto.questionIds.map((qId) => qMap.get(qId)!);
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // 1. Remove existing questions
+      await tx.quizConfigQuestion.deleteMany({
+        where: { quizConfigId: id },
+      });
+
+      // 2. Create new snapshots in exact ordered sequence
+      await tx.quizConfigQuestion.createMany({
+        data: orderedQuestions.map((q, idx) => ({
+          quizConfigId: id,
+          questionBankItemId: q.id,
+          sortOrder: idx,
+          questionText: q.questionText,
+          optionsJson: q.optionsJson as never,
+          correctIndex: q.correctIndex,
+          explanation: q.explanation,
+          topic: q.topic,
+          difficulty: q.difficulty,
+        })),
+      });
+
+      // 3. Touch updated timestamp and updater
+      const config = await tx.quizConfiguration.update({
+        where: { id },
+        data: { updatedById: user.id },
+        include: {
+          event: { select: { title: true } },
+          createdBy: { select: { fullName: true, username: true } },
+          updatedBy: { select: { fullName: true, username: true } },
+          questions: { orderBy: { sortOrder: "asc" } },
+        },
+      });
+
+      await this.auditLog.record({
+        actorUserId: user.id,
+        actorUsername: user.username || user.fullName,
+        action: "MANAGE_QUIZ_QUESTIONS",
+        resourceType: "QUIZ_CONFIGURATION",
+        resourceId: id,
+        diffJson: {
+          questionsCount: orderedQuestions.length,
+          questionIds: dto.questionIds,
+        },
+        ipAddress,
+        tx,
+      });
+
+      return config;
+    });
+
+    return this.mapConfigDto(updated, true);
+  }
+
+  async publishConfiguration(
+    id: string,
+    user: AuthenticatedUser,
+    ipAddress?: string,
+  ): Promise<QuizConfigurationDto> {
+    const quiz = await this.prisma.quizConfiguration.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        questions: true,
+      },
+    });
+
+    if (!quiz) {
+      throw new NotFoundException(`Không tìm thấy cấu hình bài thi với ID: ${id}`);
+    }
+
+    if (quiz.questions.length === 0) {
+      throw new BadRequestException("Không thể xuất bản bài thi chưa có câu hỏi nào.");
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const config = await tx.quizConfiguration.update({
+        where: { id },
+        data: {
+          status: "PUBLISHED",
+          publishedAt: new Date(),
+          updatedById: user.id,
+        },
+        include: {
+          event: { select: { title: true } },
+          createdBy: { select: { fullName: true, username: true } },
+          updatedBy: { select: { fullName: true, username: true } },
+          questions: { orderBy: { sortOrder: "asc" } },
+        },
+      });
+
+      await this.auditLog.record({
+        actorUserId: user.id,
+        actorUsername: user.username || user.fullName,
+        action: "PUBLISH_QUIZ_CONFIG",
+        resourceType: "QUIZ_CONFIGURATION",
+        resourceId: id,
+        diffJson: {
+          status: "PUBLISHED",
+          publishedAt: config.publishedAt,
+          questionsCount: quiz.questions.length,
+        },
+        ipAddress,
+        tx,
+      });
+
+      return config;
+    });
+
+    return this.mapConfigDto(updated, true);
+  }
+
+  async archiveConfiguration(
+    id: string,
+    user: AuthenticatedUser,
+    ipAddress?: string,
+  ): Promise<QuizConfigurationDto> {
+    const quiz = await this.prisma.quizConfiguration.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!quiz) {
+      throw new NotFoundException(`Không tìm thấy cấu hình bài thi với ID: ${id}`);
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const config = await tx.quizConfiguration.update({
+        where: { id },
+        data: {
+          status: "ARCHIVED",
+          updatedById: user.id,
+        },
+        include: {
+          event: { select: { title: true } },
+          createdBy: { select: { fullName: true, username: true } },
+          updatedBy: { select: { fullName: true, username: true } },
+          questions: { orderBy: { sortOrder: "asc" } },
+        },
+      });
+
+      await this.auditLog.record({
+        actorUserId: user.id,
+        actorUsername: user.username || user.fullName,
+        action: "ARCHIVE_QUIZ_CONFIG",
+        resourceType: "QUIZ_CONFIGURATION",
+        resourceId: id,
+        diffJson: { status: "ARCHIVED" },
+        ipAddress,
+        tx,
+      });
+
+      return config;
+    });
+
+    return this.mapConfigDto(updated, true);
+  }
+
+  async deleteConfiguration(
+    id: string,
+    user: AuthenticatedUser,
+    ipAddress?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const quiz = await this.prisma.quizConfiguration.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!quiz) {
+      throw new NotFoundException(`Không tìm thấy cấu hình bài thi với ID: ${id}`);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.quizConfiguration.update({
+        where: { id },
+        data: {
+          deletedAt: new Date(),
+          updatedById: user.id,
+        },
+      });
+
+      await this.auditLog.record({
+        actorUserId: user.id,
+        actorUsername: user.username || user.fullName,
+        action: "DELETE_QUIZ_CONFIG",
+        resourceType: "QUIZ_CONFIGURATION",
+        resourceId: id,
+        diffJson: { deletedAt: new Date() },
+        ipAddress,
+        tx,
+      });
+    });
+
+    return {
+      success: true,
+      message: `Đã xóa cấu hình bài thi "${quiz.title}" thành công.`,
+    };
+  }
+}

@@ -6,6 +6,8 @@ import type {
   AdminOpenDayEventDto,
   AdminOpenDayQuizItemDto,
   AdminOpenDaySessionDto,
+  AdminQuizAttemptDto,
+  AdminQuizResultsSummaryDto,
 } from "@fpt-campus/shared";
 import {
   Badge,
@@ -27,12 +29,13 @@ import {
   fetchAdminEventSessions,
   fetchAdminParticipations,
   fetchAdminQuizItems,
+  getAdminQuizResults,
 } from "@/lib/admin/events-admin-api";
 import { ApiClientError } from "@/lib/auth/api-client";
 import { cn } from "@/lib/utils";
 
 export default function AdminEventsPage() {
-  const [tab, setTab] = useState<"schedule" | "checkin" | "quiz">("schedule");
+  const [tab, setTab] = useState<"schedule" | "checkin" | "quiz" | "results">("schedule");
   const [events, setEvents] = useState<AdminOpenDayEventDto[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
@@ -63,6 +66,10 @@ export default function AdminEventsPage() {
     correctIndex: 0,
     explanation: "",
   });
+
+  // Quiz results state
+  const [quizResults, setQuizResults] = useState<AdminQuizResultsSummaryDto | null>(null);
+  const [isLoadingResults, setIsLoadingResults] = useState(false);
 
   // Quick check-in input state
   const [quickTicketCode, setQuickTicketCode] = useState("");
@@ -171,6 +178,29 @@ export default function AdminEventsPage() {
     if (!selectedEventId || tab !== "quiz") return;
     loadQuizItems(selectedEventId);
   }, [selectedEventId, tab, loadQuizItems]);
+
+  // Load quiz results when tab is 'results' or event changes
+  const loadQuizResults = useCallback((eventId: string) => {
+    getAdminQuizResults(eventId)
+      .then((res) => {
+        setQuizResults(res);
+      })
+      .catch((err) => {
+        setToast({
+          open: true,
+          message: err instanceof Error ? err.message : "Lỗi tải kết quả làm bài Quiz",
+          type: "error",
+        });
+      })
+      .finally(() => {
+        setIsLoadingResults(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!selectedEventId || tab !== "results") return;
+    loadQuizResults(selectedEventId);
+  }, [selectedEventId, tab, loadQuizResults]);
 
   // Handle Check-in Action
   const handleCheckIn = async (codeToSubmit: string) => {
@@ -452,6 +482,57 @@ export default function AdminEventsPage() {
     },
   ];
 
+  const quizResultsColumns: DataTableColumn<AdminQuizAttemptDto>[] = [
+    {
+      key: "attendeeName",
+      header: "Thí sinh / Sinh viên",
+      render: (row) => (
+        <div className="space-y-0.5">
+          <p className="font-semibold text-on-surface text-xs">{row.attendeeName}</p>
+          <span className="font-mono text-[11px] text-secondary">
+            {row.ticketCode || "Khách tự do"}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "correctCount",
+      header: "Số câu đúng",
+      render: (row) => (
+        <span className="font-mono text-xs font-bold text-on-surface">
+          {row.correctCount} / {row.totalQuestions} câu
+        </span>
+      ),
+    },
+    {
+      key: "scorePercent",
+      header: "Điểm số",
+      render: (row) => (
+        <Badge variant={row.scorePercent >= 60 ? "success" : "warning"}>
+          {row.scorePercent}% ({row.scorePercent >= 60 ? "Đạt" : "Chưa đạt"})
+        </Badge>
+      ),
+    },
+    {
+      key: "scoreXp",
+      header: "Điểm thưởng XP",
+      render: (row) => (
+        <span className="font-mono text-xs font-bold text-primary">
+          +{row.scoreXp} XP
+        </span>
+      ),
+    },
+    {
+      key: "createdAt",
+      header: "Thời gian nộp bài",
+      render: (row) => (
+        <span className="text-xs text-secondary">
+          {new Date(row.createdAt).toLocaleString("vi-VN")}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Page Header */}
@@ -528,6 +609,20 @@ export default function AdminEventsPage() {
           )}
         >
           Ngân hàng Quiz ({quizItems.length} câu)
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "results"}
+          onClick={() => setTab("results")}
+          className={cn(
+            "min-h-[40px] px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer",
+            tab === "results"
+              ? "bg-primary text-white shadow-xs"
+              : "text-secondary hover:text-on-surface",
+          )}
+        >
+          Kết quả thi Quiz ({quizResults?.totalAttempts ?? 0} lượt)
         </button>
       </div>
 
@@ -646,6 +741,76 @@ export default function AdminEventsPage() {
               rowKey={(q) => q.id}
               emptyTitle="Chưa có câu hỏi nào"
               emptyDescription="Bấm nút 'Thêm câu hỏi mới' để bổ sung câu hỏi cho sự kiện."
+            />
+          )}
+        </div>
+      )}
+
+      {/* Tab Panel: Quiz Results */}
+      {tab === "results" && (
+        <div className="space-y-4">
+          {/* KPI Stats Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="ui-card p-4 space-y-1 border-l-4 border-l-primary">
+              <span className="text-xs text-secondary font-semibold">Tổng lượt nộp bài</span>
+              <p className="text-2xl font-bold font-mono text-on-surface">
+                {quizResults?.totalAttempts ?? 0}
+              </p>
+            </div>
+            <div className="ui-card p-4 space-y-1 border-l-4 border-l-emerald-500">
+              <span className="text-xs text-secondary font-semibold">Điểm trung bình</span>
+              <p className="text-2xl font-bold font-mono text-emerald-600">
+                {quizResults?.averageScorePercent ?? 0}%
+              </p>
+            </div>
+            <div className="ui-card p-4 space-y-1 border-l-4 border-l-indigo-500">
+              <span className="text-xs text-secondary font-semibold">Tỷ lệ đạt (≥60%)</span>
+              <p className="text-2xl font-bold font-mono text-indigo-600">
+                {quizResults && quizResults.totalAttempts > 0
+                  ? Math.round((quizResults.passedCount / quizResults.totalAttempts) * 100)
+                  : 0}%
+              </p>
+            </div>
+            <div className="ui-card p-4 space-y-1 border-l-4 border-l-amber-500">
+              <span className="text-xs text-secondary font-semibold">Tổng XP đã trao</span>
+              <p className="text-2xl font-bold font-mono text-amber-600">
+                +{quizResults?.totalXpAwarded ?? 0} XP
+              </p>
+            </div>
+          </div>
+
+          {/* Table Toolbar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+            <div>
+              <h2 className="type-h3 text-on-surface">Danh sách bài nộp của thí sinh</h2>
+              <p className="text-xs text-secondary mt-0.5">
+                Ghi nhận thời gian thực từ thí sinh và sinh viên làm trắc nghiệm tại Đấu trường Quiz.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              icon="refresh"
+              loading={isLoadingResults}
+              onClick={() => {
+                if (selectedEventId) loadQuizResults(selectedEventId);
+              }}
+            >
+              Làm mới
+            </Button>
+          </div>
+
+          {isLoadingResults ? (
+            <div className="p-8 flex justify-center">
+              <LoadingState label="Đang tải kết quả bài nộp..." />
+            </div>
+          ) : (
+            <DataTable
+              columns={quizResultsColumns}
+              data={quizResults?.items ?? []}
+              rowKey={(r) => r.id}
+              emptyTitle="Chưa có lượt nộp bài nào"
+              emptyDescription="Khi thí sinh hoặc sinh viên hoàn thành bài kiểm tra tại Đấu trường Quiz, kết quả sẽ xuất hiện tại đây."
             />
           )}
         </div>

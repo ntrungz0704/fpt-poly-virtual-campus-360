@@ -13,6 +13,7 @@ import {
   type AdminOpenDayQuizItemDto,
   type AdminOpenDaySessionDto,
   type AdminParticipationsListResponseDto,
+  type AdminQuizResultsSummaryDto,
   type BuildingCode,
   type CheckInResultDto,
   type OpenDayEventMetadataDto,
@@ -1408,6 +1409,43 @@ export class OpenDayService {
         qrPayload: `TICKET:${updated.ticketCode}`,
       },
       checkedInAt: now.toISOString(),
+    };
+  }
+
+  async listQuizResults(eventId: string): Promise<AdminQuizResultsSummaryDto> {
+    const attempts = await this.prisma.quizAttempt.findMany({
+      where: { eventId },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+    });
+
+    const totalAttempts = attempts.length;
+    const passedCount = attempts.filter((a) => a.scorePercent >= 60).length;
+    const totalXpAwarded = attempts.reduce((acc, a) => acc + a.scoreXp, 0);
+    const averageScorePercent =
+      totalAttempts > 0
+        ? Math.round(
+            attempts.reduce((acc, a) => acc + a.scorePercent, 0) / totalAttempts,
+          )
+        : 0;
+
+    return {
+      items: attempts.map((a) => ({
+        id: a.id,
+        eventId: a.eventId,
+        userId: a.userId,
+        ticketCode: a.ticketCode,
+        attendeeName: a.attendeeName,
+        totalQuestions: a.totalQuestions,
+        correctCount: a.correctCount,
+        scorePercent: a.scorePercent,
+        scoreXp: a.scoreXp,
+        createdAt: a.createdAt.toISOString(),
+      })),
+      totalAttempts,
+      averageScorePercent,
+      passedCount,
+      totalXpAwarded,
     };
   }
 }

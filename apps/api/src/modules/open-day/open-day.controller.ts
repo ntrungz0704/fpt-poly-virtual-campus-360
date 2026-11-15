@@ -16,6 +16,7 @@ import type {
   AdminOpenDayQuizItemDto,
   AdminOpenDaySessionDto,
   AdminParticipationsListResponseDto,
+  AdminQuizResultsSummaryDto,
   CheckInResultDto,
   OpenDayEventMetadataDto,
 } from "@fpt-campus/shared";
@@ -327,5 +328,12 @@ export class OpenDayController {
     @Query() query: AdminEventParticipationsQueryDto,
   ): Promise<AdminParticipationsListResponseDto> {
     return this.openDayService.listParticipations(eventId, query);
+  }
+
+  @Get(":eventId/quiz-results")
+  listQuizResults(
+    @Param("eventId", new ParseUUIDPipe()) eventId: string,
+  ): Promise<AdminQuizResultsSummaryDto> {
+    return this.openDayService.listQuizResults(eventId);
   }
 }

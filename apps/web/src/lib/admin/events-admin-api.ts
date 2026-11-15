@@ -3,6 +3,7 @@ import type {
   AdminOpenDayQuizItemDto,
   AdminOpenDaySessionDto,
   AdminParticipationsListResponseDto,
+  AdminQuizResultsSummaryDto,
   CheckInResultDto,
   CheckInTicketInput,
 } from "@fpt-campus/shared";
@@ -157,3 +158,19 @@ export async function deleteAdminQuizItem(
     },
   );
 }
+
+/**
+ * Fetch quiz results for an event.
+ * GET /api/v1/admin/events/:eventId/quiz-results
+ */
+export async function getAdminQuizResults(
+  eventId: string,
+): Promise<AdminQuizResultsSummaryDto> {
+  return apiRequest<AdminQuizResultsSummaryDto>(
+    `/admin/events/${encodeURIComponent(eventId)}/quiz-results`,
+    {
+      auth: true,
+    },
+  );
+}
+

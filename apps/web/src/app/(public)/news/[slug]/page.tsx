@@ -1,10 +1,11 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { CAMPUS_GUIDE_ARTICLES } from "@/components/news";
+import { CAMPUS_GUIDE_ARTICLES, CampusGuideArticle } from "@/components/news";
 import { Badge, NotFoundState } from "@/components/ui";
 import { AnimatedContent, FadeContent } from "@/components/animations";
 import { CopyLinkButton } from "./CopyLinkButton";
+import { fetchPublicNewsArticle } from "@/lib/public/news-public-api";
 
 export function generateStaticParams() {
   return CAMPUS_GUIDE_ARTICLES.map((article) => ({ slug: article.slug }));
@@ -16,7 +17,24 @@ interface NewsDetailPageProps {
 
 export default async function NewsDetailPage({ params }: NewsDetailPageProps) {
   const { slug } = await params;
-  const article = CAMPUS_GUIDE_ARTICLES.find((a) => a.slug === slug);
+  const dbArticle = await fetchPublicNewsArticle(slug);
+
+  const article: CampusGuideArticle | null = dbArticle
+    ? {
+        slug: dbArticle.slug,
+        tag: dbArticle.tag,
+        title: dbArticle.title,
+        excerpt: dbArticle.excerpt,
+        imageUrl: dbArticle.imageUrl,
+        date: dbArticle.date,
+        relatedSceneId: dbArticle.relatedSceneId || "cong-chao-qtsc",
+        content: Array.isArray(dbArticle.contentJson)
+          ? (dbArticle.contentJson as string[])
+          : dbArticle.content
+            ? [dbArticle.content]
+            : [],
+      }
+    : CAMPUS_GUIDE_ARTICLES.find((a) => a.slug === slug) ?? null;
 
   if (!article) {
     return (

@@ -2,10 +2,12 @@ import React from "react";
 import { OFFICIAL_CAMPUS_INFO } from "@/data/campus-data";
 import {
   CAMPUS_GUIDE_ARTICLES,
+  CampusGuideArticle,
   FeaturedArticleCard,
   NewsArticleGrid,
 } from "@/components/news";
 import { FadeContent } from "@/components/animations";
+import { fetchPublicNews } from "@/lib/public/news-public-api";
 
 export const metadata = {
   title: "Bản tin Hướng dẫn Trải nghiệm QTSC | FPT Polytechnic Virtual Campus",
@@ -13,8 +15,27 @@ export const metadata = {
     "Tổng hợp hướng dẫn tham quan Virtual Campus 360° và lịch trình Open Day tại cơ sở CVPM Quang Trung Quận 12.",
 };
 
-export default function NewsPage() {
-  const [featured, ...rest] = CAMPUS_GUIDE_ARTICLES;
+export default async function NewsPage() {
+  const newsData = await fetchPublicNews();
+  const articles: CampusGuideArticle[] =
+    newsData.items.length > 0
+      ? newsData.items.map((art) => ({
+          slug: art.slug,
+          tag: art.tag,
+          title: art.title,
+          excerpt: art.excerpt,
+          imageUrl: art.imageUrl,
+          date: art.date,
+          relatedSceneId: art.relatedSceneId || "cong-chao-qtsc",
+          content: Array.isArray(art.contentJson)
+            ? (art.contentJson as string[])
+            : art.content
+              ? [art.content]
+              : [],
+        }))
+      : CAMPUS_GUIDE_ARTICLES;
+
+  const [featured, ...rest] = articles;
 
   return (
     <div className="bg-surface min-h-screen py-10 sm:py-12">

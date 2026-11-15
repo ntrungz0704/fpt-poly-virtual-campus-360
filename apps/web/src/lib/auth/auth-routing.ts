@@ -17,6 +17,10 @@ const ADMIN_ROUTE_PERMISSIONS: ReadonlyArray<{
     anyOf: ["events:write"],
   },
   {
+    prefix: "/admin/news",
+    anyOf: ["campus:write", "tour:write"],
+  },
+  {
     prefix: "/admin/media",
     anyOf: ["media:upload"],
   },

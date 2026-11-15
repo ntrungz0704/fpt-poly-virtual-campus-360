@@ -25,6 +25,7 @@ import { PortalModule } from "./modules/portal/portal.module";
 import { StorageModule } from "./modules/storage/storage.module";
 import { TourAdminModule } from "./modules/tour/tour-admin.module";
 import { UsersRbacModule } from "./modules/users-rbac/users-rbac.module";
+import { NewsModule } from "./modules/news/news.module";
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { UsersRbacModule } from "./modules/users-rbac/users-rbac.module";
     PublicModule,
     GamificationModule,
     PortalModule,
+    NewsModule,
   ],
   providers: [
     {

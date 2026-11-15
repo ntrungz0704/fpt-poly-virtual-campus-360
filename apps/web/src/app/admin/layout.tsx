@@ -19,6 +19,7 @@ const ADMIN_MODULES = [
   { href: "/admin/locations", label: "Địa điểm & GIS", icon: "apartment" },
   { href: "/admin/virtual-tour", label: "Tour 360° & Hotspot", icon: "view_in_ar" },
   { href: "/admin/events", label: "Sự kiện Open Day", icon: "event" },
+  { href: "/admin/news", label: "Tin tức & Cẩm nang", icon: "article" },
   { href: "/admin/media", label: "Thư viện Media", icon: "perm_media" },
   { href: "/admin/users", label: "Tài khoản & Import", icon: "group" },
 ];

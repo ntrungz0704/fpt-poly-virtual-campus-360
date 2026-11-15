@@ -349,6 +349,7 @@ model MediaAsset {
   panoramaTourNodes TourNode[]      @relation("TourNodePanoramaAsset")
   locationMedia     LocationMedia[]
   uploadTokens      UploadToken[]
+  newsArticles      NewsArticle[]   @relation("NewsArticleCoverMedia")
 
   @@index([sha256Checksum], map: "idx_media_sha256")
   @@map("media_assets")
@@ -496,6 +497,7 @@ model User {
   bio                     String?                      @db.VarChar(500)
   parentLinks             ParentStudentLink[]          @relation("ParentLinks")
   studentLinks            ParentStudentLink[]          @relation("StudentLinks")
+  authoredNews            NewsArticle[]                @relation("NewsArticleAuthor")
 
   @@map("users")
 }
@@ -881,4 +883,31 @@ model ParentStudentLink {
   @@index([studentId], map: "idx_parent_student_links_student_id")
   @@map("parent_student_links")
 }
+
+model NewsArticle {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title          String        @db.VarChar(240)
+  slug           String        @unique @db.VarChar(240)
+  tag            String        @default("Tin tức chung") @db.VarChar(80)
+  excerpt        String        @db.VarChar(500)
+  content        String        @db.Text
+  contentJson    Json          @default("[]") @map("content_json") @db.JsonB
+  coverMediaId   String?       @map("cover_media_id") @db.Uuid
+  coverImageUrl  String?       @map("cover_image_url") @db.Text
+  relatedSceneId String?       @map("related_scene_id") @db.VarChar(100)
+  status         PublishStatus @default(DRAFT)
+  publishedAt    DateTime?     @map("published_at") @db.Timestamptz(6)
+  authorId       String?       @map("author_id") @db.Uuid
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?     @map("deleted_at") @db.Timestamptz(6)
+
+  coverMedia     MediaAsset?   @relation("NewsArticleCoverMedia", fields: [coverMediaId], references: [id], onDelete: SetNull)
+  author         User?         @relation("NewsArticleAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([status, deletedAt])
+  @@index([publishedAt])
+  @@map("news_articles")
+}
+
 

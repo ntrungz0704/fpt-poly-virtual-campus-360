@@ -10,11 +10,17 @@ import {
   Post,
   Query,
   Req,
+  Res,
+  StreamableFile,
 } from "@nestjs/common";
+import type { Response } from "express";
 import type {
   AdminCreateUserResponse,
   AdminInvitationSummaryDto,
   AdminUserListItemDto,
+  UserImportConfirmRequest,
+  UserImportConfirmResultDto,
+  UserImportPreviewResponse,
 } from "@fpt-campus/shared";
 import {
   CurrentUser,
@@ -31,11 +37,65 @@ import {
   AdminUpdateUserStatusDto,
   AdminUsersQueryDto,
 } from "./dto/users.dto";
+import { UsersImportService, type RawImportRow } from "./users-import.service";
 import { UsersRbacService } from "./users-rbac.service";
 
 @Controller("admin/users")
 export class AdminUsersController {
-  constructor(private readonly usersRbacService: UsersRbacService) {}
+  constructor(
+    private readonly usersRbacService: UsersRbacService,
+    private readonly usersImportService: UsersImportService,
+  ) {}
+
+  @Get("import/template")
+  @RequirePermissions("users:manage")
+  async getTemplate(@Res({ passthrough: true }) res: Response): Promise<StreamableFile> {
+    const buffer = this.usersImportService.generateTemplate();
+    res.set({
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": 'attachment; filename="Mau_Import_Tai_Khoan_FPT_Poly.xlsx"',
+    });
+    return new StreamableFile(buffer);
+  }
+
+  @Post("import/preview")
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions("users:manage")
+  async previewImport(
+    @Body() body: { rows: RawImportRow[]; defaultUserType?: "STUDENT" | "PARENT" },
+  ): Promise<UserImportPreviewResponse> {
+    return this.usersImportService.previewImport(body.rows || [], body.defaultUserType);
+  }
+
+  @Post("import/confirm")
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions("users:manage")
+  async confirmImport(
+    @Body() dto: UserImportConfirmRequest,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Req() req: RequestWithMeta,
+  ): Promise<UserImportConfirmResultDto> {
+    return this.usersImportService.confirmImport(
+      actor,
+      dto,
+      sanitizeIpAddress(req.ip) ?? undefined,
+    );
+  }
+
+  @Post("import/error-report")
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions("users:manage")
+  async downloadErrorReport(
+    @Body() body: { rows: any[] },
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const buffer = this.usersImportService.generateErrorReport(body.rows || []);
+    res.set({
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": 'attachment; filename="Bao_Cao_Loi_Import.xlsx"',
+    });
+    return new StreamableFile(buffer);
+  }
 
   @Get()
   @RequirePermissions("users:manage")

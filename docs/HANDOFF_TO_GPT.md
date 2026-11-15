@@ -1,108 +1,124 @@
-# BÁO CÁO KỸ THUẬT HANDOFF — M7.1 FINAL REMEDIATION: PUBLISHED CONFIGURATION IMMUTABILITY & UNIFIED DEFAULTS
+# BÁO CÁO KỸ THUẬT HANDOFF — M7.1 FINAL REMEDIATION (ROUND 2): ATOMIC PUBLISHED IMMUTABILITY & CONCURRENCY TESTS (B01-RACE)
 
 **Dự án:** FPT Polytechnic Virtual Campus 360°  
 **Nhánh:** `fix/m4-acceptance-blockers`  
 **Pull Request trên GitHub:** PR #1  
-**Thời gian hoàn tất:** 2026-11-15 20:43 (GMT+7)
+**Thời gian hoàn tất:** 2026-11-15 20:56 (GMT+7)
 
 ---
 
 ## 1. ĐỐI CHIẾU COMMIT SHA CHÍNH XÁC (FULL SHA TỪ GITHUB)
-- **M6 Base Feature Commit:** `773ecec3ef150a50b743112f336386a6ca6a9858`
-- **M6 Base Docs Commit:** `2948069297e0405f184caf0cd1fd307d74ccc2ed`
-- **M6 Remediation Round 1 Code Commit:** `6f9f001e85aa003d893153921eb331de1cb2d698`
-- **M6 Remediation Round 1 Docs Commit:** `702fd9e82331fe45dd7a4eb0f7c0a8ac275f41e4`
-- **M6 Final Closure Code Commit (Strict Enum):** `6bbd3997e2c3e9d3fcbf8d2cadc1df2c0dfa0494`
+- **M6 Final Closure Code Commit:** `6bbd3997e2c3e9d3fcbf8d2cadc1df2c0dfa0494`
 - **M6 Final Closure Docs Commit (Verified):** `e81413b35fb0d616d866cf2c8b5318a02a0caab4`
 - **M7.1 Base Feature Code Commit:** `34125f4baec1ac6e6a90c0a5e6b9a20250678a5a`
 - **M7.1 Base Docs Commit:** `d548f0cb3d5aa0bcd78f7144938e068daf7582c3`
-- **M7.1 Remediation Code Commit (B01, B02, B03):** `146041c7c517c6091960f3c9f2dca346d6cd665a` (`fix(quiz-config): lock published configuration immutability, unify defaults, and add regression tests (B01, B02, B03)`)
-- **M7.1 Remediation Docs Commit:** Đi kèm và đồng bộ trực tiếp trên nhánh `fix/m4-acceptance-blockers` ngay sau code commit `146041c7c517c6091960f3c9f2dca346d6cd665a`
+- **M7.1 Remediation Round 1 Code Commit (B01, B02, B03):** `146041c7c517c6091960f3c9f2dca346d6cd665a`
+- **M7.1 Remediation Round 1 Docs Commit:** `aa872fe64ddd39c9549028ae0e875dd59be1e280`
+- **M7.1 Final Remediation Round 2 Code Commit (B01-RACE):** `c6dc56e0ff2e11eb30d3bc09bda4825dac0145ce` (`fix(quiz-config): enforce atomic conditional transactions for published immutability and add concurrency tests (B01-RACE)`)
+- **M7.1 Final Remediation Round 2 Docs Commit:** Đi kèm và đồng bộ trực tiếp trên nhánh `fix/m4-acceptance-blockers` ngay sau code commit `c6dc56e0ff2e11eb30d3bc09bda4825dac0145ce`.
 - **Quy chuẩn Git:** Tuân thủ 100% nguyên tắc tách biệt Code commit và Docs commit, không force-push, remote tip đồng bộ tuyệt đối với local HEAD.
 
 ---
 
-## 2. GIẢI TRÌNH XỬ LÝ TRIỆT ĐỂ 3 BLOCKER THEO YÊU CẦU TECH LEAD
+## 2. GIẢI TRÌNH NGUYÊN NHÂN GỐC RỄ & GIẢI PHÁP TÍNH NGUYÊN TỬ (ATOMICITY) CHO B01-RACE
 
-### 🔴 Blocker B01 — Khóa Bất biến Cấu hình Đã Xuất bản (Published Configuration Immutability)
-**Vấn đề:** Trước remediation, `updateConfiguration()` chỉ từ chối trạng thái `ARCHIVED`, vô tình cho phép bài thi `PUBLISHED` tiếp tục bị chỉnh sửa thông số qua `PATCH /api/v1/admin/quiz-configs/:id`.
-**Giải pháp triệt để:**
-1. **Backend Service (`quiz-config.service.ts`):**
-   - Trong `updateConfiguration()`: Kiểm tra nghiêm ngặt `if (existing.status !== "DRAFT")`, ném ngay `BadRequestException(400)` nếu bài thi ở trạng thái `PUBLISHED` hoặc `ARCHIVED`. Toàn bộ các trường `title`, `description`, `eventId`, `timeLimitMinutes`, `passingScore`, `maxAttempts`, `isShuffleQuestions`, `isShuffleOptions` được bảo vệ bất biến 100%.
-   - Trong `manageQuestions()`: Bổ sung kiểm tra `if (quiz.status !== "DRAFT")`, từ chối mọi thao tác chỉnh sửa hoặc thay đổi danh sách câu hỏi snapshot đối với bài thi không phải bản nháp.
-2. **Admin Frontend (`quiz-config-manager.tsx`):**
-   - Ẩn nút "Sửa" đối với bài thi `PUBLISHED` và `ARCHIVED` (chỉ hiển thị khi `row.status === "DRAFT"`).
-   - Nút "Câu hỏi" tự động chuyển thành "Xem câu hỏi" ở chế độ chỉ đọc (Read-only) khi bài thi đã xuất bản; ẩn toàn bộ các nút di chuyển Lên/Xuống, nút Xóa câu hỏi, nút Lưu danh sách, và vô hiệu hóa nút Chọn từ Ngân hàng câu hỏi M6.
+### 🔴 Nguyên nhân gốc rễ Race Condition (Root Cause Analysis):
+Ở vòng remediation trước, việc kiểm tra trạng thái (`if (existing.status !== "DRAFT")`) được thực hiện bằng `findFirst()` ở ngoài transaction. Sau đó mới mở `$transaction` và chạy `update({ where: { id } })`.
+Kịch bản cạnh tranh dữ liệu (Race Condition) có thể xảy ra:
+- **Request A (PATCH config):** Đọc được `status = DRAFT`, vượt qua kiểm tra điều kiện.
+- **Request B (Publish config):** Xuất bản thành công, chuyển trạng thái cấu hình sang `PUBLISHED` và commit vào PostgreSQL.
+- **Request A:** Bắt đầu transaction và thực thi lệnh `update({ where: { id } })` vô điều kiện trạng thái -> **Vô tình ghi đè metadata lên bài thi đã xuất bản!**
 
----
+Tương tự với `manageQuestions()`: việc kiểm tra trạng thái nằm ngoài và không có cơ chế khóa nguyên tử kết hợp kiểm tra trạng thái bên trong `$transaction`.
 
-### 🔴 Blocker B02 — Đồng bộ Thống nhất Bộ Giá trị Mặc định (Unified Defaults: 3 / true / true)
-**Vấn đề:** Giá trị mặc định của `maxAttempts`, `isShuffleQuestions`, `isShuffleOptions` giữa UI (3 / true / true) và Service/Prisma (1 / false / false) không khớp nhau.
-**Giải pháp triệt để:**
-1. **Prisma Schema (`prisma/schema.prisma`):**
-   - `maxAttempts Int @default(3) @map("max_attempts")`
-   - `isShuffleQuestions Boolean @default(true) @map("is_shuffle_questions")`
-   - `isShuffleOptions Boolean @default(true) @map("is_shuffle_options")`
-2. **Prisma Migration (`20261115000004_quiz_config_defaults`):**
-   - `ALTER TABLE "quiz_configurations" ALTER COLUMN "max_attempts" SET DEFAULT 3;`
-   - `ALTER TABLE "quiz_configurations" ALTER COLUMN "is_shuffle_questions" SET DEFAULT true;`
-   - `ALTER TABLE "quiz_configurations" ALTER COLUMN "is_shuffle_options" SET DEFAULT true;`
-   - Đã áp dụng đồng bộ vào PostgreSQL qua `prisma db push` (Exit code 0).
-3. **Backend Service (`quiz-config.service.ts`):**
-   - Thống nhất fallback mặc định: `maxAttempts: dto.maxAttempts ?? 3`, `isShuffleQuestions: dto.isShuffleQuestions ?? true`, `isShuffleOptions: dto.isShuffleOptions ?? true`.
-4. **Admin UI Form Defaults:**
-   - Đảm bảo form tạo mới luôn khởi tạo chính xác: `maxAttempts: 3`, `isShuffleQuestions: true`, `isShuffleOptions: true`.
-
----
-
-### 🔴 Blocker B03 — Bổ sung Bộ Kiểm thử Tích hợp PostgreSQL (PostgreSQL Regression Tests)
-**File cập nhật:** `apps/api/test/integration/quiz-config.integration.spec.ts`
-Bổ sung 2 kịch bản tích hợp chuyên sâu chạy trực tiếp trên PostgreSQL:
-1. `Test 10 [Configuration Immutability (B01)]`:
-   - Tạo bài thi hợp lệ và xuất bản thành công (`status = "PUBLISHED"`).
-   - Gọi `PATCH /api/v1/admin/quiz-configs/:id` cố tình thay đổi điểm đạt, thời gian làm bài, số lượt thi -> Xác nhận API từ chối với HTTP 400 Bad Request.
-   - Truy vấn trực tiếp PostgreSQL: Xác nhận 100% dữ liệu gốc trong DB không hề suy chuyển (`passingScore: 70`, `timeLimitMinutes: 15`, `maxAttempts: 3`, `status: "PUBLISHED"`).
-   - Kiểm tra `AuditLog`: Xác nhận không có bất kỳ bản ghi `UPDATE_QUIZ_CONFIG` nào được ghi nhận cho request bị từ chối.
-   - Lưu trữ bài thi (`status = "ARCHIVED"`) và gọi `PATCH` -> Xác nhận API từ chối với HTTP 400 Bad Request.
-   - Kiểm tra bài thi ở trạng thái `DRAFT` vẫn cho phép cập nhật thông số bình thường.
-2. `Test 11 [Unified Defaults (B02)]`:
-   - Tạo bài thi với payload bỏ trống các trường tùy chọn (`maxAttempts`, `isShuffleQuestions`, `isShuffleOptions`).
-   - Kiểm tra phản hồi API và xác minh trực tiếp cơ sở dữ liệu PostgreSQL: các trường tự động nhận đúng giá trị mặc định chuẩn `maxAttempts = 3`, `isShuffleQuestions = true`, `isShuffleOptions = true`.
-   - Tạo bài thi với các giá trị tùy biến rõ ràng (`maxAttempts: 5, isShuffleQuestions: false, isShuffleOptions: false`) -> Xác nhận PostgreSQL lưu trữ chính xác giá trị người dùng chỉ định.
+### 🟢 Giải pháp Tính Nguyên Tử Toàn Diện (Atomic Conditional Transaction):
+Tại `apps/api/src/modules/quiz-config/quiz-config.service.ts`:
+1. **Trong `updateConfiguration()`:**
+   - Đưa toàn bộ việc kiểm tra và cập nhật vào bên trong `prisma.$transaction`.
+   - Sử dụng lệnh cập nhật có điều kiện nguyên tử ở mức hàng cơ sở dữ liệu:
+     ```ts
+     const updateResult = await tx.quizConfiguration.updateMany({
+       where: { id, status: "DRAFT", deletedAt: null },
+       data: { ... },
+     });
+     ```
+   - Trong PostgreSQL, `UPDATE ... WHERE id = ... AND status = 'DRAFT'` chiếm giữ khóa độc quyền hàng (exclusive row lock).
+   - Nếu bản ghi đã bị chuyển sang `PUBLISHED` hoặc `ARCHIVED` bởi một request đồng thời, `updateResult.count === 0`. Hệ thống lập tức ném `BadRequestException(400)` và rollback toàn bộ transaction: không một byte dữ liệu nào bị thay đổi và không có bản ghi `AuditLog` nào được tạo!
+2. **Trong `manageQuestions()`:**
+   - Thực hiện khóa điều kiện nguyên tử bên trong transaction:
+     ```ts
+     const touchResult = await tx.quizConfiguration.updateMany({
+       where: { id, status: "DRAFT", deletedAt: null },
+       data: { updatedById: user.id },
+     });
+     ```
+   - Nếu cấu hình không còn là `DRAFT`, `touchResult.count === 0` -> Ném `BadRequestException(400)` và rollback, ngăn chặn tuyệt đối việc xóa hoặc tạo lại câu hỏi snapshot cho bài thi đã xuất bản.
+3. **Trong `publishConfiguration()`:**
+   - Thực hiện kiểm tra câu hỏi và cập nhật có điều kiện trạng thái `status: "DRAFT"` nguyên tử bên trong transaction:
+     ```ts
+     const publishResult = await tx.quizConfiguration.updateMany({
+       where: { id, status: "DRAFT", deletedAt: null },
+       data: { status: "PUBLISHED", publishedAt: new Date(), updatedById: user.id },
+     });
+     ```
+   - Đảm bảo tính tuần tự hóa (Serializable / Atomic): Hai request publish cùng lúc hay PATCH đồng thời chỉ một nhánh hợp lệ duy nhất được phép ghi nhận.
 
 ---
 
-## 3. KẾT QUẢ QUALITY GATES & BẰNG CHỨNG KIỂM THỬ THỰC TẾ (100% PASS)
+## 3. THIẾT KẾ & KẾT QUẢ CÁC BÀI TEST ĐỒNG THỜI (CONCURRENCY REGRESSION TESTS)
+
+File: `apps/api/test/integration/quiz-config.integration.spec.ts`
+
+### 1. Test 12 [Atomic Concurrency: Concurrent PATCH vs Publish]
+- **Thiết kế:** Tạo bài thi ở trạng thái DRAFT. Kích hoạt đồng thời 2 request song song qua `Promise.all([PATCH, Publish])`.
+- **Kết quả thực tế:**
+  - Database PostgreSQL cuối cùng luôn đảm bảo trạng thái `PUBLISHED`.
+  - Nếu PATCH commit trước, publish sẽ đóng gói giá trị mới; nếu Publish commit trước, PATCH bị từ chối với HTTP 400 Bad Request và giá trị trong DB giữ nguyên giá trị ban đầu.
+  - Tuyệt đối không có trường hợp metadata bị ghi đè sau khi bài thi đã commit `PUBLISHED`.
+  - Request PATCH tiếp theo bị từ chối 100% với HTTP 400.
+
+### 2. Test 13 [Atomic Concurrency: Concurrent manageQuestions vs Publish]
+- **Thiết kế:** Tạo bài thi DRAFT có sẵn câu hỏi 1. Kích hoạt song song `Promise.all([manageQuestions(câu hỏi 2), Publish])`.
+- **Kết quả thực tế:**
+  - Database PostgreSQL cuối cùng luôn đảm bảo trạng thái `PUBLISHED`.
+  - Danh sách câu hỏi snapshot trong DB được bảo toàn toàn vẹn: hoặc câu hỏi 2 được snapshot trước khi publish, hoặc publish hoàn tất trước và request manageQuestions nhận 400 với snapshot câu hỏi 1 giữ nguyên 100%.
+  - Mọi request manageQuestions sau khi bài thi xuất bản bị từ chối 100% với HTTP 400.
+
+---
+
+## 4. KẾT QUẢ QUALITY GATES & BẰNG CHỨNG KIỂM THỬ THỰC TẾ (100% PASS)
 
 | Hạng mục kiểm tra | Lệnh thực thi | Exit Code | Kết quả thực tế |
 | :--- | :--- | :---: | :--- |
-| **Quiz Config Integration Tests (M7.1)** | `jest --runInBand test/integration/quiz-config.integration.spec.ts` | **0** | **11/11 tests PASS (31.42s)** trên scratch PostgreSQL thật |
+| **Quiz Config Integration Tests (M7.1)** | `jest --runInBand test/integration/quiz-config.integration.spec.ts` | **0** | **13/13 tests PASS (28.37s)** trên scratch PostgreSQL thật |
 | **Question Bank Regression Tests (M6)** | `jest --runInBand test/integration/question-bank.integration.spec.ts` | **0** | **12/12 tests PASS (27.65s)** trên scratch PostgreSQL thật |
 | **Shared Package Build** | `pnpm --filter shared build` | **0** | **100% compile contracts** (`tsc`) |
 | **API Typecheck** | `pnpm --filter api typecheck` | **0** | **0 errors** (`tsc --noEmit`) |
 | **Web Typecheck** | `pnpm --filter web typecheck` | **0** | **0 errors** (`tsc --noEmit`) |
 | **API Lint** | `pnpm --filter api lint` | **0** | **0 errors, 0 warnings** (`eslint`) |
 | **Web Lint** | `pnpm --filter web lint` | **0** | **0 errors, 0 warnings** (`eslint`) |
-| **API Unit Tests** | `pnpm --filter api test:unit` | **0** | **8 suites, 31 tests PASS (4.96s)** |
-| **Web Unit Tests** | `pnpm --filter web test:unit` | **0** | **10 tests PASS (126ms)** |
+| **API Unit Tests** | `pnpm --filter api test:unit` | **0** | **8 suites, 31 tests PASS (6.42s)** |
+| **Web Unit Tests** | `pnpm --filter web test:unit` | **0** | **10 tests PASS (154ms)** |
 | **Next.js Production Build** | `pnpm --filter web build` | **0** | **27 routes compiled** (`next build`), tối ưu thành công |
 
-### Chi tiết 11 kịch bản Quiz Configuration Integration Test:
-1. `Test 1 [RBAC]`: Chặn 403 Forbidden đối với Student và TOUR_EDITOR (`campus:write`).
-2. `Test 2 [Validation]`: Chặn tiêu đề ngắn (< 3 ký tự), eventId sai, câu hỏi trùng hoặc chưa duyệt (400 Bad Request).
-3. `Test 3 [CRUD]`: Tạo cấu hình, sao chép snapshot câu hỏi duyệt, lưu PostgreSQL và ghi `AuditLog`.
+### Danh sách 13 kịch bản Quiz Configuration Integration Test:
+1. `Test 1 [RBAC]`: Student và TOUR_EDITOR bị chặn 403 Forbidden.
+2. `Test 2 [Validation]`: Chặn tiêu đề ngắn, eventId sai, câu hỏi trùng hoặc chưa duyệt (400 Bad Request).
+3. `Test 3 [CRUD]`: Tạo cấu hình, sao chép snapshot câu hỏi duyệt, lưu PostgreSQL và ghi AuditLog.
 4. `Test 4 [Get & Update]`: Đọc chi tiết bài thi và cập nhật thông số bài thi DRAFT thành công.
 5. `Test 5 [Manage Questions]`: Sắp xếp thứ tự, cập nhật snapshot, từ chối câu hỏi chưa duyệt.
-6. `Test 6 [Publish]`: Chặn bài thi 0 câu hỏi, xuất bản bài thi hợp lệ và chuyển trạng thái `PUBLISHED`.
-7. `Test 7 [Snapshot Immutability]`: **Bảo chứng Snapshot Bất biến:** Sửa đổi hoặc xóa mềm `QuestionBankItem` gốc KHÔNG ảnh hưởng snapshot đã xuất bản.
-8. `Test 8 [Archive & Delete]`: Đưa bài thi vào trạng thái lưu trữ `ARCHIVED`, xóa mềm (`deletedAt`) và loại trừ khỏi danh sách hoạt động.
-9. `Test 9 [Regression Guard]`: Giữ nguyên vẹn 100% các câu hỏi bài thi Open Day hiện hành (`OpenDayQuizItem`).
-10. `Test 10 [Configuration Immutability (B01)]`: **Bảo chứng Cấu hình Bất biến:** Bài thi `PUBLISHED` và `ARCHIVED` từ chối triệt để request `PATCH` (400), PostgreSQL giữ nguyên vẹn thông số, không ghi `AuditLog` giả mạo, và bài thi `DRAFT` vẫn sửa bình thường.
-11. `Test 11 [Unified Defaults (B02)]`: **Bảo chứng Thống nhất Mặc định:** Khởi tạo khi bỏ trống trường tùy chọn tự động nhận `maxAttempts = 3`, `isShuffleQuestions = true`, `isShuffleOptions = true` khớp 100% giữa API, Service, PostgreSQL và UI.
+6. `Test 6 [Publish]`: Chặn bài thi 0 câu hỏi, xuất bản bài thi hợp lệ và chuyển trạng thái PUBLISHED.
+7. `Test 7 [Snapshot Immutability]`: Sửa đổi hoặc xóa mềm QuestionBankItem gốc KHÔNG ảnh hưởng snapshot đã xuất bản.
+8. `Test 8 [Archive & Delete]`: Đưa bài thi vào trạng thái lưu trữ ARCHIVED, xóa mềm và loại trừ khỏi danh sách hoạt động.
+9. `Test 9 [Regression Guard]`: Giữ nguyên vẹn 100% các câu hỏi bài thi Open Day hiện hành (OpenDayQuizItem).
+10. `Test 10 [Configuration Immutability (B01)]`: PUBLISHED và ARCHIVED từ chối triệt để request PATCH và PUT questions (400), PostgreSQL giữ nguyên vẹn thông số, không ghi AuditLog giả mạo.
+11. `Test 11 [Unified Defaults (B02)]`: Khởi tạo khi bỏ trống trường tùy chọn tự động nhận maxAttempts=3, isShuffleQuestions=true, isShuffleOptions=true khớp 100% giữa API, Service, PostgreSQL và UI.
+12. `Test 12 [Atomic Concurrency (B01-RACE)]`: Concurrent PATCH vs Publish không thể ghi đè metadata lên bài thi đã xuất bản.
+13. `Test 13 [Atomic Concurrency (B01-RACE)]`: Concurrent manageQuestions vs Publish không thể thay đổi snapshot câu hỏi sau khi xuất bản.
 
 ---
 
-## 4. BẢNG ĐỐI CHIẾU TIẾN ĐỘ 9 MODULE (STANDARDIZED EVIDENCE MATRIX)
+## 5. BẢNG ĐỐI CHIẾU TIẾN ĐỘ 9 MODULE (STANDARDIZED EVIDENCE MATRIX)
 
 | Module | Route Admin | Route Người dùng | API Endpoint | Bảng DB (PostgreSQL) | Bằng chứng Kiểm thử Thực tế | Trạng thái Nghiệm thu |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -112,7 +128,7 @@ Bổ sung 2 kịch bản tích hợp chuyên sâu chạy trực tiếp trên Pos
 | **M4: GIS & Locations** | `/admin/locations` | `/map`, `/locations` | `/api/v1/admin/locations`, `/api/v1/public/locations` | `locations`, `buildings`, `floors`, `location_types`, `audit_logs` | 13/13 Integration tests `location-gis-crud.integration.spec.ts` (PASS) | **FULL PASS** *(đã nghiệm thu)* |
 | **M5: Content CMS (News)** | `/admin/news` | `/news`, `/news/[slug]` | `/api/v1/admin/news`, `/api/v1/public/news` | `news_articles`, `media_assets`, `users`, `audit_logs` | 16/16 Integration tests PASS | **FULL PASS** *(đã nghiệm thu)* |
 | **M6: Question Bank** | `/admin/questions` | Ngân hàng câu hỏi trắc nghiệm | `/api/v1/admin/questions` | `question_bank_items`, `users`, `audit_logs` | 12/12 Integration tests PASS: strict enum, trust boundary | **FULL PASS** *(đã nghiệm thu)* |
-| **M7.1: Quiz Configuration** | `/admin/events` (Cấu hình Bài thi) | Bộ đề thi chuẩn hóa | `/api/v1/admin/quiz-configs` | `quiz_configurations`, `quiz_config_questions`, `audit_logs` | **11/11 Integration tests PASS (31.42s)** trên PostgreSQL, B01, B02, B03 đã xử lý triệt để | **HOÀN TẤT REMEDIATION — SẴN SÀNG FULL PASS** |
+| **M7.1: Quiz Configuration** | `/admin/events` (Cấu hình Bài thi) | Bộ đề thi chuẩn hóa | `/api/v1/admin/quiz-configs` | `quiz_configurations`, `quiz_config_questions`, `audit_logs` | **13/13 Integration tests PASS (28.37s)** trên PostgreSQL, B01-RACE đã xử lý triệt để bằng atomic conditional transaction | **HOÀN TẤT REMEDIATION — SẴN SÀNG FULL PASS** |
 | **M7.2: Quiz Delivery** | `/admin/events` | `/portal/quiz` (Phát đề thi) | `/api/v1/portal/quiz/active` | `quiz_configurations`, `quiz_config_questions` | Chờ Tech Lead nghiệm thu M7.1 | **PENDING (Kế tiếp)** |
 | **M7.3: Quiz Attempt** | Giám sát phòng thi | `/portal/quiz/:attemptId` | `/api/v1/portal/quiz/start`, `/api/v1/portal/quiz/save-progress` | `quiz_attempts`, `quiz_attempt_answers` | Chờ M7.2 hoàn tất | **PENDING** |
 | **M7.4: Scoring & XP** | Thống kê điểm thi | Chấm điểm tự động & Nhận XP | `/api/v1/portal/quiz/submit` | `quiz_attempts`, `xp_ledgers` | Chờ M7.3 hoàn tất | **PENDING** |
@@ -122,9 +138,9 @@ Bổ sung 2 kịch bản tích hợp chuyên sâu chạy trực tiếp trên Pos
 
 ---
 
-## 5. BẢO CHỨNG PHẠM VI (SCOPE GUARD)
-- Tuyệt đối chỉ khắc phục 3 blocker B01, B02, B03 theo đúng chỉ đạo.
+## 6. BẢO CHỨNG PHẠM VI (SCOPE GUARD)
+- Tuyệt đối chỉ khắc phục B01-RACE theo đúng chỉ đạo.
 - Không triển khai trước M7.2–M7.5.
 - Không thay đổi các module M1–M6 đã nghiệm thu.
-- Bảo toàn tương thích ngược 100% với `OpenDayQuizItem`.
+- Giữ nguyên vẹn 100% tính năng OpenDayQuizItem cũ.
 - Sẵn sàng kích hoạt M7.2 (Quiz Delivery) ngay khi Tech Lead ký nghiệm thu FULL PASS!

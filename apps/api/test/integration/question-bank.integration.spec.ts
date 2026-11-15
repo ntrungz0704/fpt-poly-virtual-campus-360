@@ -849,4 +849,119 @@ describe("Question Bank Management Integration Suite (M6)", () => {
     expect(forbiddenRes.body.success).toBe(false);
     expect(forbiddenRes.body.error.code).toBe("VALIDATION_ERROR");
   });
+
+  // --------------------------------------------------------------------------
+  // 14. M6 Final Closure: Strict Enum Validation (Reject invalid enum values)
+  // --------------------------------------------------------------------------
+  it("Test 14 [M6 Final Closure - Strict Enum Validation]: Rejects invalid difficulty and status values, applies defaults when omitted, and imports only valid rows from mixed batch", async () => {
+    const mixedBatchPayload = {
+      rows: [
+        // Row 1: Valid row without difficulty/status -> applies default MEDIUM and APPROVED
+        {
+          rowNumber: 1,
+          questionText: "Câu hỏi hợp lệ không gửi độ khó và trạng thái?",
+          options: ["Opt A", "Opt B", "Opt C", "Opt D"],
+          correctIndex: 0,
+          topic: "Mặc định",
+          validationStatus: "VALID",
+        },
+        // Row 2: Invalid difficulty "INVALID" -> MUST be rejected/skipped (NOT converted to default)
+        {
+          rowNumber: 2,
+          questionText: "Câu hỏi chứa độ khó không hợp lệ INVALID?",
+          options: ["Opt A", "Opt B", "Opt C", "Opt D"],
+          correctIndex: 1,
+          difficulty: "INVALID" as never,
+          status: "APPROVED",
+          validationStatus: "VALID",
+        },
+        // Row 3: Invalid status "SUPER_ADMIN" -> MUST be rejected/skipped (NOT converted to default)
+        {
+          rowNumber: 3,
+          questionText: "Câu hỏi chứa trạng thái không hợp lệ SUPER_ADMIN?",
+          options: ["Opt A", "Opt B", "Opt C", "Opt D"],
+          correctIndex: 2,
+          difficulty: "EASY",
+          status: "SUPER_ADMIN" as never,
+          validationStatus: "VALID",
+        },
+        // Row 4: Valid row with explicit valid difficulty and status
+        {
+          rowNumber: 4,
+          questionText: "Câu hỏi hợp lệ có đầy đủ enum EASY và DRAFT?",
+          options: ["Opt A", "Opt B", "Opt C", "Opt D"],
+          correctIndex: 3,
+          difficulty: "EASY",
+          status: "DRAFT",
+          validationStatus: "VALID",
+        },
+      ],
+    };
+
+    const confirmRes = await request(server)
+      .post("/api/v1/admin/questions/import/confirm")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send(mixedBatchPayload)
+      .expect(200);
+
+    expect(confirmRes.body.success).toBe(true);
+    // 4 rows total: 2 valid rows imported, 2 invalid enum rows skipped
+    expect(confirmRes.body.data.importedCount).toBe(2);
+    expect(confirmRes.body.data.skippedCount).toBe(2);
+
+    // Direct PostgreSQL verification:
+    // 1. Invalid difficulty "INVALID" row MUST NOT exist in PostgreSQL
+    const dbInvalidDiff = await prisma.questionBankItem.findFirst({
+      where: {
+        questionText: "Câu hỏi chứa độ khó không hợp lệ INVALID?",
+        deletedAt: null,
+      },
+    });
+    expect(dbInvalidDiff).toBeNull();
+
+    // 2. Invalid status "SUPER_ADMIN" row MUST NOT exist in PostgreSQL
+    const dbInvalidStatus = await prisma.questionBankItem.findFirst({
+      where: {
+        questionText: "Câu hỏi chứa trạng thái không hợp lệ SUPER_ADMIN?",
+        deletedAt: null,
+      },
+    });
+    expect(dbInvalidStatus).toBeNull();
+
+    // 3. Row 1 (omitted difficulty & status) MUST exist with defaults "MEDIUM" and "APPROVED"
+    const dbDefaultRow = await prisma.questionBankItem.findFirst({
+      where: {
+        questionText: "Câu hỏi hợp lệ không gửi độ khó và trạng thái?",
+        deletedAt: null,
+      },
+    });
+    expect(dbDefaultRow).not.toBeNull();
+    expect(dbDefaultRow?.difficulty).toBe("MEDIUM");
+    expect(dbDefaultRow?.status).toBe("APPROVED");
+
+    // 4. Row 4 MUST exist with exact specified enums "EASY" and "DRAFT"
+    const dbExplicitRow = await prisma.questionBankItem.findFirst({
+      where: {
+        questionText: "Câu hỏi hợp lệ có đầy đủ enum EASY và DRAFT?",
+        deletedAt: null,
+      },
+    });
+    expect(dbExplicitRow).not.toBeNull();
+    expect(dbExplicitRow?.difficulty).toBe("EASY");
+    expect(dbExplicitRow?.status).toBe("DRAFT");
+
+    // 5. AuditLog verification: importedCount must be 2
+    const auditRecord = await prisma.auditLog.findFirst({
+      where: {
+        action: "IMPORT_QUESTIONS",
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    expect(auditRecord).not.toBeNull();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const diff = auditRecord?.diffJson as any;
+    expect(diff.importedCount).toBe(2);
+    expect(diff.skippedCount).toBe(2);
+    expect(diff.totalReceived).toBe(4);
+  });
 });

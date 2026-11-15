@@ -312,19 +312,33 @@ export class QuestionsImportService {
       };
     }
 
-    // 4. Validate difficulty
+    // 4. Validate difficulty (strict enum check: reject invalid values, apply default only if omitted)
     const validDifficulties: QuestionDifficulty[] = ["EASY", "MEDIUM", "HARD"];
-    const difficulty: QuestionDifficulty =
-      typeof row.difficulty === "string" && validDifficulties.includes(row.difficulty as QuestionDifficulty)
-        ? (row.difficulty as QuestionDifficulty)
-        : "MEDIUM";
+    let difficulty: QuestionDifficulty = "MEDIUM";
+    if (row.difficulty !== undefined && row.difficulty !== null && String(row.difficulty).trim() !== "") {
+      const diffStr = String(row.difficulty).trim().toUpperCase();
+      if (!validDifficulties.includes(diffStr as QuestionDifficulty)) {
+        return {
+          isValid: false,
+          error: "Độ khó không hợp lệ. Chỉ chấp nhận EASY, MEDIUM, HARD.",
+        };
+      }
+      difficulty = diffStr as QuestionDifficulty;
+    }
 
-    // 5. Validate status
+    // 5. Validate status (strict enum check: reject invalid values, apply default only if omitted)
     const validStatuses: QuestionReviewStatus[] = ["DRAFT", "IN_REVIEW", "APPROVED", "REJECTED"];
-    const status: QuestionReviewStatus =
-      typeof row.status === "string" && validStatuses.includes(row.status as QuestionReviewStatus)
-        ? (row.status as QuestionReviewStatus)
-        : "APPROVED";
+    let status: QuestionReviewStatus = "APPROVED";
+    if (row.status !== undefined && row.status !== null && String(row.status).trim() !== "") {
+      const statusStr = String(row.status).trim().toUpperCase();
+      if (!validStatuses.includes(statusStr as QuestionReviewStatus)) {
+        return {
+          isValid: false,
+          error: "Trạng thái không hợp lệ. Chỉ chấp nhận DRAFT, IN_REVIEW, APPROVED, REJECTED.",
+        };
+      }
+      status = statusStr as QuestionReviewStatus;
+    }
 
     // 6. Topic & explanation & tags
     const topic =

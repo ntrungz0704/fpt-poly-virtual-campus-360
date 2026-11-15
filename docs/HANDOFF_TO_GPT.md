@@ -153,3 +153,41 @@ Time:        33.769 s
 - Không triển khai trước M7.3 (Quiz Attempt), M7.4 (Scoring & XP) hay M7.5 (Results).
 - Giữ nguyên vẹn 100% tính năng OpenDayQuizItem và các module đã nghiệm thu M1–M7.1.
 - Sẵn sàng kích hoạt M7.3 (Quiz Attempt) ngay khi Tech Lead ký nghiệm thu FULL PASS!
+
+---
+
+## 9. GIẢI TRÌNH NGHIỆP VỤ & BẰNG CHỨNG HỒI QUY THEO YÊU CẦU TECH LEAD (B01 & B02)
+
+### B01. PHÂN TÍCH CHÍNH SÁCH ĐIỀU KIỆN DỰ THI THEO SỰ KIỆN (EVENT ELIGIBILITY POLICY)
+Qua rà soát toàn bộ codebase và cấu trúc Enum `ParticipationStatus` (`INVITED`, `CONFIRMED`, `CHECKED_IN`, `CANCELLED`), hệ thống ghi nhận hiện trạng nghiệp vụ như sau:
+- `CONFIRMED`: Sinh viên đăng ký tham gia sự kiện công khai qua trang web (`public.service.ts`).
+- `CHECKED_IN`: Sinh viên đã quét mã QR tại cổng sự kiện Open Day (`open-day.service.ts`).
+- `INVITED`: Sinh viên thuộc danh sách được ban tổ chức gửi thư mời trực tiếp qua hệ thống quản trị (`users-rbac.service.ts`).
+- `CANCELLED`: Sinh viên đã chủ động hủy tham gia hoặc bị ban tổ chức thu hồi vé.
+
+**Hai phương án nghiệp vụ theo góc nhìn kiến trúc:**
+- **Phương án A (Hiện tại - Inclusive):** `participationStatus: { not: "CANCELLED" }`. Cho phép sinh viên có trạng thái `CONFIRMED`, `CHECKED_IN`, và `INVITED` được tiếp cận và làm bài thi liên kết sự kiện. Ưu điểm: Đảm bảo sinh viên được ban tổ chức mời đặc cách (`INVITED`) không bị chặn oan khi sự kiện chưa mở cổng check-in; sinh viên đã đăng ký (`CONFIRMED`) có thể làm bài khảo sát chuẩn bị trước sự kiện.
+- **Phương án B (Strict):** `participationStatus: { in: ["CONFIRMED", "CHECKED_IN"] }`. Chỉ cho phép sinh viên đã chủ động xác nhận đăng ký hoặc đã có mặt thực tế tại hội trường làm bài thi.
+- **Hành động & Bảo chứng:** Nhằm tôn trọng quyết định của Product Owner / Tech Lead mà không tự ý áp đặt, mã nguồn hiện tại giữ **Phương án A** làm mặc định, đồng thời đã cập nhật **Test 5** trong `quiz-delivery.integration.spec.ts` kiểm thử toàn diện toàn bộ ma trận 5 trường hợp (`CONFIRMED` -> 200, `CHECKED_IN` -> 200, `INVITED` -> 200, `CANCELLED` -> 403, Chưa đăng ký -> 403). Nếu PO chỉ định chuyển sang Phương án B, chỉ cần thay đổi 1 dòng điều kiện query mà không gây bất kỳ tác động phụ nào.
+
+### B02. BẰNG CHỨNG CHẠY THẬT BỘ TEST HỒI QUY (POSTGRESQL REAL DB)
+Tất cả 3 bộ test tích hợp liên quan trực tiếp đến Question Bank và Quiz Engine đã được chạy tuần tự độc lập trên PostgreSQL:
+
+1. **M7.2 Quiz Delivery Integration Suite (`quiz-delivery.integration.spec.ts`):**
+   - Lệnh: `pnpm --filter api exec jest test/integration/quiz-delivery.integration.spec.ts --runInBand`
+   - Exit code: **0**
+   - Kết quả: **10/10 tests PASS** (27.03 s)
+   - Chi tiết: Test 5 kiểm tra đầy đủ cả 5 trạng thái sinh viên (`CONFIRMED`, `CHECKED_IN`, `INVITED`, `CANCELLED`, Unregistered). Test 4 bảo chứng Zero-leak 100%.
+
+2. **M7.1 Quiz Configuration Integration Suite (`quiz-config.integration.spec.ts`):**
+   - Lệnh: `pnpm --filter api exec jest test/integration/quiz-config.integration.spec.ts --runInBand`
+   - Exit code: **0**
+   - Kết quả: **13/13 tests PASS** (30.34 s)
+   - Chi tiết: Toàn bộ kiểm thử bất biến cấu hình, concurrency race condition (B01-RACE) đều đạt tuyệt đối.
+
+3. **M6 Question Bank Integration Suite (`question-bank.integration.spec.ts`):**
+   - Lệnh: `pnpm --filter api exec jest test/integration/question-bank.integration.spec.ts --runInBand`
+   - Exit code: **0**
+   - Kết quả: **12/12 tests PASS** (25.69 s)
+   - Chi tiết: Nghiệm thu hoàn tất import Excel, strict enum difficulty/status, và server-side validation.
+

@@ -625,6 +625,14 @@ describe("Quiz Configuration Management Integration Suite (M7.1)", () => {
     const archiveErrorMsg = rejectedArchivePatch.body.error?.message || rejectedArchivePatch.body.message || "";
     expect(archiveErrorMsg).toContain("ARCHIVED");
 
+    // Also verify PUT questions on ARCHIVED -> MUST FAIL WITH 400
+    const rejectedArchiveQuestions = await request(server)
+      .put(`/api/v1/admin/quiz-configs/${lockQuizId}/questions`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ questionIds: [approvedQuestion1Id] })
+      .expect(400);
+    expect(rejectedArchiveQuestions.body.success).toBe(false);
+
     // 8. Confirm DRAFT quiz can still be updated normally
     const draftRes = await request(server)
       .post("/api/v1/admin/quiz-configs")
@@ -693,5 +701,119 @@ describe("Quiz Configuration Management Integration Suite (M7.1)", () => {
     expect(dbExplicit?.maxAttempts).toBe(5);
     expect(dbExplicit?.isShuffleQuestions).toBe(false);
     expect(dbExplicit?.isShuffleOptions).toBe(false);
+  });
+
+  // --------------------------------------------------------------------------
+  // 12. B01-RACE: Atomic Concurrency (Concurrent PATCH vs Publish)
+  // --------------------------------------------------------------------------
+  it("Test 12 [Atomic Concurrency (B01-RACE)]: Concurrent PATCH vs Publish cannot overwrite metadata on published quiz", async () => {
+    // 1. Create a quiz in DRAFT with approved question
+    const res = await request(server)
+      .post("/api/v1/admin/quiz-configs")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Bài thi kiểm thử Race Condition PATCH vs Publish",
+        passingScore: 70,
+        timeLimitMinutes: 15,
+        questionIds: [approvedQuestion1Id],
+      })
+      .expect(201);
+
+    const raceQuizId = res.body.data.id;
+
+    // 2. Fire concurrent requests: PATCH and Publish at the exact same moment
+    const [patchResult, publishResult] = await Promise.all([
+      request(server)
+        .patch(`/api/v1/admin/quiz-configs/${raceQuizId}`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          passingScore: 99,
+          timeLimitMinutes: 99,
+        }),
+      request(server)
+        .post(`/api/v1/admin/quiz-configs/${raceQuizId}/publish`)
+        .set("Authorization", `Bearer ${adminToken}`),
+    ]);
+
+    // 3. Inspect PostgreSQL state:
+    const finalDb = await prisma.quizConfiguration.findUnique({
+      where: { id: raceQuizId },
+    });
+    expect(finalDb?.status).toBe("PUBLISHED");
+
+    // Two valid outcomes depending on transaction serialization:
+    // Outcome A: PATCH executed before publish committed -> PATCH returned 200, then publish published passingScore=99.
+    // Outcome B: Publish committed before PATCH -> Publish returned 200, then PATCH returned 400 (Bad Request), leaving passingScore=70.
+    // IMPOSSIBLE OUTCOME: PATCH succeeds after publish committed and corrupts a published quiz!
+    if (patchResult.status === 200) {
+      expect(publishResult.status).toBe(200);
+      expect(finalDb?.passingScore).toBe(99);
+    } else {
+      expect(patchResult.status).toBe(400);
+      expect(publishResult.status).toBe(200);
+      expect(finalDb?.passingScore).toBe(70);
+    }
+
+    // 4. In either outcome, subsequent PATCH MUST 100% BE REJECTED with 400!
+    await request(server)
+      .patch(`/api/v1/admin/quiz-configs/${raceQuizId}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ passingScore: 50 })
+      .expect(400);
+  });
+
+  // --------------------------------------------------------------------------
+  // 13. B01-RACE: Atomic Concurrency (Concurrent manageQuestions vs Publish)
+  // --------------------------------------------------------------------------
+  it("Test 13 [Atomic Concurrency (B01-RACE)]: Concurrent manageQuestions vs Publish cannot corrupt snapshot on published quiz", async () => {
+    // 1. Create a quiz in DRAFT with question 1
+    const res = await request(server)
+      .post("/api/v1/admin/quiz-configs")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Bài thi kiểm thử Race Condition Questions vs Publish",
+        questionIds: [approvedQuestion1Id],
+      })
+      .expect(201);
+
+    const raceQuizId = res.body.data.id;
+
+    // 2. Fire concurrent requests: manageQuestions (change to question 2) and Publish
+    const [manageResult, publishResult] = await Promise.all([
+      request(server)
+        .put(`/api/v1/admin/quiz-configs/${raceQuizId}/questions`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ questionIds: [approvedQuestion2Id] }),
+      request(server)
+        .post(`/api/v1/admin/quiz-configs/${raceQuizId}/publish`)
+        .set("Authorization", `Bearer ${adminToken}`),
+    ]);
+
+    // 3. Inspect PostgreSQL state:
+    const finalDb = await prisma.quizConfiguration.findUnique({
+      where: { id: raceQuizId },
+    });
+    expect(finalDb?.status).toBe("PUBLISHED");
+
+    const finalQuestions = await prisma.quizConfigQuestion.findMany({
+      where: { quizConfigId: raceQuizId },
+    });
+    expect(finalQuestions.length).toBeGreaterThan(0);
+
+    if (manageResult.status === 200) {
+      expect(publishResult.status).toBe(200);
+      expect(finalQuestions[0].questionBankItemId).toBe(approvedQuestion2Id);
+    } else {
+      expect(manageResult.status).toBe(400);
+      expect(publishResult.status).toBe(200);
+      expect(finalQuestions[0].questionBankItemId).toBe(approvedQuestion1Id);
+    }
+
+    // 4. Subsequent manageQuestions MUST 100% BE REJECTED with 400!
+    await request(server)
+      .put(`/api/v1/admin/quiz-configs/${raceQuizId}/questions`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ questionIds: [approvedQuestion1Id] })
+      .expect(400);
   });
 });

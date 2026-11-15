@@ -321,8 +321,9 @@ export class QuizConfigService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      const config = await tx.quizConfiguration.update({
-        where: { id },
+      // 1. Atomic conditional update: strictly requires status to be DRAFT and not deleted
+      const updateResult = await tx.quizConfiguration.updateMany({
+        where: { id, status: "DRAFT", deletedAt: null },
         data: {
           title: dto.title !== undefined ? dto.title.trim() : undefined,
           description: dto.description !== undefined ? dto.description.trim() || null : undefined,
@@ -334,6 +335,22 @@ export class QuizConfigService {
           isShuffleOptions: dto.isShuffleOptions,
           updatedById: user.id,
         },
+      });
+
+      if (updateResult.count === 0) {
+        const current = await tx.quizConfiguration.findFirst({
+          where: { id, deletedAt: null },
+        });
+        if (!current) {
+          throw new NotFoundException(`Không tìm thấy cấu hình bài thi với ID: ${id}`);
+        }
+        throw new BadRequestException(
+          `Không thể chỉnh sửa cấu hình bài thi ở trạng thái ${current.status}. Cấu hình đã xuất bản (PUBLISHED) hoặc đã lưu trữ (ARCHIVED) là bất biến để đảm bảo tính toàn vẹn cho phòng thi và học viên.`,
+        );
+      }
+
+      const config = await tx.quizConfiguration.findUniqueOrThrow({
+        where: { id },
         include: {
           event: { select: { title: true } },
           createdBy: { select: { fullName: true, username: true } },
@@ -398,12 +415,30 @@ export class QuizConfigService {
     const orderedQuestions = dto.questionIds.map((qId) => qMap.get(qId)!);
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      // 1. Remove existing questions
+      // 1. Atomic lock: verify status is DRAFT and touch config in a single atomic conditional statement
+      const touchResult = await tx.quizConfiguration.updateMany({
+        where: { id, status: "DRAFT", deletedAt: null },
+        data: { updatedById: user.id },
+      });
+
+      if (touchResult.count === 0) {
+        const current = await tx.quizConfiguration.findFirst({
+          where: { id, deletedAt: null },
+        });
+        if (!current) {
+          throw new NotFoundException(`Không tìm thấy cấu hình bài thi với ID: ${id}`);
+        }
+        throw new BadRequestException(
+          `Không thể chỉnh sửa danh sách câu hỏi khi bài thi ở trạng thái ${current.status}. Chỉ có thể cập nhật câu hỏi khi bài thi ở trạng thái BẢN NHÁP (DRAFT).`,
+        );
+      }
+
+      // 2. Remove existing questions
       await tx.quizConfigQuestion.deleteMany({
         where: { quizConfigId: id },
       });
 
-      // 2. Create new snapshots in exact ordered sequence
+      // 3. Create new snapshots in exact ordered sequence
       await tx.quizConfigQuestion.createMany({
         data: orderedQuestions.map((q, idx) => ({
           quizConfigId: id,
@@ -418,10 +453,9 @@ export class QuizConfigService {
         })),
       });
 
-      // 3. Touch updated timestamp and updater
-      const config = await tx.quizConfiguration.update({
+      // 4. Fetch updated config
+      const config = await tx.quizConfiguration.findUniqueOrThrow({
         where: { id },
-        data: { updatedById: user.id },
         include: {
           event: { select: { title: true } },
           createdBy: { select: { fullName: true, username: true } },
@@ -455,29 +489,40 @@ export class QuizConfigService {
     user: AuthenticatedUser,
     ipAddress?: string,
   ): Promise<QuizConfigurationDto> {
-    const quiz = await this.prisma.quizConfiguration.findFirst({
-      where: { id, deletedAt: null },
-      include: {
-        questions: true,
-      },
-    });
-
-    if (!quiz) {
-      throw new NotFoundException(`Không tìm thấy cấu hình bài thi với ID: ${id}`);
-    }
-
-    if (quiz.questions.length === 0) {
-      throw new BadRequestException("Không thể xuất bản bài thi chưa có câu hỏi nào.");
-    }
-
     const updated = await this.prisma.$transaction(async (tx) => {
-      const config = await tx.quizConfiguration.update({
-        where: { id },
+      // 1. Check questions count first inside transaction
+      const questionsCount = await tx.quizConfigQuestion.count({
+        where: { quizConfigId: id },
+      });
+
+      if (questionsCount === 0) {
+        throw new BadRequestException("Không thể xuất bản bài thi chưa có câu hỏi nào.");
+      }
+
+      // 2. Atomic publish: conditional update strictly requiring status DRAFT
+      const publishResult = await tx.quizConfiguration.updateMany({
+        where: { id, status: "DRAFT", deletedAt: null },
         data: {
           status: "PUBLISHED",
           publishedAt: new Date(),
           updatedById: user.id,
         },
+      });
+
+      if (publishResult.count === 0) {
+        const current = await tx.quizConfiguration.findFirst({
+          where: { id, deletedAt: null },
+        });
+        if (!current) {
+          throw new NotFoundException(`Không tìm thấy cấu hình bài thi với ID: ${id}`);
+        }
+        throw new BadRequestException(
+          `Không thể xuất bản bài thi ở trạng thái ${current.status}. Chỉ có thể xuất bản bài thi ở trạng thái BẢN NHÁP (DRAFT).`,
+        );
+      }
+
+      const config = await tx.quizConfiguration.findUniqueOrThrow({
+        where: { id },
         include: {
           event: { select: { title: true } },
           createdBy: { select: { fullName: true, username: true } },
@@ -495,7 +540,7 @@ export class QuizConfigService {
         diffJson: {
           status: "PUBLISHED",
           publishedAt: config.publishedAt,
-          questionsCount: quiz.questions.length,
+          questionsCount,
         },
         ipAddress,
         tx,

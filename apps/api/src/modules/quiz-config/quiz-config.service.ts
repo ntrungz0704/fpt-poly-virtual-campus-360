@@ -653,6 +653,20 @@ export class QuizConfigService {
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
     const skip = (page - 1) * limit;
 
+    const now = new Date();
+
+    // B03.1 Remediation: Chuẩn hóa toàn bộ các attempt IN_PROGRESS đã quá hạn (expiresAt <= now)
+    // sang EXPIRED trên PostgreSQL trước khi truy vấn, đảm bảo bộ lọc status và pagination luôn nhất quán 100%!
+    await this.prisma.quizConfigAttempt.updateMany({
+      where: {
+        status: "IN_PROGRESS",
+        expiresAt: { lte: now },
+      },
+      data: {
+        status: "EXPIRED",
+      },
+    });
+
     const where: Prisma.QuizConfigAttemptWhereInput = {};
 
     if (query.quizConfigId) {
@@ -706,7 +720,6 @@ export class QuizConfigService {
       }),
     ]);
 
-    const now = new Date();
     const items: AdminQuizAttemptMonitoringDto[] = attempts.map((att) => {
       const answeredCount = att.answers.filter(
         (a) => a.selectedOptionIndex !== null,

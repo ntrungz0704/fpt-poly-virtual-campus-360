@@ -349,6 +349,7 @@ export class PortalQuizService {
    * Lưu tiến độ làm bài (Save Progress) - Milestone M7.3 (B01 Atomic Remediation):
    * - Thực thi trong Prisma Transaction nguyên tử với hàng rào khóa hàng (FOR UPDATE) chống race-condition.
    * - Tái kiểm tra trạng thái và thời hạn (expiresAt) tại thời điểm ghi DB.
+   * - Nếu hết hạn: Cập nhật status = EXPIRED và commit transaction thành công trước khi ném HTTP 400.
    * - Validate toàn bộ batch answers trước khi ghi; một item lỗi rollback toàn bộ.
    * - Tuyệt đối không cho phép ghi sau khi lượt thi đã hết hạn hoặc đã chuyển EXPIRED.
    */
@@ -357,7 +358,7 @@ export class PortalQuizService {
     attemptId: string,
     dto: SaveQuizProgressDto,
   ): Promise<SaveQuizProgressResponseDto> {
-    return this.prisma.$transaction(async (tx) => {
+    const txResult = await this.prisma.$transaction(async (tx) => {
       // 1. Khóa hàng bản ghi attempt để tuần tự hóa các request ghi/hết hạn đồng thời
       await tx.$executeRaw`SELECT id FROM quiz_config_attempts WHERE id = ${attemptId}::uuid FOR UPDATE`;
 
@@ -401,10 +402,11 @@ export class PortalQuizService {
             data: { status: "EXPIRED" },
           });
         }
-        throw new BadRequestException({
-          code: "ATTEMPT_EXPIRED_OR_CLOSED",
-          message: "Lượt thi đã hết thời gian hoặc không còn hiệu lực làm bài.",
-        });
+        // Trả về kết quả nội bộ để transaction commit thành công việc đổi trạng thái sang EXPIRED
+        return {
+          expiredOrClosed: true,
+          data: null,
+        };
       }
 
       // 4. Validate toàn bộ batch answers TRƯỚC KHI ghi bất kỳ bản ghi nào (Atomic Validation)
@@ -465,15 +467,28 @@ export class PortalQuizService {
       );
 
       return {
-        attemptId: attempt.id,
-        status: attempt.status,
-        savedCount: dto.answers.length,
-        answeredQuestions,
-        totalQuestions,
-        remainingSeconds,
-        isExpired: false,
+        expiredOrClosed: false,
+        data: {
+          attemptId: attempt.id,
+          status: attempt.status,
+          savedCount: dto.answers.length,
+          answeredQuestions,
+          totalQuestions,
+          remainingSeconds,
+          isExpired: false,
+        },
       };
     });
+
+    // 6. Nếu lượt thi đã hết hạn hoặc đóng, transaction đã commit thành công cập nhật EXPIRED, ném lỗi 400 ra ngoài
+    if (txResult.expiredOrClosed) {
+      throw new BadRequestException({
+        code: "ATTEMPT_EXPIRED_OR_CLOSED",
+        message: "Lượt thi đã hết thời gian hoặc không còn hiệu lực làm bài.",
+      });
+    }
+
+    return txResult.data!;
   }
 
   /**

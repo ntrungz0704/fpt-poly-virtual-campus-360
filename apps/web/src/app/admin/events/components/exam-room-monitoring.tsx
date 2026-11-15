@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import type {
   AdminQuizAttemptMonitoringDto,
   QuizAttemptStatus,
+  QuizConfigurationDto,
 } from "@fpt-campus/shared";
 import {
   Badge,
@@ -34,13 +35,30 @@ export function ExamRoomMonitoring({
   // Filters
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [quizFilter, setQuizFilter] = useState<string>("ALL");
+  const [quizzes, setQuizzes] = useState<QuizConfigurationDto[]>([]);
   const [autoRefresh, setAutoRefresh] = useState(false);
+
+  // Load available quizzes for dropdown filter
+  useEffect(() => {
+    let active = true;
+    quizConfigApi
+      .list({ limit: 100 })
+      .then((res) => {
+        if (active) setQuizzes(res.items);
+      })
+      .catch(() => null);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const fetchAttempts = useCallback(async () => {
     try {
       const res = await quizConfigApi.getAttemptsMonitoring({
         page,
         limit: pageSize,
+        quizConfigId: quizFilter !== "ALL" ? quizFilter : undefined,
         search: search.trim() || undefined,
         status: statusFilter !== "ALL" ? (statusFilter as QuizAttemptStatus) : undefined,
       });
@@ -53,7 +71,7 @@ export function ExamRoomMonitoring({
         "error",
       );
     }
-  }, [page, pageSize, search, statusFilter, onShowToast]);
+  }, [page, pageSize, quizFilter, search, statusFilter, onShowToast]);
 
   useEffect(() => {
     let active = true;
@@ -61,6 +79,7 @@ export function ExamRoomMonitoring({
       .getAttemptsMonitoring({
         page,
         limit: pageSize,
+        quizConfigId: quizFilter !== "ALL" ? quizFilter : undefined,
         search: search.trim() || undefined,
         status: statusFilter !== "ALL" ? (statusFilter as QuizAttemptStatus) : undefined,
       })
@@ -83,7 +102,7 @@ export function ExamRoomMonitoring({
     return () => {
       active = false;
     };
-  }, [page, pageSize, search, statusFilter, onShowToast]);
+  }, [page, pageSize, quizFilter, search, statusFilter, onShowToast]);
 
   // Auto-refresh interval (10s)
   useEffect(() => {
@@ -222,6 +241,22 @@ export function ExamRoomMonitoring({
             <option value="IN_PROGRESS">Đang làm bài (IN_PROGRESS)</option>
             <option value="SUBMITTED">Đã nộp (SUBMITTED)</option>
             <option value="EXPIRED">Đã hết giờ (EXPIRED)</option>
+          </select>
+
+          <select
+            value={quizFilter}
+            onChange={(e) => {
+              setQuizFilter(e.target.value);
+              setPage(1);
+            }}
+            className="px-3 py-1.5 rounded-lg bg-surface-container border border-surface-container-high text-xs font-bold text-on-surface cursor-pointer max-w-xs"
+          >
+            <option value="ALL">Tất cả bài thi ({quizzes.length})</option>
+            {quizzes.map((q) => (
+              <option key={q.id} value={q.id}>
+                {q.title}
+              </option>
+            ))}
           </select>
         </div>
 

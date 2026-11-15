@@ -20,6 +20,21 @@ function slugify(text: string): string {
     .replace(/^-|-$/g, "");
 }
 
+function isPrismaP2002SlugError(err: unknown): boolean {
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+    const target = err.meta?.target;
+    if (Array.isArray(target)) {
+      return target.some((f) => String(f).includes("slug"));
+    }
+    return String(target).includes("slug");
+  }
+  if (typeof err === "object" && err !== null && (err as { code?: string }).code === "P2002") {
+    const target = (err as { meta?: { target?: unknown } }).meta?.target;
+    return String(target).includes("slug");
+  }
+  return false;
+}
+
 @Injectable()
 export class NewsAdminService {
   constructor(
@@ -167,43 +182,52 @@ export class NewsAdminService {
       .map((p) => p.trim())
       .filter(Boolean);
 
-    const created = await this.prisma.$transaction(async (tx) => {
-      const article = await tx.newsArticle.create({
-        data: {
-          title: dto.title.trim(),
-          slug: rawSlug,
-          tag: dto.tag?.trim() || "Tin tức chung",
-          excerpt: dto.excerpt.trim(),
-          content: dto.content.trim(),
-          contentJson: paragraphs,
-          coverMediaId: dto.coverMediaId ?? null,
-          coverImageUrl,
-          relatedSceneId: dto.relatedSceneId?.trim() ?? null,
-          status: isPublished ? PublishStatus.PUBLISHED : PublishStatus.DRAFT,
-          publishedAt: isPublished ? new Date() : null,
-          authorId: actor.id,
-        },
+    try {
+      const created = await this.prisma.$transaction(async (tx) => {
+        const article = await tx.newsArticle.create({
+          data: {
+            title: dto.title.trim(),
+            slug: rawSlug,
+            tag: dto.tag?.trim() || "Tin tức chung",
+            excerpt: dto.excerpt.trim(),
+            content: dto.content.trim(),
+            contentJson: paragraphs,
+            coverMediaId: dto.coverMediaId ?? null,
+            coverImageUrl,
+            relatedSceneId: dto.relatedSceneId?.trim() ?? null,
+            status: isPublished ? PublishStatus.PUBLISHED : PublishStatus.DRAFT,
+            publishedAt: isPublished ? new Date() : null,
+            authorId: actor.id,
+          },
+        });
+
+        await this.auditLog.record({
+          actorUserId: actor.id,
+          actorUsername: actor.username,
+          action: "CREATE_NEWS_ARTICLE",
+          resourceType: "news_article",
+          resourceId: article.id,
+          diffJson: {
+            title: article.title,
+            slug: article.slug,
+            status: article.status,
+          },
+          ipAddress,
+          tx,
+        });
+
+        return article;
       });
 
-      await this.auditLog.record({
-        actorUserId: actor.id,
-        actorUsername: actor.username,
-        action: "CREATE_NEWS_ARTICLE",
-        resourceType: "news_article",
-        resourceId: article.id,
-        diffJson: {
-          title: article.title,
-          slug: article.slug,
-          status: article.status,
-        },
-        ipAddress,
-        tx,
-      });
-
-      return article;
-    });
-
-    return created;
+      return created;
+    } catch (err: unknown) {
+      if (isPrismaP2002SlugError(err)) {
+        throw new ConflictException(
+          `Slug "${rawSlug}" đã được sử dụng bởi một bài viết khác trong cơ sở dữ liệu.`,
+        );
+      }
+      throw err;
+    }
   }
 
   async updateArticle(
@@ -271,43 +295,52 @@ export class NewsAdminService {
       publishedAt = new Date();
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const article = await tx.newsArticle.update({
-        where: { id },
-        data: {
-          title: dto.title !== undefined ? dto.title.trim() : existing.title,
-          slug: nextSlug,
-          tag: dto.tag !== undefined ? dto.tag.trim() : existing.tag,
-          excerpt: dto.excerpt !== undefined ? dto.excerpt.trim() : existing.excerpt,
-          content: dto.content !== undefined ? dto.content.trim() : existing.content,
-          contentJson: paragraphs !== undefined ? paragraphs : undefined,
-          coverMediaId: dto.coverMediaId !== undefined ? dto.coverMediaId : existing.coverMediaId,
-          coverImageUrl,
-          relatedSceneId: dto.relatedSceneId !== undefined ? dto.relatedSceneId : existing.relatedSceneId,
-          status: nextStatus,
-          publishedAt,
-        },
+    try {
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const article = await tx.newsArticle.update({
+          where: { id },
+          data: {
+            title: dto.title !== undefined ? dto.title.trim() : existing.title,
+            slug: nextSlug,
+            tag: dto.tag !== undefined ? dto.tag.trim() : existing.tag,
+            excerpt: dto.excerpt !== undefined ? dto.excerpt.trim() : existing.excerpt,
+            content: dto.content !== undefined ? dto.content.trim() : existing.content,
+            contentJson: paragraphs !== undefined ? paragraphs : undefined,
+            coverMediaId: dto.coverMediaId !== undefined ? dto.coverMediaId : existing.coverMediaId,
+            coverImageUrl,
+            relatedSceneId: dto.relatedSceneId !== undefined ? dto.relatedSceneId : existing.relatedSceneId,
+            status: nextStatus,
+            publishedAt,
+          },
+        });
+
+        await this.auditLog.record({
+          actorUserId: actor.id,
+          actorUsername: actor.username,
+          action: "UPDATE_NEWS_ARTICLE",
+          resourceType: "news_article",
+          resourceId: article.id,
+          diffJson: {
+            title: article.title,
+            slug: article.slug,
+            status: article.status,
+          },
+          ipAddress,
+          tx,
+        });
+
+        return article;
       });
 
-      await this.auditLog.record({
-        actorUserId: actor.id,
-        actorUsername: actor.username,
-        action: "UPDATE_NEWS_ARTICLE",
-        resourceType: "news_article",
-        resourceId: article.id,
-        diffJson: {
-          title: article.title,
-          slug: article.slug,
-          status: article.status,
-        },
-        ipAddress,
-        tx,
-      });
-
-      return article;
-    });
-
-    return updated;
+      return updated;
+    } catch (err: unknown) {
+      if (isPrismaP2002SlugError(err)) {
+        throw new ConflictException(
+          `Slug "${nextSlug}" đã được sử dụng bởi một bài viết khác trong cơ sở dữ liệu.`,
+        );
+      }
+      throw err;
+    }
   }
 
   async deleteArticle(

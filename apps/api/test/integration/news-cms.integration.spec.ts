@@ -144,9 +144,15 @@ describe("News Content CMS Integration Suite", () => {
     expect(found).toBeUndefined();
   });
 
-  it("4. GET /api/v1/public/news/:slug returns 404 for DRAFT article", async () => {
+  it("4. GET /api/v1/public/news/:slug returns 404 for DRAFT article and non-existent slug", async () => {
+    // 4.1 DRAFT article -> 404
     await request(server)
       .get(`/api/v1/public/news/${testSlug}`)
+      .expect(404);
+
+    // 4.2 Completely non-existent slug -> 404
+    await request(server)
+      .get("/api/v1/public/news/slug-hoan-toan-khong-ton-tai-xyz-404")
       .expect(404);
   });
 
@@ -292,7 +298,20 @@ describe("News Content CMS Integration Suite", () => {
   });
 
   it("13. Public Pagination: GET /api/v1/public/news supports page and limit properly", async () => {
-    // 3 canonical articles are already seeded in DB
+    // 3 canonical articles are already seeded in DB.
+    // Create and publish a 4th article to test clean 2x2 pagination:
+    await request(server)
+      .post("/api/v1/admin/news")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Bài viết Phân trang thứ tư",
+        slug: "bai-viet-phan-trang-thu-tu",
+        excerpt: "Tóm tắt bài viết phân trang thứ tư",
+        content: "Nội dung bài viết...",
+        status: "PUBLISHED",
+      })
+      .expect(201);
+
     const resPage1 = await request(server)
       .get("/api/v1/public/news?page=1&limit=2")
       .expect(200);
@@ -300,7 +319,7 @@ describe("News Content CMS Integration Suite", () => {
     expect(resPage1.body.data.page).toBe(1);
     expect(resPage1.body.data.limit).toBe(2);
     expect(resPage1.body.data.items).toHaveLength(2);
-    expect(resPage1.body.data.total).toBeGreaterThanOrEqual(3);
+    expect(resPage1.body.data.total).toBe(4);
 
     const resPage2 = await request(server)
       .get("/api/v1/public/news?page=2&limit=2")
@@ -308,7 +327,8 @@ describe("News Content CMS Integration Suite", () => {
 
     expect(resPage2.body.data.page).toBe(2);
     expect(resPage2.body.data.limit).toBe(2);
-    expect(resPage2.body.data.items.length).toBeGreaterThanOrEqual(1);
+    expect(resPage2.body.data.items).toHaveLength(2);
+    expect(resPage2.body.data.total).toBe(4);
 
     // Page 1 and Page 2 should not share items
     const page1Slugs = resPage1.body.data.items.map((i: { slug: string }) => i.slug);
@@ -316,6 +336,7 @@ describe("News Content CMS Integration Suite", () => {
     for (const slug of page1Slugs) {
       expect(page2Slugs).not.toContain(slug);
     }
+    expect(new Set([...page1Slugs, ...page2Slugs]).size).toBe(4);
   });
 
   it("14. RBAC: Rejects access without token (401) or without campus:write permission (403)", async () => {
@@ -340,5 +361,99 @@ describe("News Content CMS Integration Suite", () => {
       .set("Authorization", `Bearer ${studentToken}`)
       .send({ title: "Hack" })
       .expect(403);
+  });
+
+  it("15. Concurrency & P2002: Concurrent creation with same slug triggers P2002 and resolves cleanly with 409 Conflict without 500", async () => {
+    const concurrentSlug = "concurrent-p2002-creation-slug";
+    const payloadA = {
+      title: "Bài viết Concurrency A",
+      slug: concurrentSlug,
+      excerpt: "Tóm tắt bài viết Concurrency A dài hơn 10 ký tự",
+      content: "Nội dung bài viết A...",
+    };
+    const payloadB = {
+      title: "Bài viết Concurrency B",
+      slug: concurrentSlug,
+      excerpt: "Tóm tắt bài viết Concurrency B dài hơn 10 ký tự",
+      content: "Nội dung bài viết B...",
+    };
+
+    // Send two requests concurrently
+    const [resA, resB] = await Promise.all([
+      request(server)
+        .post("/api/v1/admin/news")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send(payloadA),
+      request(server)
+        .post("/api/v1/admin/news")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send(payloadB),
+    ]);
+
+    const statuses = [resA.status, resB.status].sort();
+    expect(statuses).toEqual([201, 409]);
+
+    // Check PostgreSQL database: exactly 1 article exists with concurrentSlug
+    const articlesInDb = await prisma.newsArticle.findMany({
+      where: { slug: concurrentSlug },
+    });
+    expect(articlesInDb).toHaveLength(1);
+
+    // Check AuditLog: exactly 1 CREATE_NEWS_ARTICLE audit log exists for this slug
+    const auditLogs = await prisma.auditLog.findMany({
+      where: {
+        action: "CREATE_NEWS_ARTICLE",
+        resourceId: articlesInDb[0].id,
+      },
+    });
+    expect(auditLogs).toHaveLength(1);
+  });
+
+  it("16. Concurrency & P2002: Concurrent update to same target slug triggers P2002 and returns 409 without 500 or duplicate data", async () => {
+    // Create two distinct articles first
+    const art1 = await request(server)
+      .post("/api/v1/admin/news")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Bài viết Update Race 1",
+        slug: "update-race-slug-1",
+        excerpt: "Tóm tắt bài viết Update Race 1 dài hơn 10 ký tự",
+        content: "Nội dung bài viết 1...",
+      })
+      .expect(201);
+
+    const art2 = await request(server)
+      .post("/api/v1/admin/news")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Bài viết Update Race 2",
+        slug: "update-race-slug-2",
+        excerpt: "Tóm tắt bài viết Update Race 2 dài hơn 10 ký tự",
+        content: "Nội dung bài viết 2...",
+      })
+      .expect(201);
+
+    const targetSlug = "shared-update-race-target-slug";
+
+    // Concurrently update both to targetSlug
+    const [updateRes1, updateRes2] = await Promise.all([
+      request(server)
+        .patch(`/api/v1/admin/news/${art1.body.data.id}`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ slug: targetSlug }),
+      request(server)
+        .patch(`/api/v1/admin/news/${art2.body.data.id}`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ slug: targetSlug }),
+    ]);
+
+    const statuses = [updateRes1.status, updateRes2.status].sort();
+    expect(statuses).toEqual([200, 409]);
+
+    // Check PostgreSQL database: exactly 1 article possesses targetSlug
+    const countTarget = await prisma.newsArticle.count({
+      where: { slug: targetSlug },
+    });
+    expect(countTarget).toBe(1);
   });
 });

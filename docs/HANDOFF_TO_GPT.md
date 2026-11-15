@@ -1,67 +1,54 @@
-# BÁO CÁO KỸ THUẬT HANDOFF CHO TECH LEAD (CHATGPT)
+# BÁO CÁO KỸ THUẬT HANDOFF — PHASE A: FINALIZE MODULE 4 & EVIDENCE MATRIX
 
 **Dự án:** FPT Polytechnic Virtual Campus 360°  
 **Nhánh:** `fix/m4-acceptance-blockers`  
 **Pull Request trên GitHub:** PR #1  
-**Thời gian hoàn tất:** 2026-11-15 16:30 (GMT+7)
+**Thời gian hoàn tất:** 2026-11-15 16:55 (GMT+7)
 
 ---
 
 ## 1. HEAD TRƯỚC VÀ SAU
-- **HEAD trước:** `c726f33dd31012af21899f90c79cec1709de77a6`
-- **HEAD sau:** `3d7f0fa5ab12b037599559956f5b4160b511c7b6`
+- **HEAD trước:** `f1a4d4b917b092252be478ff7c200e6b3cefb662`
+- **HEAD sau:** `33281037f40510c4f826620ca94e2df401d4a835`
 - **Trạng thái Git Remote:** Đã đẩy và đồng bộ 100% với `origin/fix/m4-acceptance-blockers` (không force-push, không rebase).
 
 ---
 
 ## 2. COMMIT SHA MỚI
 ```text
-3d7f0fa fix(locations-admin): eliminate mock fallbacks and enforce strict validation on buildings, floors and scenes
+3328103 fix(locations-admin): enforce strict cross-building floor validation, dynamic structure API and expand integration suite to 13 tests
 ```
 
 ---
 
 ## 3. CÁC FILE ĐÃ SỬA VÀ TẠO MỚI
-- `apps/web/src/app/admin/locations/page.tsx` (308 dòng thay đổi): Tái cấu trúc toàn diện xử lý lỗi frontend, loại bỏ 100% fake fallback, bổ sung màn hình ErrorState và mapping tầng chính xác.
-- `apps/api/src/modules/tour/location-admin.service.ts` (366 dòng thay đổi): Xây dựng validation nghiêm ngặt, phòng chống lỗi cú pháp UUID PostgreSQL P2023, đồng bộ `locationTypeId`, đóng gói thao tác và `AuditLog` trong `prisma.$transaction`.
-- `apps/api/test/integration/location-gis-crud.integration.spec.ts` (262 dòng mới): Bộ kiểm thử tích hợp 9 kịch bản chạy trên database PostgreSQL thật.
+1. `apps/api/src/modules/tour/location-admin.service.ts` (dòng 115-140, 295-330, 432-460):
+   - Chặn tuyệt đối tầng thuộc tòa nhà khác bằng HTTP 400 trong mọi trường hợp.
+   - Chặn tầng trên tòa nhà không phân tầng bằng HTTP 400.
+   - Tự động đặt `floorId = null` khi đổi `buildingCode` trong PATCH mà không cung cấp tầng mới (loại bỏ liên kết chéo sai lệch giữa Location và Floor).
+   - Thêm phương thức `getCampusStructure()` truy vấn danh sách tòa nhà và tầng động từ PostgreSQL.
+2. `apps/api/src/modules/tour/location-admin.controller.ts` (dòng 25-36):
+   - Bổ sung endpoint `GET /api/v1/admin/locations/structure` phân quyền `@RequirePermissions("tour:write")`.
+3. `apps/web/src/lib/admin/locations-admin-api.ts` (dòng 54-68):
+   - Định nghĩa interface `BuildingStructureItem` và hàm `fetchCampusStructure()`.
+4. `apps/web/src/app/admin/locations/page.tsx` (dòng 30-100, 140-190, 410-440):
+   - Loại bỏ hoàn toàn hằng số tĩnh `BUILDING_FLOOR_OPTIONS`.
+   - Tải danh mục tòa nhà và tầng động từ API PostgreSQL khi render.
+   - Dropdown tầng tự động cập nhật linh hoạt theo tòa nhà đang được chọn.
+5. `apps/api/test/integration/location-gis-crud.integration.spec.ts` (mở rộng lên 13 test case):
+   - Test 4a: Chặn tầng có thật nhưng thuộc tòa nhà khác -> HTTP 400.
+   - Test 4b: Chặn tầng trên tòa không phân tầng (SPORTS) -> HTTP 400.
+   - Test 7b: PATCH đổi tòa nhà reset `floorId = null` trong PostgreSQL.
+   - Test 10: Xác thực endpoint dynamic structure trả về đúng dữ liệu PostgreSQL.
+   - Test 11: Chặn truy cập trái phép khi thiếu token (HTTP 401).
 
 ---
 
-## 4. MÔ TẢ TỪNG LỖI VÀ CÁCH SỬA
+## 4. KẾT QUẢ TEST & QUALITY GATES TOÀN DỰ ÁN
 
-### 🔴 Blocker 1: Fake State Fallback trên Admin Frontend
-- **Hiện tượng cũ:** Khi API thất bại, hàm `.catch(() => null)` được kích hoạt khiến modal tự đóng, mảng `locations` cục bộ được thêm/sửa ảo và hiển thị toast thành công giả lập.
-- **Giải pháp triệt để:**
-  - Loại bỏ hoàn toàn khối fallback cập nhật state cục bộ.
-  - Khi API thất bại: Giữ nguyên modal, không xóa dữ liệu đang nhập, hiển thị thông báo lỗi chi tiết từ máy chủ.
-  - Bổ sung component `ErrorState` kèm nút "Thử lại" khi gọi GET danh sách thất bại.
-  - Chỉ thông báo thành công và đóng modal khi nhận HTTP 200/201 từ backend, sau đó kích hoạt `refreshLocations()` để đồng bộ từ DB.
-  - Bổ sung cấu hình `BUILDING_FLOOR_OPTIONS` ánh xạ đúng các tầng của từng tòa nhà theo seed PostgreSQL.
-
-### 🔴 Blocker 2: Validation thiếu nghiêm ngặt & Lỗi cú pháp UUID P2023 trên Backend
-- **Hiện tượng cũ:**
-  1. Khi `buildingCode` không khớp, service tự lấy tòa nhà đầu tiên làm fallback.
-  2. Khi `sceneId` không khớp, service bỏ qua không báo lỗi.
-  3. Khi tra cứu `sceneId` theo `OR: [{ id: dto.sceneId }, { slug: dto.sceneId }]`, PostgreSQL ném lỗi `P2023 (Inconsistent column data: invalid input syntax for type uuid: "sanh-innovation")`.
-  4. Chưa kiểm tra tính ràng buộc giữa tầng và tòa nhà.
-  5. Khi cập nhật `category` chưa đồng bộ trường `locationTypeId`.
-  6. Thao tác ghi dữ liệu và ghi `AuditLog` chưa nằm trong giao dịch nguyên tử.
-- **Giải pháp triệt để:**
-  1. Thẩm tra tòa nhà: Ném `BadRequestException (400)` nếu `buildingCode` không tồn tại hoặc đã bị xóa mềm.
-  2. Thẩm tra tầng: Ném `BadRequestException (400)` nếu tầng không thuộc tòa nhà đã chọn.
-  3. Thẩm tra Scene 360°: Sử dụng biểu thức chính quy `isUuid` kiểm tra định dạng trước khi query theo `id`, tra cứu an toàn theo `slug`. Nếu không tìm thấy cảnh -> ném `BadRequestException (400)`.
-  4. Chống trùng mã: Ném `ConflictException (409)` nếu mã `code` đã được sử dụng.
-  5. Cập nhật phân loại: Tự động cập nhật đồng bộ `locationTypeId` (`LAB`, `STUDIO`, `CLASSROOM`) theo `category`.
-  6. Đóng gói giao dịch nguyên tử: Đưa toàn bộ thao tác CRUD và `this.auditLog.record` vào trong `prisma.$transaction(async (tx) => ...)`.
-
----
-
-## 5. TEST COMMAND & EXIT CODES
-
-| Lệnh thực thi | Exit Code | Kết quả chi tiết |
+| Lệnh kiểm tra | Exit Code | Kết quả chi tiết |
 | :--- | :---: | :--- |
-| `pnpm --filter api exec jest --runInBand test/integration/location-gis-crud.integration.spec.ts` | **0** | **9/9 tests passed (21.138s)** |
+| `pnpm --filter api exec jest ... location-gis-crud.integration.spec.ts` | **0** | **13/13 tests PASS (28.847s)** trên scratch PostgreSQL |
 | `pnpm --filter api typecheck` | **0** | **0 errors** (`tsc --noEmit`) |
 | `pnpm --filter web typecheck` | **0** | **0 errors** (`tsc --noEmit`) |
 | `pnpm --filter web lint` | **0** | **0 errors, 0 warnings** (`eslint`) |
@@ -71,46 +58,25 @@
 
 ---
 
-## 6. E2E / INTEGRATION WORKFLOW ĐÃ CHẠY
+## 5. BẢNG ĐỐI CHIẾU BẰNG CHỨNG THỰC TẾ 8 MODULE (PHASE B EVIDENCE MATRIX)
 
-Toàn bộ 9 kịch bản tự động trong file test `location-gis-crud.integration.spec.ts` đã chạy và vượt qua 100%:
-1. `GET /api/v1/admin/locations`: Lấy danh sách 6 địa điểm mặc định từ seed PostgreSQL.
-2. `POST /api/v1/admin/locations`: Tạo địa điểm `LAB-AI-M4` thành công (HTTP 201), kiểm tra bản ghi trong DB và kiểm tra bản ghi `AuditLog` (`action: "CREATE_LOCATION"`).
-3. `POST /api/v1/admin/locations`: Thử tạo với `buildingCode: "TOA_NHA_KHONG_TON_TAI"` -> Bị từ chối HTTP 400.
-4. `POST /api/v1/admin/locations`: Thử tạo với tầng `Tầng 99 Không Tồn Tại` trên tòa `TOA-F` -> Bị từ chối HTTP 400.
-5. `POST /api/v1/admin/locations`: Thử tạo với `sceneId: "canh-360-khong-ton-tai-404"` -> Bị từ chối HTTP 400.
-6. `POST /api/v1/admin/locations`: Thử tạo trùng mã `LAB-AI-M4` -> Bị từ chối HTTP 409 Conflict.
-7. `PATCH /api/v1/admin/locations/:id`: Đổi category từ `lab` sang `studio` -> Kiểm tra `locationTypeId` đổi sang `STUDIO` trong DB và ghi `AuditLog` (`action: "UPDATE_LOCATION"`).
-8. `GET /api/v1/public/locations`: Kiểm tra địa điểm vừa tạo xuất hiện trên endpoint công khai.
-9. `DELETE /api/v1/admin/locations/:id`: Xóa mềm (`deletedAt != null`), ghi `AuditLog` (`action: "DELETE_LOCATION"`), kiểm tra biến mất khỏi endpoint công khai.
-
----
-
-## 7. BẢNG CHỨNG CỨ DỮ LIỆU POSTGRESQL
-
-- **Bảng `Building`:** 5 bản ghi thực tế (`INNOVATION`, `TOA-T`, `TOA-F`, `TOA-P`, `SPORTS`).
-- **Bảng `Floor`:** 6 bản ghi phân tầng chuẩn hóa (`Tầng Trệt`, `Tầng 1 — Hội trường Đa năng`, `Tầng 2 — Thư viện Số & Co-working`, `Tầng 3 — Cụm Phòng Lab CNTT`, `Tầng 4 — Studio Đồ họa iMac`, `Tầng 1 — Khu Giảng đường Mở rộng`).
-- **Bảng `LocationType`:** Các loại chuẩn hóa `LAB`, `STUDIO`, `CLASSROOM`.
-- **Bảng `TourNode`:** Các nút 360° thực tế (`sanh-innovation`, `lab-cntt-301`, `studio-imac-402`, `thu-vien-so-201`, v.v.).
-- **Bảng `AuditLog`:** Ghi nhận đầy đủ nhật ký kiểm toán cho mọi thao tác CREATE, UPDATE, DELETE với actor, resourceId và diffJson.
+| Module | Route Admin | Route Người dùng | API Endpoint | Bảng DB (PostgreSQL) | Bằng chứng Kiểm thử | Trạng thái |
+| :--- | :--- | :--- | :--- | :--- | :--- | :---: |
+| **M1: User & Excel Import** | `/admin/users` | `/login`, `/change-password` | `/api/v1/admin/users/import`, `/api/v1/auth/login` | `users`, `user_import_batches`, `audit_logs` | Integration test: `users-admin-crud.integration.spec.ts` (PASS), Unit test auth | **FULL PASS** |
+| **M2: Media Library** | `/admin/media` | CDN / Tour nhúng | `/api/v1/media/upload`, `/api/v1/media` | `media_assets` | Unit test: `local-storage.adapter.spec.ts` (PASS), API upload xác thực MIME/size | **FULL PASS** |
+| **M3: Tour Studio 360°** | `/admin/virtual-tour` | `/campus` (Viewer 360°) | `/api/v1/admin/tour/nodes`, `/api/v1/public/tour` | `tour_nodes`, `tour_edges`, `hotspots`, `audit_logs` | Integration test: `tour-studio-persistence.integration.spec.ts` (PASS), Browser test 360° | **FULL PASS** |
+| **M4: GIS & Campus Locations** | `/admin/locations` | `/map`, `/locations` | `/api/v1/admin/locations`, `/api/v1/public/locations` | `locations`, `buildings`, `floors`, `location_types`, `audit_logs` | Integration test: `location-gis-crud.integration.spec.ts` (13/13 PASS), Dynamic structure | **FULL PASS** |
+| **M5: Question Bank** | `/admin/events` (Quiz tab) | Ngân hàng đề thi | `/api/v1/open-day/quiz-items` | `open_day_quiz_items` | Unit test: `open-day-validation.spec.ts` (PASS), CRUD câu hỏi DB | **FULL PASS** |
+| **M6: Quiz Execution & Results** | `/admin/events` (Results tab) | `/portal` (Làm bài trắc nghiệm) | `/api/v1/portal/quiz/submit`, `/api/v1/admin/quiz/results` | `quiz_attempts`, `xp_ledgers`, `users` | Integration test: `quiz-results-persistence.integration.spec.ts` (PASS), Gamification test | **FULL PASS** |
+| **M7: Event & QR Check-in** | `/admin/events` (Tickets tab) | `/events` (Nhận vé OD26) | `/api/v1/open-day/register`, `/api/v1/admin/events/checkin` | `open_day_events`, `open_day_sessions`, `event_participations` | Unit test canonical ticket format OD26 & QR verify (PASS) | **FULL PASS** |
+| **M8: Student & Parent Portal** | Quản trị hồ sơ & vé | `/portal`, `/parent` | `/api/v1/portal/profile`, `/api/v1/portal/tickets` | `users`, `parent_student_links`, `event_participations` | Unit test: RBAC navigation & permission isolation (PASS) | **FULL PASS** |
 
 ---
 
-## 8. TRẠNG THÁI 8 MODULE THEO NGUYÊN TẮC TAM PHÂN
-
-| Module | Admin Quản Trị | Người Dùng Thụ Hưởng | Hệ Thống & DB | Trạng Thái |
-| :--- | :---: | :---: | :---: | :---: |
-| **M1: User Management & Import Excel** | /admin/users | Đăng nhập / đổi mật khẩu | PostgreSQL User, AuditLog | **FULL PASS** |
-| **M2: Media Library (Ảnh/Video 360°)** | /admin/media | Tải tài nguyên CDN | Cloud / Local Storage | **FULL PASS** |
-| **M3: Tour Studio 360°** | /admin/virtual-tour | /campus (La bàn, 360°) | TourNode, Hotspot DB | **FULL PASS** |
-| **M4: GIS & Campus Locations** | /admin/locations | /map & /locations | Building, Floor, Location | **FULL PASS** |
-| **M5: Question Bank** | /admin/events (Quiz tab) | Ngân hàng đề thi | Question, Quiz DB | **FULL PASS** |
-| **M6: Quiz Execution & Results** | Quản lý kết quả & KPI | /portal (Làm bài trắc nghiệm) | QuizAttempt, Score DB | **FULL PASS** |
-| **M7: Event Management & QR Check-in** | Quản trị vé & Camera quét | /events (Nhận vé OD26) | EventRegistration, Ticket | **FULL PASS** |
-| **M8: Student & Parent Portal** | Quản trị lịch trình, hồ sơ | /portal & /parent | Profile, Schedule, Ticket DB | **FULL PASS** |
-
----
-
-## 9. CÁC VẤN ĐỀ CÒN TỒN TẠI
-- **Không còn bất kỳ blocker kỹ thuật nào** trên nhánh `fix/m4-acceptance-blockers`.
-- Toàn bộ source code đã được dọn dẹp sạch sẽ, không còn mock rỗng trong luồng nghiệp vụ thực.
+## 6. KẾ HOẠCH BẮT ĐẦU PHASE C: CONTENT CMS (VERTICAL SLICE: NEWS CMS)
+- **C1. Khảo sát:** Hiện tại `/news` và `/news/[slug]` đang dùng dữ liệu mảng tĩnh `CAMPUS_GUIDE_ARTICLES` tại `apps/web/src/components/news/news-items.ts`.
+- **C2. Triển khai News CMS:**
+  - Database: Bổ sung model `NewsArticle` vào `prisma/schema.prisma` với quan hệ `MediaAsset` (chọn ảnh cover từ Media Library) và `User` (author).
+  - API Backend: Xây dựng module `news-admin` (CRUD, DRAFT/PUBLISHED, slug duy nhất, AuditLog, phân quyền `@RequirePermissions("campus:write")` hoặc tương đương) và endpoint public `GET /api/v1/public/news`.
+  - Frontend Admin: Thêm trang quản trị `/admin/news` có trình chọn ảnh từ Media Library, preview bài viết, xuất bản / gỡ xuất bản.
+  - Frontend Public: Cập nhật `/news` và `/news/[slug]` đọc dữ liệu thời gian thực từ API PostgreSQL, tự động cập nhật không cần build lại code.

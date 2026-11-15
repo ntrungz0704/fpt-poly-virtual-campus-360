@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -23,6 +24,13 @@ export interface AdminLocationViewItem {
   sceneId: string | null;
   status: "published" | "draft";
   imageUrl?: string;
+}
+
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuid(val: string): boolean {
+  return UUID_REGEX.test(val.trim());
 }
 
 @Injectable()
@@ -67,7 +75,7 @@ export class LocationAdminService {
         name: loc.name,
         buildingCode: loc.building.code,
         buildingName: loc.building.name,
-        floor: loc.floor?.name ?? "Tầng 1",
+        floor: loc.floor?.name ?? "Tầng Trệt",
         category,
         categoryLabel: loc.categoryLabel || "Không gian Học tập",
         shortDesc: loc.shortSummary || loc.description || "",
@@ -83,19 +91,55 @@ export class LocationAdminService {
     actor: AuthenticatedUser,
     ipAddress?: string,
   ): Promise<AdminLocationViewItem> {
-    const building =
-      (await this.prisma.building.findFirst({
-        where: { code: dto.buildingCode, deletedAt: null },
-      })) ??
-      (await this.prisma.building.findFirst({
-        where: { deletedAt: null },
-        orderBy: { sortOrder: "asc" },
-      }));
-
+    // 1. Strict building validation
+    const building = await this.prisma.building.findFirst({
+      where: { code: dto.buildingCode, deletedAt: null },
+    });
     if (!building) {
-      throw new BadRequestException("Không tìm thấy tòa nhà hợp lệ trên hệ thống.");
+      throw new BadRequestException(
+        `Mã tòa nhà "${dto.buildingCode}" không tồn tại hoặc đã bị xóa.`,
+      );
     }
 
+    // 2. Strict duplicate code check
+    const duplicateCode = await this.prisma.location.findFirst({
+      where: { code: dto.code.trim(), deletedAt: null },
+    });
+    if (duplicateCode) {
+      throw new ConflictException(
+        `Mã địa điểm "${dto.code}" đã được sử dụng bởi địa điểm "${duplicateCode.name}".`,
+      );
+    }
+
+    // 3. Strict floor resolution
+    let floorId: string | null = null;
+    if (dto.floor && dto.floor.trim()) {
+      const normalizedFloor = dto.floor.trim();
+      const floorRecord = await this.prisma.floor.findFirst({
+        where: {
+          buildingId: building.id,
+          deletedAt: null,
+          OR: [
+            { name: { equals: normalizedFloor, mode: "insensitive" } },
+            { code: { equals: normalizedFloor, mode: "insensitive" } },
+            { name: { contains: normalizedFloor, mode: "insensitive" } },
+          ],
+        },
+      });
+      if (!floorRecord) {
+        const floorCountInBuilding = await this.prisma.floor.count({
+          where: { buildingId: building.id, deletedAt: null },
+        });
+        if (floorCountInBuilding > 0) {
+          throw new BadRequestException(
+            `Tầng "${dto.floor}" không thuộc tòa nhà "${building.name}".`,
+          );
+        }
+      }
+      floorId = floorRecord ? floorRecord.id : null;
+    }
+
+    // 4. Strict category & locationType resolution
     const typeCode =
       dto.category === "lab"
         ? "LAB"
@@ -103,27 +147,33 @@ export class LocationAdminService {
         ? "STUDIO"
         : "CLASSROOM";
 
-    const locationType =
-      (await this.prisma.locationType.findFirst({
-        where: { code: typeCode },
-      })) ??
-      (await this.prisma.locationType.findFirst());
-
+    const locationType = await this.prisma.locationType.findFirst({
+      where: { code: typeCode },
+    });
     if (!locationType) {
-      throw new BadRequestException("Không tìm thấy loại địa điểm hợp lệ trên hệ thống.");
+      throw new BadRequestException(
+        `Loại địa điểm "${typeCode}" không tồn tại trên hệ thống.`,
+      );
     }
 
+    // 5. Strict tour node / scene resolution
     let primaryNodeId: string | null = null;
-    if (dto.sceneId) {
+    if (dto.sceneId && dto.sceneId.trim()) {
+      const sceneKey = dto.sceneId.trim();
       const node = await this.prisma.tourNode.findFirst({
         where: {
-          OR: [{ id: dto.sceneId }, { slug: dto.sceneId }],
           deletedAt: null,
+          ...(isUuid(sceneKey)
+            ? { OR: [{ id: sceneKey }, { slug: sceneKey }] }
+            : { slug: sceneKey }),
         },
       });
-      if (node) {
-        primaryNodeId = node.id;
+      if (!node) {
+        throw new BadRequestException(
+          `Cảnh Tour 360° mang mã/slug "${dto.sceneId}" không tồn tại hoặc đã bị xóa.`,
+        );
       }
+      primaryNodeId = node.id;
     }
 
     const rawSlug =
@@ -136,7 +186,6 @@ export class LocationAdminService {
         .replace(/^-|-$/g, "") || dto.code.toLowerCase();
 
     const uniqueSlug = `${rawSlug}-${Date.now().toString().slice(-4)}`;
-
     const isPublished =
       dto.status === "published" || dto.status === "PUBLISHED";
 
@@ -147,40 +196,48 @@ export class LocationAdminService {
         ? "Studio & Multimedia"
         : "Không gian Chung";
 
-    const created = await this.prisma.location.create({
-      data: {
-        code: dto.code,
-        name: dto.name,
-        slug: uniqueSlug,
-        buildingId: building.id,
-        locationTypeId: locationType.id,
-        categoryLabel,
-        shortSummary: (dto.shortDesc || "Không gian học tập FPT Polytechnic.").slice(0, 280),
-        description: dto.shortDesc || "Không gian học tập FPT Polytechnic CVPM Quang Trung.",
-        status: isPublished ? PublishStatus.PUBLISHED : PublishStatus.DRAFT,
-        primaryNodeId,
-      },
-      include: {
-        building: true,
-        floor: true,
-        locationType: true,
-        primaryNode: true,
-      },
-    });
+    // 6. Atomic Transaction commit + AuditLog
+    const created = await this.prisma.$transaction(async (tx) => {
+      const loc = await tx.location.create({
+        data: {
+          code: dto.code.trim(),
+          name: dto.name.trim(),
+          slug: uniqueSlug,
+          buildingId: building.id,
+          floorId,
+          locationTypeId: locationType.id,
+          categoryLabel,
+          shortSummary: (dto.shortDesc || "Không gian học tập FPT Polytechnic.").slice(0, 280),
+          description: dto.shortDesc || "Không gian học tập FPT Polytechnic CVPM Quang Trung.",
+          status: isPublished ? PublishStatus.PUBLISHED : PublishStatus.DRAFT,
+          primaryNodeId,
+        },
+        include: {
+          building: true,
+          floor: true,
+          locationType: true,
+          primaryNode: true,
+        },
+      });
 
-    await this.auditLog.record({
-      actorUserId: actor.id,
-      actorUsername: actor.username,
-      action: "CREATE_LOCATION",
-      resourceType: "location",
-      resourceId: created.id,
-      diffJson: {
-        code: created.code,
-        name: created.name,
-        buildingCode: building.code,
-        status: created.status,
-      },
-      ipAddress,
+      await this.auditLog.record({
+        actorUserId: actor.id,
+        actorUsername: actor.username,
+        action: "CREATE_LOCATION",
+        resourceType: "location",
+        resourceId: loc.id,
+        diffJson: {
+          code: loc.code,
+          name: loc.name,
+          buildingCode: building.code,
+          floorId: loc.floorId,
+          status: loc.status,
+        },
+        ipAddress,
+        tx,
+      });
+
+      return loc;
     });
 
     return {
@@ -190,7 +247,7 @@ export class LocationAdminService {
       name: created.name,
       buildingCode: created.building.code,
       buildingName: created.building.name,
-      floor: created.floor?.name ?? (dto.floor || "Tầng 1"),
+      floor: created.floor?.name ?? (dto.floor || "Tầng Trệt"),
       category: dto.category === "lab" ? "lab" : dto.category === "studio" ? "studio" : "common",
       categoryLabel: created.categoryLabel,
       shortDesc: created.shortSummary,
@@ -214,22 +271,95 @@ export class LocationAdminService {
       throw new NotFoundException(`Không tìm thấy địa điểm mang ID "${id}".`);
     }
 
-    const building =
-      (await this.prisma.building.findFirst({
-        where: { code: dto.buildingCode, deletedAt: null },
-      })) ?? existing.building;
+    // 1. Strict building validation
+    const building = await this.prisma.building.findFirst({
+      where: { code: dto.buildingCode, deletedAt: null },
+    });
+    if (!building) {
+      throw new BadRequestException(
+        `Mã tòa nhà "${dto.buildingCode}" không tồn tại hoặc đã bị xóa.`,
+      );
+    }
 
-    let primaryNodeId = existing.primaryNodeId;
-    if (dto.sceneId) {
+    // 2. Strict duplicate code check if changed
+    if (dto.code && dto.code.trim() !== existing.code) {
+      const duplicateCode = await this.prisma.location.findFirst({
+        where: { code: dto.code.trim(), id: { not: id }, deletedAt: null },
+      });
+      if (duplicateCode) {
+        throw new ConflictException(
+          `Mã địa điểm "${dto.code}" đã được sử dụng bởi địa điểm "${duplicateCode.name}".`,
+        );
+      }
+    }
+
+    // 3. Strict floor resolution
+    let floorId: string | null = existing.floorId;
+    if (dto.floor !== undefined) {
+      if (dto.floor && dto.floor.trim()) {
+        const normalizedFloor = dto.floor.trim();
+        const floorRecord = await this.prisma.floor.findFirst({
+          where: {
+            buildingId: building.id,
+            deletedAt: null,
+            OR: [
+              { name: { equals: normalizedFloor, mode: "insensitive" } },
+              { code: { equals: normalizedFloor, mode: "insensitive" } },
+              { name: { contains: normalizedFloor, mode: "insensitive" } },
+            ],
+          },
+        });
+        if (!floorRecord) {
+          const floorCountInBuilding = await this.prisma.floor.count({
+            where: { buildingId: building.id, deletedAt: null },
+          });
+          if (floorCountInBuilding > 0) {
+            throw new BadRequestException(
+              `Tầng "${dto.floor}" không thuộc tòa nhà "${building.name}".`,
+            );
+          }
+        }
+        floorId = floorRecord ? floorRecord.id : null;
+      } else {
+        floorId = null;
+      }
+    }
+
+    // 4. Strict category & locationType resolution
+    const typeCode =
+      dto.category === "lab"
+        ? "LAB"
+        : dto.category === "studio"
+        ? "STUDIO"
+        : "CLASSROOM";
+
+    const locationType = await this.prisma.locationType.findFirst({
+      where: { code: typeCode },
+    });
+    if (!locationType) {
+      throw new BadRequestException(
+        `Loại địa điểm "${typeCode}" không tồn tại trên hệ thống.`,
+      );
+    }
+
+    // 5. Strict tour node resolution
+    let primaryNodeId: string | null = null;
+    if (dto.sceneId && dto.sceneId.trim()) {
+      const sceneKey = dto.sceneId.trim();
       const node = await this.prisma.tourNode.findFirst({
         where: {
-          OR: [{ id: dto.sceneId }, { slug: dto.sceneId }],
           deletedAt: null,
+          ...(isUuid(sceneKey)
+            ? { OR: [{ id: sceneKey }, { slug: sceneKey }] }
+            : { slug: sceneKey }),
         },
       });
-      primaryNodeId = node ? node.id : null;
-    } else {
-      primaryNodeId = null;
+      if (!node) {
+        throw new BadRequestException(
+          `Cảnh Tour 360° mang mã/slug "${dto.sceneId}" không tồn tại hoặc đã bị xóa.`,
+        );
+      }
+      primaryNodeId = node.id;
     }
 
     const isPublished =
@@ -242,38 +372,49 @@ export class LocationAdminService {
         ? "Studio & Multimedia"
         : "Không gian Chung";
 
-    const updated = await this.prisma.location.update({
-      where: { id },
-      data: {
-        name: dto.name,
-        code: dto.code,
-        buildingId: building.id,
-        categoryLabel,
-        shortSummary: (dto.shortDesc || existing.shortSummary).slice(0, 280),
-        description: dto.shortDesc || existing.description,
-        status: isPublished ? PublishStatus.PUBLISHED : PublishStatus.DRAFT,
-        primaryNodeId,
-      },
-      include: {
-        building: true,
-        floor: true,
-        locationType: true,
-        primaryNode: true,
-      },
-    });
+    // 6. Atomic Transaction update + AuditLog
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const loc = await tx.location.update({
+        where: { id },
+        data: {
+          name: dto.name.trim(),
+          code: dto.code.trim(),
+          buildingId: building.id,
+          floorId,
+          locationTypeId: locationType.id,
+          categoryLabel,
+          shortSummary: (dto.shortDesc || existing.shortSummary).slice(0, 280),
+          description: dto.shortDesc || existing.description,
+          status: isPublished ? PublishStatus.PUBLISHED : PublishStatus.DRAFT,
+          primaryNodeId,
+        },
+        include: {
+          building: true,
+          floor: true,
+          locationType: true,
+          primaryNode: true,
+        },
+      });
 
-    await this.auditLog.record({
-      actorUserId: actor.id,
-      actorUsername: actor.username,
-      action: "UPDATE_LOCATION",
-      resourceType: "location",
-      resourceId: updated.id,
-      diffJson: {
-        code: updated.code,
-        name: updated.name,
-        status: updated.status,
-      },
-      ipAddress,
+      await this.auditLog.record({
+        actorUserId: actor.id,
+        actorUsername: actor.username,
+        action: "UPDATE_LOCATION",
+        resourceType: "location",
+        resourceId: loc.id,
+        diffJson: {
+          code: loc.code,
+          name: loc.name,
+          buildingCode: building.code,
+          floorId: loc.floorId,
+          locationTypeId: locationType.id,
+          status: loc.status,
+        },
+        ipAddress,
+        tx,
+      });
+
+      return loc;
     });
 
     return {
@@ -283,7 +424,7 @@ export class LocationAdminService {
       name: updated.name,
       buildingCode: updated.building.code,
       buildingName: updated.building.name,
-      floor: updated.floor?.name ?? (dto.floor || "Tầng 1"),
+      floor: updated.floor?.name ?? (dto.floor || "Tầng Trệt"),
       category: dto.category === "lab" ? "lab" : dto.category === "studio" ? "studio" : "common",
       categoryLabel: updated.categoryLabel,
       shortDesc: updated.shortSummary,
@@ -305,19 +446,22 @@ export class LocationAdminService {
       throw new NotFoundException(`Không tìm thấy địa điểm mang ID "${id}".`);
     }
 
-    await this.prisma.location.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.location.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      });
 
-    await this.auditLog.record({
-      actorUserId: actor.id,
-      actorUsername: actor.username,
-      action: "DELETE_LOCATION",
-      resourceType: "location",
-      resourceId: id,
-      diffJson: { code: existing.code, name: existing.name },
-      ipAddress,
+      await this.auditLog.record({
+        actorUserId: actor.id,
+        actorUsername: actor.username,
+        action: "DELETE_LOCATION",
+        resourceType: "location",
+        resourceId: id,
+        diffJson: { code: existing.code, name: existing.name },
+        ipAddress,
+        tx,
+      });
     });
 
     return { success: true, id };

@@ -7,6 +7,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import sharp from "sharp";
 import { PrismaService } from "../../common/adapters/prisma.service";
 import { STORAGE_ADAPTER } from "../storage/storage.adapter";
 import type { StorageAdapter } from "../storage/storage.adapter";
@@ -105,6 +106,10 @@ export class MediaService {
         isPreviewApproved: false,
         originalObjectKey: objectKey,
         processingStatus: "PENDING",
+        cameraMetadata: {
+          tags: dto.tags ?? [],
+          category: dto.category ?? (is2to1 ? "PANORAMA_360" : "STANDARD_IMAGE"),
+        },
         uploadedBy: user.id,
       },
     });
@@ -304,13 +309,68 @@ export class MediaService {
       );
     }
 
-    // Atomic update: Mark token as used, set media asset READY
+    // Process image variants (WebP conversion and thumbnail generation) using sharp
+    let thumbnailKey: string | null = null;
+    let optimizedDesktopKey: string | null = null;
+    let optimizedMobileKey: string | null = null;
+    let processingError: string | null = null;
+
+    try {
+      const isPanorama = uploadToken.mediaAsset.assetKind === "PANORAMA_2_1";
+      const baseKey = uploadToken.objectKey.replace(/\.[a-zA-Z0-9]+$/, "");
+
+      // 1. Generate WebP thumbnail (400x400 max, keep aspect ratio)
+      const thumbBuffer = await sharp(fileData)
+        .resize({ width: 400, height: 400, fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 80 })
+        .toBuffer();
+      thumbnailKey = `${baseKey}-thumb.webp`;
+      await this.storageAdapter.putObject(thumbnailKey, thumbBuffer, "image/webp");
+
+      // 2. Generate Desktop WebP (up to 4096px for panorama, 2560px for standard image)
+      const desktopMaxWidth = isPanorama ? 4096 : 2560;
+      const desktopBuffer = await sharp(fileData)
+        .resize({ width: desktopMaxWidth, fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 85 })
+        .toBuffer();
+      optimizedDesktopKey = `${baseKey}-desktop.webp`;
+      await this.storageAdapter.putObject(optimizedDesktopKey, desktopBuffer, "image/webp");
+
+      // 3. Generate Mobile WebP (up to 2048px for panorama, 1280px for standard image)
+      const mobileMaxWidth = isPanorama ? 2048 : 1280;
+      const mobileBuffer = await sharp(fileData)
+        .resize({ width: mobileMaxWidth, fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 80 })
+        .toBuffer();
+      optimizedMobileKey = `${baseKey}-mobile.webp`;
+      await this.storageAdapter.putObject(optimizedMobileKey, mobileBuffer, "image/webp");
+    } catch (err) {
+      processingError = `WebP processing notice: ${err instanceof Error ? err.message : String(err)}`;
+    }
+
+    const existingMeta = (uploadToken.mediaAsset.cameraMetadata as Record<string, unknown>) ?? {};
+    const updatedMeta = {
+      ...existingMeta,
+      variants: {
+        thumbnail: thumbnailKey,
+        desktop: optimizedDesktopKey,
+        mobile: optimizedMobileKey,
+      },
+      webpOptimized: thumbnailKey !== null,
+    };
+
+    // Atomic update: Mark token as used, set media asset READY with WebP variants
     const now = new Date();
     const [updatedAsset] = await this.prisma.$transaction([
       this.prisma.mediaAsset.update({
         where: { id: uploadToken.mediaAsset.id },
         data: {
           processingStatus: "READY",
+          thumbnailKey,
+          optimizedDesktopKey,
+          optimizedMobileKey,
+          processingError,
+          cameraMetadata: updatedMeta,
           updatedAt: now,
         },
       }),
@@ -326,6 +386,7 @@ export class MediaService {
       coverForBuildings: 0,
       panoramaTourNodes: 0,
       locationMedia: 0,
+      newsArticles: 0,
     });
   }
 
@@ -343,6 +404,33 @@ export class MediaService {
     if (query.processingStatus) {
       where.processingStatus = query.processingStatus;
     }
+    if (query.q && query.q.trim()) {
+      where.originalFilename = {
+        contains: query.q.trim(),
+        mode: "insensitive",
+      };
+    }
+
+    const andConditions: Array<Record<string, unknown>> = [];
+    if (query.tag && query.tag.trim()) {
+      andConditions.push({
+        cameraMetadata: {
+          path: ["tags"],
+          array_contains: query.tag.trim(),
+        },
+      });
+    }
+    if (query.category && query.category.trim()) {
+      andConditions.push({
+        cameraMetadata: {
+          path: ["category"],
+          equals: query.category.trim(),
+        },
+      });
+    }
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
+    }
 
     const [total, items] = await Promise.all([
       this.prisma.mediaAsset.count({ where }),
@@ -357,6 +445,7 @@ export class MediaService {
               coverForBuildings: true,
               panoramaTourNodes: true,
               locationMedia: true,
+              newsArticles: true,
             },
           },
         },
@@ -381,6 +470,7 @@ export class MediaService {
             coverForBuildings: true,
             panoramaTourNodes: true,
             locationMedia: true,
+            newsArticles: true,
           },
         },
       },
@@ -402,6 +492,7 @@ export class MediaService {
             coverForBuildings: true,
             panoramaTourNodes: true,
             locationMedia: true,
+            newsArticles: true,
           },
         },
       },
@@ -411,14 +502,15 @@ export class MediaService {
       throw new NotFoundException(`Không tìm thấy MediaAsset với ID: ${id}`);
     }
 
-    const { coverForBuildings, panoramaTourNodes, locationMedia } =
+    const { coverForBuildings, panoramaTourNodes, locationMedia, newsArticles } =
       asset._count;
-    const totalRefs = coverForBuildings + panoramaTourNodes + locationMedia;
+    const totalRefs =
+      coverForBuildings + panoramaTourNodes + locationMedia + newsArticles;
 
     if (totalRefs > 0) {
       throw new ConflictException({
         code: "MEDIA_IN_USE",
-        message: `Không thể xóa tệp "${asset.originalFilename}" vì đang được gắn với ${totalRefs} đối tượng (Tòa nhà: ${coverForBuildings}, Cảnh 360°: ${panoramaTourNodes}, Địa điểm: ${locationMedia}).`,
+        message: `Không thể xóa tệp "${asset.originalFilename}" vì đang được gắn với ${totalRefs} đối tượng (Tòa nhà: ${coverForBuildings}, Cảnh 360°: ${panoramaTourNodes}, Địa điểm: ${locationMedia}, Tin tức: ${newsArticles}).`,
       });
     }
 
@@ -467,9 +559,13 @@ export class MediaService {
       coverForBuildings: number;
       panoramaTourNodes: number;
       locationMedia: number;
+      newsArticles?: number;
     },
   ) {
     const publicUrl = this.storageAdapter.getPublicUrl(asset.originalObjectKey);
+    const metadata = (asset.cameraMetadata as Record<string, unknown>) ?? {};
+    const tags = Array.isArray(metadata.tags) ? (metadata.tags as string[]) : [];
+    const category = typeof metadata.category === "string" ? metadata.category : null;
 
     return {
       id: asset.id,
@@ -493,8 +589,13 @@ export class MediaService {
       thumbnailUrl: asset.thumbnailKey
         ? this.storageAdapter.getPublicUrl(asset.thumbnailKey)
         : null,
+      isWebpOptimized: Boolean(
+        asset.optimizedDesktopKey || asset.thumbnailKey,
+      ),
+      tags,
+      category,
       sha256Checksum: asset.sha256Checksum,
-      cameraMetadata: (asset.cameraMetadata as Record<string, unknown>) ?? null,
+      cameraMetadata: metadata,
       isAiPlaceholder: false,
       uploadedBy: asset.uploadedBy,
       createdAt: asset.createdAt.toISOString(),
@@ -502,11 +603,13 @@ export class MediaService {
       usageCount:
         counts.coverForBuildings +
         counts.panoramaTourNodes +
-        counts.locationMedia,
+        counts.locationMedia +
+        (counts.newsArticles ?? 0),
       usageDetails: {
         buildings: counts.coverForBuildings,
         tourNodes: counts.panoramaTourNodes,
         locations: counts.locationMedia,
+        newsArticles: counts.newsArticles ?? 0,
       },
     };
   }

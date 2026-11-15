@@ -354,6 +354,9 @@ export interface AdminMediaAssetItem {
   optimizedDesktopUrl: string | null;
   optimizedMobileUrl: string | null;
   thumbnailUrl: string | null;
+  isWebpOptimized?: boolean;
+  tags?: string[];
+  category?: string | null;
   sha256Checksum: string;
   cameraMetadata: Record<string, unknown> | null;
   isAiPlaceholder: boolean;
@@ -365,6 +368,7 @@ export interface AdminMediaAssetItem {
     buildings: number;
     tourNodes: number;
     locations: number;
+    newsArticles?: number;
   };
 }
 
@@ -376,6 +380,8 @@ export interface MediaPresignPayload {
   declaredWidth: number;
   declaredHeight: number;
   sha256: string;
+  tags?: string[];
+  category?: string;
 }
 
 export interface MediaPresignResult {
@@ -393,6 +399,9 @@ export const mediaApi = {
     assetKind?: string;
     page?: number;
     limit?: number;
+    q?: string;
+    tag?: string;
+    category?: string;
   }): Promise<{ items: AdminMediaAssetItem[]; total: number; page: number; limit: number }> {
     const searchParams = new URLSearchParams();
     if (params?.assetKind && params.assetKind !== "all") {
@@ -400,6 +409,9 @@ export const mediaApi = {
     }
     if (params?.page) searchParams.set("page", String(params.page));
     if (params?.limit) searchParams.set("limit", String(params.limit));
+    if (params?.q && params.q.trim()) searchParams.set("q", params.q.trim());
+    if (params?.tag && params.tag.trim()) searchParams.set("tag", params.tag.trim());
+    if (params?.category && params.category.trim()) searchParams.set("category", params.category.trim());
     const qs = searchParams.toString() ? `?${searchParams.toString()}` : "";
     return apiRequest<{
       items: AdminMediaAssetItem[];

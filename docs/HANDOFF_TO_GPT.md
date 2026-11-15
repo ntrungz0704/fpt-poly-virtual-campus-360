@@ -194,3 +194,87 @@ Tất cả 3 bộ test tích hợp liên quan trực tiếp đến Question Bank
    - Kết quả: **12/12 tests PASS** (25.49 s)
    - Chi tiết: Nghiệm thu hoàn tất import Excel, strict enum difficulty/status, và server-side validation.
 
+---
+
+## 10. BÁO CÁO NGHIỆM THU KỸ THUẬT MILESTONE M7.3 (QUIZ ATTEMPT ENGINE)
+
+### 1. BẢO CHỨNG THIẾT KẾ DATABASE & MIGRATION ADDITIVE
+- **Mô hình thực thể (Prisma Schema):**
+  + Enum `QuizAttemptStatus`: `IN_PROGRESS`, `SUBMITTED`, `EXPIRED`.
+  + Model `QuizConfigAttempt`: Khóa ngoại với `User` và `QuizConfiguration`, lưu `attemptNumber`, `startedAt`, `expiresAt`, `submittedAt`, `status`.
+  + Model `QuizConfigAttemptAnswer`: Khóa ngoại với `QuizConfigAttempt` và `QuizConfigQuestion`, lưu `displayedOrder`, `optionOrderJson` (mapping xáo trộn phương án), `selectedOptionIndex`, `answeredAt`.
+  + Ràng buộc duy nhất & chỉ mục:
+    * `@@unique([userId, quizConfigId, attemptNumber], map: "uq_quiz_config_attempt_user_quiz_number")`
+    * `@@unique([attemptId, quizConfigQuestionId], map: "uq_quiz_config_attempt_answer_attempt_question")`
+    * `@@index([userId])`, `@@index([quizConfigId])`, `@@index([status])`, `@@index([expiresAt])`
+- **Bảo chứng hồi quy (Regression Guard):**
+  + Giữ nguyên 100% bảng legacy `quiz_attempts` của Open Day Gamification (M3D) và `OpenDayQuizItem`.
+  + Migration mới: `prisma/migrations/20261115000005_quiz_config_attempts/migration.sql` được áp dụng độc lập, tính phụ gia 100%.
+
+### 2. BACKEND API ENGINE & BẢO VỆ CHỐNG LỖ HỔNG
+- **POST `/api/v1/portal/quiz/:quizConfigId/attempts` (Start & Resume Attempt):**
+  + Yêu cầu xác thực JWT và `userType === "STUDENT"`.
+  + Kiểm tra quiz `PUBLISHED` và chưa xóa mềm (DRAFT, ARCHIVED -> 404).
+  + Kiểm tra điều kiện tham gia sự kiện theo Phương án A đã chốt (`INVITED`, `CONFIRMED`, `CHECKED_IN` -> 200; `CANCELLED`, Unregistered -> 403).
+  + **Advisory Lock Concurrency Protection:** Dùng `pg_advisory_xact_lock(hashtext('quiz_attempt_' || userId || '_' || quizConfigId))` tuần tự hóa giao dịch, bảo chứng các request đồng thời không thể vượt quá `maxAttempts`.
+  + **Idempotent Resume:** Nếu sinh viên có attempt `IN_PROGRESS` còn hạn (`now < expiresAt`), trả về lượt thi hiện tại mà không tạo thêm bản ghi hay tăng `attemptNumber`.
+  + **Server-side Timer Precision:** `startedAt` và `expiresAt` được tính bằng đồng hồ máy chủ (`startedAt + timeLimitMinutes * 60 * 1000`), không phụ thuộc client clock.
+  + **Stable Option & Question Shuffling:** Áp dụng thuật toán Fisher-Yates lưu thứ tự xáo trộn vào `displayedOrder` và `optionOrderJson`, giữ cố định qua mọi lần reload/resume.
+  + **Zero-leak Contract:** Không trả về `correctIndex`, `explanation`, hay `questionBankItemId`.
+- **GET `/api/v1/portal/quiz/attempts/:attemptId` (Get Attempt Details):**
+  + Kiểm tra quyền sở hữu IDOR: Sinh viên chỉ được truy cập attempt của chính mình (Sinh viên khác -> 403 Forbidden).
+  + Tự động chuyển trạng thái `EXPIRED` nếu `now >= expiresAt`.
+  + Trả về danh sách câu hỏi theo đúng thứ tự đã lưu kèm `remainingSeconds` tính toán thực tế.
+- **PUT `/api/v1/portal/quiz/attempts/:attemptId/progress` (Save Progress):**
+  + Kiểm tra quyền sở hữu và trạng thái `IN_PROGRESS`.
+  + Chặn lưu khi attempt đã hết hạn (`EXPIRED` -> 400).
+  + Kiểm tra câu hỏi thuộc đúng attempt và chỉ số phương án chọn nằm trong phạm vi mảng options hợp lệ.
+  + Lưu trực tiếp vào PostgreSQL qua `update` `QuizConfigAttemptAnswer`, loại trừ hoàn toàn việc tạo câu trả lời trùng lặp.
+
+### 3. GIAO DIỆN PHÒNG THI PORTAL (FRONTEND IMPLEMENTATION)
+- Đường dẫn: `apps/web/src/app/(portal)/portal/quiz/page.tsx`
+- **Tính năng nổi bật:**
+  + Nút "Vào làm bài thi" tích hợp trên từng thẻ bài thi.
+  + Phòng thi độc lập (Exam Room View) với thanh công cụ ghim cố định (Sticky Header).
+  + Đồng hồ đếm ngược thời gian thực, tự động nhấp nháy cảnh báo khi còn dưới 2 phút.
+  + Bảng chọn câu hỏi nhanh (Question Palette Grid) đánh dấu trực quan câu Đã trả lời / Chưa trả lời và cho phép nhảy đến bất kỳ câu hỏi nào.
+  + Tự động lưu (Auto-save) sau mỗi thao tác chọn đáp án kèm nhãn phản hồi: "Đang lưu...", "Đã lưu lúc HH:mm:ss", "Lỗi lưu".
+  + Khóa toàn bộ tương tác và hiển thị thông báo "Hết thời gian làm bài" khi timer đếm về 0.
+  + Khôi phục trạng thái hoàn hảo khi sinh viên tải lại (reload) trang.
+
+### 4. BẰNG CHỨNG KIỂM THỬ THỰC TẾ TRÊN POSTGRESQL (49/49 TESTS PASS)
+Tất cả 4 bộ test tích hợp chạy độc lập tuần tự trên cơ sở dữ liệu PostgreSQL thực tế:
+1. **M7.3 Quiz Attempt Suite (`quiz-attempt.integration.spec.ts`):** 14/14 tests PASS (31.38s).
+   - Test 1-2: Security (401 unauthenticated, 403 PARENT).
+   - Test 3: Lifecycle Guard (404 DRAFT, ARCHIVED, Soft-deleted).
+   - Test 4: Event Eligibility Guard (403 unregistered).
+   - Test 5: Server-side timer & Zero-leak.
+   - Test 6: Idempotent resume IN_PROGRESS.
+   - Test 7: Shuffling stability across reload & resume.
+   - Test 8: Real-time PostgreSQL save & deduplication.
+   - Test 9: Validation error (invalid question / out-of-range option index).
+   - Test 10: IDOR protection (403 for unauthorized student).
+   - Test 11: Server-side expiry transition & save rejection.
+   - Test 12: Max attempts enforcement (reject 3rd attempt when max=2).
+   - Test 13: Concurrency advisory lock race-condition guard.
+   - Test 14: Regression guard for M7.2 delivery and M7.1 config.
+2. **M7.2 Quiz Delivery Suite (`quiz-delivery.integration.spec.ts`):** 10/10 tests PASS (33.05s).
+3. **M7.1 Quiz Configuration Suite (`quiz-config.integration.spec.ts`):** 13/13 tests PASS (34.88s).
+4. **M6 Question Bank Management Suite (`question-bank.integration.spec.ts`):** 12/12 tests PASS (30.52s).
+
+### 5. KẾT QUẢ QUALITY GATES TOÀN BỘ DỰ ÁN
+- `pnpm exec prisma validate`: Schema valid 100%.
+- `pnpm --filter shared build`: Exit code 0.
+- `pnpm --filter api typecheck`: Exit code 0 (0 errors).
+- `pnpm --filter web typecheck`: Exit code 0 (0 errors).
+- `pnpm --filter api lint`: Exit code 0 (0 errors, 0 warnings).
+- `pnpm --filter web lint`: Exit code 0 (0 errors, 0 warnings).
+- `pnpm --filter api test:unit`: 8 suites, 31 tests PASS (5.01s).
+- `pnpm --filter web test:unit`: 10 tests PASS (137ms).
+- `pnpm --filter web build`: 28 static/dynamic routes compiled successfully.
+
+### 6. BẢO CHỨNG PHẠM VI (SCOPE GUARD)
+- Tuyệt đối chưa triển khai tính năng nộp bài chính thức, chấm điểm tự động, tính passing score hay cộng XP (thuộc phạm vi M7.4).
+- Chưa tạo model kết quả hay lịch sử điểm thi (thuộc phạm vi M7.5).
+
+

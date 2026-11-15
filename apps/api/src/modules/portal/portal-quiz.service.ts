@@ -346,118 +346,134 @@ export class PortalQuizService {
   }
 
   /**
-   * Lưu tiến độ làm bài (Save Progress):
-   * - Chỉ cho phép lưu khi attempt IN_PROGRESS và chưa quá expiresAt.
-   * - Kiểm tra câu hỏi thuộc đúng lượt thi.
-   * - Kiểm tra chỉ số phương án trong phạm vi hợp lệ.
+   * Lưu tiến độ làm bài (Save Progress) - Milestone M7.3 (B01 Atomic Remediation):
+   * - Thực thi trong Prisma Transaction nguyên tử với hàng rào khóa hàng (FOR UPDATE) chống race-condition.
+   * - Tái kiểm tra trạng thái và thời hạn (expiresAt) tại thời điểm ghi DB.
+   * - Validate toàn bộ batch answers trước khi ghi; một item lỗi rollback toàn bộ.
+   * - Tuyệt đối không cho phép ghi sau khi lượt thi đã hết hạn hoặc đã chuyển EXPIRED.
    */
   async saveProgress(
     userId: string,
     attemptId: string,
     dto: SaveQuizProgressDto,
   ): Promise<SaveQuizProgressResponseDto> {
-    const attempt = await this.prisma.quizConfigAttempt.findUnique({
-      where: { id: attemptId },
-      include: {
-        answers: {
-          include: {
-            quizConfigQuestion: {
-              select: {
-                id: true,
-                optionsJson: true,
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Khóa hàng bản ghi attempt để tuần tự hóa các request ghi/hết hạn đồng thời
+      await tx.$executeRaw`SELECT id FROM quiz_config_attempts WHERE id = ${attemptId}::uuid FOR UPDATE`;
+
+      // 2. Lấy dữ liệu attempt cùng toàn bộ answers dưới bảo hộ khóa hàng
+      const attempt = await tx.quizConfigAttempt.findUnique({
+        where: { id: attemptId },
+        include: {
+          answers: {
+            include: {
+              quizConfigQuestion: {
+                select: {
+                  id: true,
+                  optionsJson: true,
+                },
               },
             },
           },
         },
-      },
-    });
-
-    if (!attempt) {
-      throw new NotFoundException({
-        code: "ATTEMPT_NOT_FOUND",
-        message: "Lượt thi không tồn tại.",
       });
-    }
 
-    if (attempt.userId !== userId) {
-      throw new ForbiddenException({
-        code: "FORBIDDEN_ATTEMPT_OWNERSHIP",
-        message: "Bạn không có quyền chỉnh sửa lượt thi của sinh viên khác.",
-      });
-    }
-
-    const now = new Date();
-    if (attempt.status !== "IN_PROGRESS" || now >= attempt.expiresAt) {
-      if (attempt.status === "IN_PROGRESS" && now >= attempt.expiresAt) {
-        await this.prisma.quizConfigAttempt.update({
-          where: { id: attempt.id },
-          data: { status: "EXPIRED" },
+      if (!attempt) {
+        throw new NotFoundException({
+          code: "ATTEMPT_NOT_FOUND",
+          message: "Lượt thi không tồn tại.",
         });
       }
-      throw new BadRequestException({
-        code: "ATTEMPT_EXPIRED_OR_CLOSED",
-        message: "Lượt thi đã hết thời gian hoặc không còn hiệu lực làm bài.",
-      });
-    }
 
-    let savedCount = 0;
-    for (const item of dto.answers) {
-      const matchingAnswer = attempt.answers.find(
-        (a) => a.quizConfigQuestionId === item.quizConfigQuestionId,
-      );
-      if (!matchingAnswer) {
+      if (attempt.userId !== userId) {
+        throw new ForbiddenException({
+          code: "FORBIDDEN_ATTEMPT_OWNERSHIP",
+          message: "Bạn không có quyền chỉnh sửa lượt thi của sinh viên khác.",
+        });
+      }
+
+      // 3. Tái kiểm tra thời gian thực sau khi đã lấy được quyền ghi khóa hàng
+      const now = new Date();
+      if (attempt.status !== "IN_PROGRESS" || now >= attempt.expiresAt) {
+        if (attempt.status === "IN_PROGRESS" && now >= attempt.expiresAt) {
+          await tx.quizConfigAttempt.update({
+            where: { id: attempt.id },
+            data: { status: "EXPIRED" },
+          });
+        }
         throw new BadRequestException({
-          code: "INVALID_QUESTION_IN_ATTEMPT",
-          message: `Câu hỏi ${item.quizConfigQuestionId} không thuộc lượt thi này.`,
+          code: "ATTEMPT_EXPIRED_OR_CLOSED",
+          message: "Lượt thi đã hết thời gian hoặc không còn hiệu lực làm bài.",
         });
       }
 
-      const rawOptions = Array.isArray(matchingAnswer.quizConfigQuestion.optionsJson)
-        ? (matchingAnswer.quizConfigQuestion.optionsJson as string[])
-        : [];
+      // 4. Validate toàn bộ batch answers TRƯỚC KHI ghi bất kỳ bản ghi nào (Atomic Validation)
+      for (const item of dto.answers) {
+        const matchingAnswer = attempt.answers.find(
+          (a) => a.quizConfigQuestionId === item.quizConfigQuestionId,
+        );
+        if (!matchingAnswer) {
+          throw new BadRequestException({
+            code: "INVALID_QUESTION_IN_ATTEMPT",
+            message: `Câu hỏi ${item.quizConfigQuestionId} không thuộc lượt thi này.`,
+          });
+        }
 
-      if (
-        item.selectedOptionIndex !== null &&
-        (item.selectedOptionIndex < 0 || item.selectedOptionIndex >= rawOptions.length)
-      ) {
-        throw new BadRequestException({
-          code: "INVALID_OPTION_INDEX",
-          message: `Phương án chọn không hợp lệ cho câu hỏi ${item.quizConfigQuestionId}.`,
+        const rawOptions = Array.isArray(matchingAnswer.quizConfigQuestion.optionsJson)
+          ? (matchingAnswer.quizConfigQuestion.optionsJson as string[])
+          : typeof matchingAnswer.quizConfigQuestion.optionsJson === "string"
+            ? JSON.parse(matchingAnswer.quizConfigQuestion.optionsJson)
+            : [];
+
+        if (
+          item.selectedOptionIndex !== null &&
+          (item.selectedOptionIndex < 0 || item.selectedOptionIndex >= rawOptions.length)
+        ) {
+          throw new BadRequestException({
+            code: "INVALID_OPTION_INDEX",
+            message: `Phương án chọn không hợp lệ cho câu hỏi ${item.quizConfigQuestionId}.`,
+          });
+        }
+      }
+
+      // 5. Toàn bộ batch đã hợp lệ 100%, thực hiện cập nhật nguyên tử trong transaction
+      for (const item of dto.answers) {
+        const matchingAnswer = attempt.answers.find(
+          (a) => a.quizConfigQuestionId === item.quizConfigQuestionId,
+        )!;
+
+        await tx.quizConfigAttemptAnswer.update({
+          where: { id: matchingAnswer.id },
+          data: {
+            selectedOptionIndex: item.selectedOptionIndex,
+            answeredAt: now,
+          },
         });
       }
 
-      await this.prisma.quizConfigAttemptAnswer.update({
-        where: { id: matchingAnswer.id },
-        data: {
-          selectedOptionIndex: item.selectedOptionIndex,
-          answeredAt: new Date(),
+      const totalQuestions = attempt.answers.length;
+      const answeredQuestions = await tx.quizConfigAttemptAnswer.count({
+        where: {
+          attemptId,
+          selectedOptionIndex: { not: null },
         },
       });
-      savedCount++;
-    }
 
-    const totalQuestions = attempt.answers.length;
-    const answeredQuestions = await this.prisma.quizConfigAttemptAnswer.count({
-      where: {
-        attemptId,
-        selectedOptionIndex: { not: null },
-      },
+      const remainingSeconds = Math.max(
+        0,
+        Math.floor((attempt.expiresAt.getTime() - now.getTime()) / 1000),
+      );
+
+      return {
+        attemptId: attempt.id,
+        status: attempt.status,
+        savedCount: dto.answers.length,
+        answeredQuestions,
+        totalQuestions,
+        remainingSeconds,
+        isExpired: false,
+      };
     });
-
-    const remainingSeconds = Math.max(
-      0,
-      Math.floor((attempt.expiresAt.getTime() - now.getTime()) / 1000),
-    );
-
-    return {
-      attemptId: attempt.id,
-      status: attempt.status,
-      savedCount,
-      answeredQuestions,
-      totalQuestions,
-      remainingSeconds,
-      isExpired: false,
-    };
   }
 
   /**

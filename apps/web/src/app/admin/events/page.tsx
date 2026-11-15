@@ -33,10 +33,11 @@ import {
 } from "@/lib/admin/events-admin-api";
 import { ApiClientError } from "@/lib/auth/api-client";
 import { cn } from "@/lib/utils";
+import { ExamRoomMonitoring } from "./components/exam-room-monitoring";
 import { QuizConfigManager } from "./components/quiz-config-manager";
 
 export default function AdminEventsPage() {
-  const [tab, setTab] = useState<"schedule" | "checkin" | "quiz-config" | "quiz" | "results">("schedule");
+  const [tab, setTab] = useState<"schedule" | "checkin" | "quiz-config" | "exam-monitoring" | "quiz" | "results">("schedule");
   const [events, setEvents] = useState<AdminOpenDayEventDto[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
@@ -614,6 +615,20 @@ export default function AdminEventsPage() {
         <button
           type="button"
           role="tab"
+          aria-selected={tab === "exam-monitoring"}
+          onClick={() => setTab("exam-monitoring")}
+          className={cn(
+            "min-h-[40px] px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer",
+            tab === "exam-monitoring"
+              ? "bg-primary text-white shadow-xs"
+              : "text-secondary hover:text-on-surface",
+          )}
+        >
+          Giám sát phòng thi (M7.3)
+        </button>
+        <button
+          type="button"
+          role="tab"
           aria-selected={tab === "quiz"}
           onClick={() => setTab("quiz")}
           className={cn(
@@ -730,6 +745,16 @@ export default function AdminEventsPage() {
         <QuizConfigManager
           selectedEventId={selectedEventId}
           events={events}
+          onShowToast={(message, type) =>
+            setToast({ open: true, message, type: type ?? "info" })
+          }
+        />
+      )}
+
+      {/* Tab Panel: Exam Room Monitoring (M7.3) */}
+      {tab === "exam-monitoring" && (
+        <ExamRoomMonitoring
+          selectedEventId={selectedEventId}
           onShowToast={(message, type) =>
             setToast({ open: true, message, type: type ?? "info" })
           }

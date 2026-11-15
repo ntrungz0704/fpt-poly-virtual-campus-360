@@ -171,4 +171,47 @@ export interface SaveQuizProgressResponseDto {
   isExpired: boolean;
 }
 
+// ============================================================================
+// Milestone M7.3 (B03): Admin Exam Room Monitoring Shared Contracts
+// ============================================================================
+
+export interface AdminQuizAttemptStudentDto {
+  id: string;
+  fullName: string;
+  email: string;
+  studentCode?: string | null;
+  avatarUrl?: string | null;
+}
+
+export interface AdminQuizAttemptMonitoringDto {
+  id: string;
+  quizConfigId: string;
+  quizTitle: string;
+  student: AdminQuizAttemptStudentDto;
+  attemptNumber: number;
+  status: QuizAttemptStatus;
+  startedAt: string;
+  expiresAt: string;
+  submittedAt?: string | null;
+  totalQuestions: number;
+  answeredCount: number;
+  remainingSeconds: number;
+}
+
+export interface AdminQuizAttemptListQueryDto {
+  page?: number;
+  limit?: number;
+  quizConfigId?: string;
+  status?: QuizAttemptStatus;
+  search?: string;
+}
+
+export interface AdminQuizAttemptListResponseDto {
+  items: AdminQuizAttemptMonitoringDto[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 

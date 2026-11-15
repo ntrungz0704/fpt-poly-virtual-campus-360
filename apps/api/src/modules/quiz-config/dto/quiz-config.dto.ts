@@ -16,8 +16,10 @@ import {
   MinLength,
 } from "class-validator";
 import type {
+  AdminQuizAttemptListQueryDto,
   CreateQuizConfigInputDto,
   ManageQuizQuestionsInputDto,
+  QuizAttemptStatus,
   QuizConfigFilterQuery,
   QuizConfigStatus,
   UpdateQuizConfigInputDto,
@@ -153,3 +155,31 @@ export class QuizConfigQueryDto implements QuizConfigFilterQuery {
   @IsOptional()
   eventId?: string;
 }
+
+export class AdminQuizAttemptQueryDto implements AdminQuizAttemptListQueryDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  page?: number = 1;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @IsOptional()
+  limit?: number = 20;
+
+  @IsUUID("4")
+  @IsOptional()
+  quizConfigId?: string;
+
+  @IsEnum(["IN_PROGRESS", "SUBMITTED", "EXPIRED"])
+  @IsOptional()
+  status?: QuizAttemptStatus;
+
+  @IsString()
+  @IsOptional()
+  search?: string;
+}
+

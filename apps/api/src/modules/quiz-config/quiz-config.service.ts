@@ -3,8 +3,12 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import type {
+  AdminQuizAttemptListResponseDto,
+  AdminQuizAttemptMonitoringDto,
   QuestionDifficulty,
+  QuizAttemptStatus,
   QuizConfigListResponseDto,
   QuizConfigurationDto,
   QuizConfigQuestionDto,
@@ -13,6 +17,7 @@ import { PrismaService } from "../../common/adapters/prisma.service";
 import type { AuthenticatedUser } from "../../common/decorators/auth.decorators";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import type {
+  AdminQuizAttemptQueryDto,
   CreateQuizConfigDto,
   ManageQuizQuestionsDto,
   QuizConfigQueryDto,
@@ -634,6 +639,114 @@ export class QuizConfigService {
     return {
       success: true,
       message: `Đã xóa cấu hình bài thi "${quiz.title}" thành công.`,
+    };
+  }
+
+  /**
+   * Giám sát phòng thi (Exam Room Monitoring) - M7.3 (B03)
+   * Chế độ Read-only: Xem danh sách lượt thi của sinh viên, tiến độ câu hỏi, trạng thái và thời gian.
+   */
+  async getAttemptsMonitoring(
+    query: AdminQuizAttemptQueryDto,
+  ): Promise<AdminQuizAttemptListResponseDto> {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.QuizConfigAttemptWhereInput = {};
+
+    if (query.quizConfigId) {
+      where.quizConfigId = query.quizConfigId;
+    }
+
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    if (query.search?.trim()) {
+      const s = query.search.trim();
+      where.user = {
+        OR: [
+          { fullName: { contains: s, mode: "insensitive" } },
+          { email: { contains: s, mode: "insensitive" } },
+          { studentCode: { contains: s, mode: "insensitive" } },
+        ],
+      };
+    }
+
+    const [total, attempts] = await Promise.all([
+      this.prisma.quizConfigAttempt.count({ where }),
+      this.prisma.quizConfigAttempt.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { startedAt: "desc" },
+        include: {
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              studentCode: true,
+              avatarUrl: true,
+            },
+          },
+          quizConfig: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+          answers: {
+            select: {
+              selectedOptionIndex: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const now = new Date();
+    const items: AdminQuizAttemptMonitoringDto[] = attempts.map((att) => {
+      const answeredCount = att.answers.filter(
+        (a) => a.selectedOptionIndex !== null,
+      ).length;
+      const totalQuestions = att.answers.length;
+      const isExpired = att.status === "IN_PROGRESS" && now >= att.expiresAt;
+      const effectiveStatus: QuizAttemptStatus = isExpired ? "EXPIRED" : att.status;
+      const remainingSeconds =
+        effectiveStatus === "IN_PROGRESS"
+          ? Math.max(0, Math.floor((att.expiresAt.getTime() - now.getTime()) / 1000))
+          : 0;
+
+      return {
+        id: att.id,
+        quizConfigId: att.quizConfigId,
+        quizTitle: att.quizConfig.title,
+        student: {
+          id: att.user.id,
+          fullName: att.user.fullName,
+          email: att.user.email ?? "",
+          studentCode: att.user.studentCode ?? null,
+          avatarUrl: att.user.avatarUrl ?? null,
+        },
+        attemptNumber: att.attemptNumber,
+        status: effectiveStatus,
+        startedAt: att.startedAt.toISOString(),
+        expiresAt: att.expiresAt.toISOString(),
+        submittedAt: att.submittedAt ? att.submittedAt.toISOString() : null,
+        totalQuestions,
+        answeredCount,
+        remainingSeconds,
+      };
+    });
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
     };
   }
 }

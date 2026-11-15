@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type {
   PortalAttemptQuestionDto,
   PortalQuizAttemptDto,
@@ -27,6 +27,11 @@ export default function StudentQuizPage() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
+
+  // Autosave serialization refs (B02 Remediation - Strict FIFO Order)
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const latestSequenceRef = useRef(0);
+  const questionLatestSeqRef = useRef<Record<string, number>>({});
 
   // Fetch active quizzes on mount
   useEffect(() => {
@@ -108,13 +113,15 @@ export default function StudentQuizPage() {
     void portalApi.getActiveQuizzes().then(setQuizzes).catch(() => null);
   };
 
-  // Select an option and auto-save directly to PostgreSQL
-  const handleSelectOption = async (questionId: string, optionIndex: number) => {
+  // Select an option and auto-save directly to PostgreSQL with strict serial ordering (B02)
+  const handleSelectOption = (questionId: string, optionIndex: number) => {
     if (!activeAttempt || activeAttempt.status !== "IN_PROGRESS" || remainingSeconds <= 0) {
       return;
     }
 
-    // 1. Optimistic local update
+    const currentAttemptId = activeAttempt.id;
+
+    // 1. Optimistic local update: immediate responsive UI feedback
     setActiveAttempt((prev) => {
       if (!prev) return null;
       const updatedQuestions = prev.questions.map((q) =>
@@ -128,24 +135,42 @@ export default function StudentQuizPage() {
       };
     });
 
-    // 2. Real-time API auto-save
+    // 2. Track request sequence for this question and globally
+    const seq = ++latestSequenceRef.current;
+    questionLatestSeqRef.current[questionId] = seq;
+
     setSaveStatus("saving");
     setSaveError(null);
-    try {
-      const res = await portalApi.saveQuizProgress(activeAttempt.id, [
-        { quizConfigQuestionId: questionId, selectedOptionIndex: optionIndex },
-      ]);
-      setSaveStatus("saved");
-      setLastSavedTime(new Date().toLocaleTimeString("vi-VN"));
-      if (res.isExpired) {
-        setActiveAttempt((prev) => (prev ? { ...prev, status: "EXPIRED" } : null));
-      }
-    } catch (err) {
-      setSaveStatus("error");
-      setSaveError(
-        err instanceof Error ? err.message : "Lỗi lưu câu trả lời vào máy chủ.",
-      );
-    }
+
+    // 3. Chain onto saveQueueRef to ensure strict FIFO serialization in PostgreSQL
+    saveQueueRef.current = saveQueueRef.current
+      .then(async () => {
+        // If a newer click occurred for this exact question while waiting in queue, skip sending outdated payload
+        if (questionLatestSeqRef.current[questionId] > seq) {
+          return;
+        }
+
+        const res = await portalApi.saveQuizProgress(currentAttemptId, [
+          { quizConfigQuestionId: questionId, selectedOptionIndex: optionIndex },
+        ]);
+
+        // Only mark "saved" if this was the latest global save request
+        if (seq === latestSequenceRef.current) {
+          setSaveStatus("saved");
+          setLastSavedTime(new Date().toLocaleTimeString("vi-VN"));
+        }
+        if (res.isExpired) {
+          setActiveAttempt((prev) => (prev ? { ...prev, status: "EXPIRED" } : null));
+        }
+      })
+      .catch((err) => {
+        if (seq === latestSequenceRef.current) {
+          setSaveStatus("error");
+          setSaveError(
+            err instanceof Error ? err.message : "Lỗi lưu câu trả lời vào máy chủ.",
+          );
+        }
+      });
   };
 
   // Format seconds to mm:ss

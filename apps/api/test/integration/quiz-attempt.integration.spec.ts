@@ -26,6 +26,7 @@ describe("Quiz Attempt Integration Suite (M7.3)", () => {
   let student2Token = "";
   let student2User: { id: string; username: string | null };
   let parentToken = "";
+  let adminToken = "";
 
   let testEventId = "";
   let generalPublishedQuizId = "";
@@ -61,6 +62,7 @@ describe("Quiz Attempt Integration Suite (M7.3)", () => {
       .send({ identifier: "admin", password: adminNewPw })
       .expect(200);
 
+    adminToken = adminLoginRes.body.data.accessToken;
     const passwordHash = adminLoginRes.body.data.user?.passwordHash || "some-hash";
     const jwtService = ctx.app.get(JwtService);
 
@@ -653,9 +655,9 @@ describe("Quiz Attempt Integration Suite (M7.3)", () => {
   });
 
   // ============================================================================
-  // Test 13: Concurrency Race Condition Guard (Atomic Max Attempts Lock)
+  // Test 13: Concurrency Race Condition Guard (Atomic Max Attempts Lock at Boundary Limit)
   // ============================================================================
-  it("Test 13 [Concurrency]: Concurrent start requests respect maxAttempts via advisory lock without over-provisioning", async () => {
+  it("Test 13 [Concurrency Near Limit]: Concurrent start requests when only 1 attempt remains respect maxAttempts via advisory lock without over-provisioning", async () => {
     // Register Student 2 for Event Quiz (eventPublishedQuizId has maxAttempts = 3)
     await prisma.eventParticipation.create({
       data: {
@@ -666,6 +668,28 @@ describe("Quiz Attempt Integration Suite (M7.3)", () => {
       },
     });
 
+    // Pre-seed 2 EXPIRED attempts so Student 2 has only 1 attempt remaining out of 3
+    await prisma.quizConfigAttempt.createMany({
+      data: [
+        {
+          userId: student2User.id,
+          quizConfigId: eventPublishedQuizId,
+          attemptNumber: 1,
+          status: "EXPIRED",
+          startedAt: new Date(Date.now() - 1000 * 60 * 120),
+          expiresAt: new Date(Date.now() - 1000 * 60 * 60),
+        },
+        {
+          userId: student2User.id,
+          quizConfigId: eventPublishedQuizId,
+          attemptNumber: 2,
+          status: "EXPIRED",
+          startedAt: new Date(Date.now() - 1000 * 60 * 60),
+          expiresAt: new Date(Date.now() - 1000 * 60 * 30),
+        },
+      ],
+    });
+
     // Fire 6 concurrent start requests for Student 2
     const startPromises = Array.from({ length: 6 }).map(() =>
       request(server)
@@ -674,17 +698,54 @@ describe("Quiz Attempt Integration Suite (M7.3)", () => {
     );
 
     const results = await Promise.all(startPromises);
-    // All requests must return valid HTTP responses (201 resume/start or 400 max attempts exceeded, never 500)
+    // All requests must return valid HTTP responses (201 created/resumed, NEVER 500)
     for (const r of results) {
       expect([201, 400]).toContain(r.status);
+      expect(r.status).not.toBe(500);
     }
 
-    // In database: total attempts for student 2 must be <= 3 (and since resume is idempotent, exactly 1 active attempt was returned)
+    // In database: total attempts for student 2 must be EXACTLY 3 (equal to maxAttempts)
     const attempts = await prisma.quizConfigAttempt.findMany({
       where: { userId: student2User.id, quizConfigId: eventPublishedQuizId },
+      orderBy: { attemptNumber: "asc" },
     });
-    expect(attempts.length).toBeLessThanOrEqual(3);
-    expect(attempts.length).toBe(1); // Idempotent resume returned the same attempt!
+    expect(attempts.length).toBe(3);
+
+    // Attempt 3 must be IN_PROGRESS
+    const attempt3 = attempts[2];
+    expect(attempt3.attemptNumber).toBe(3);
+    expect(attempt3.status).toBe("IN_PROGRESS");
+
+    // All successful 201 responses must return attempt 3's id (idempotent resume)
+    const successResponses = results.filter((r) => r.status === 201);
+    expect(successResponses.length).toBeGreaterThanOrEqual(1);
+    for (const res of successResponses) {
+      expect(res.body.data.id).toBe(attempt3.id);
+      expect(res.body.data.attemptNumber).toBe(3);
+    }
+
+    // Now expire Attempt 3 and verify that any further attempt is strictly rejected with 400 (exceeded limit)
+    await prisma.quizConfigAttempt.update({
+      where: { id: attempt3.id },
+      data: {
+        status: "EXPIRED",
+        expiresAt: new Date(Date.now() - 1000),
+      },
+    });
+
+    const exceededRes = await request(server)
+      .post(`/api/v1/portal/quiz/${eventPublishedQuizId}/attempts`)
+      .set("Authorization", `Bearer ${student2Token}`)
+      .expect(400);
+
+    const msg = exceededRes.body.error?.message || exceededRes.body.message || "";
+    expect(msg).toContain("số lượt thi cho phép");
+
+    // Total attempts remains 3
+    const finalCount = await prisma.quizConfigAttempt.count({
+      where: { userId: student2User.id, quizConfigId: eventPublishedQuizId },
+    });
+    expect(finalCount).toBe(3);
   });
 
   // ============================================================================
@@ -705,5 +766,177 @@ describe("Quiz Attempt Integration Suite (M7.3)", () => {
       .expect(200);
     expect(detailRes.body.data.id).toBe(generalPublishedQuizId);
     expect((detailRes.body.data as Record<string, unknown>).correctIndex).toBeUndefined();
+  });
+
+  // ============================================================================
+  // Test 15: B01 Atomic Batch Save Rollback Guard
+  // ============================================================================
+  it("Test 15 [B01 Atomic Rollback]: Invalid item in batch rolls back entire batch without partial writes", async () => {
+    // Create an active attempt for student 1 on general quiz with fresh attempt
+    const activeAttempt = await prisma.quizConfigAttempt.create({
+      data: {
+        userId: studentUser.id,
+        quizConfigId: generalPublishedQuizId,
+        attemptNumber: 10,
+        status: "IN_PROGRESS",
+        startedAt: new Date(),
+        expiresAt: new Date(Date.now() + 1000 * 60 * 30),
+      },
+    });
+
+    // Get questions for this quiz
+    const quizQuestions = await prisma.quizConfigQuestion.findMany({
+      where: { quizConfigId: generalPublishedQuizId },
+    });
+
+    // Create answer slots for this attempt
+    await prisma.quizConfigAttemptAnswer.createMany({
+      data: quizQuestions.map((q, idx) => ({
+        attemptId: activeAttempt.id,
+        quizConfigQuestionId: q.id,
+        displayedOrder: idx + 1,
+        optionOrderJson: [0, 1, 2, 3],
+        selectedOptionIndex: null,
+      })),
+    });
+
+    // Send a batch with 1 VALID item and 1 INVALID item (non-existent question UUID)
+    const invalidBatchRes = await request(server)
+      .put(`/api/v1/portal/quiz/attempts/${activeAttempt.id}/progress`)
+      .set("Authorization", `Bearer ${studentToken}`)
+      .send({
+        answers: [
+          {
+            quizConfigQuestionId: quizQuestions[0].id,
+            selectedOptionIndex: 1, // Valid
+          },
+          {
+            quizConfigQuestionId: "00000000-0000-0000-0000-000000000099", // Invalid
+            selectedOptionIndex: 0,
+          },
+        ],
+      })
+      .expect(400);
+
+    expect(invalidBatchRes.body.message || invalidBatchRes.body.error?.message).toContain(
+      "không thuộc lượt thi này",
+    );
+
+    // Verify in PostgreSQL: valid item 1 was NOT updated (remains null due to atomic transaction rollback)
+    const answerInDb = await prisma.quizConfigAttemptAnswer.findUniqueOrThrow({
+      where: {
+        attemptId_quizConfigQuestionId: {
+          attemptId: activeAttempt.id,
+          quizConfigQuestionId: quizQuestions[0].id,
+        },
+      },
+    });
+    expect(answerInDb.selectedOptionIndex).toBeNull();
+  });
+
+  // ============================================================================
+  // Test 16: B01 Attempt Already EXPIRED Cannot Be Mutated
+  // ============================================================================
+  it("Test 16 [B01 Expiry Immutability]: EXPIRED attempt cannot be reverted to IN_PROGRESS or updated", async () => {
+    const expiredAttempt = await prisma.quizConfigAttempt.create({
+      data: {
+        userId: studentUser.id,
+        quizConfigId: generalPublishedQuizId,
+        attemptNumber: 11,
+        status: "EXPIRED",
+        startedAt: new Date(Date.now() - 1000 * 60 * 60),
+        expiresAt: new Date(Date.now() - 1000 * 60 * 30),
+      },
+    });
+
+    const quizQuestions = await prisma.quizConfigQuestion.findMany({
+      where: { quizConfigId: generalPublishedQuizId },
+    });
+
+    await prisma.quizConfigAttemptAnswer.create({
+      data: {
+        attemptId: expiredAttempt.id,
+        quizConfigQuestionId: quizQuestions[0].id,
+        displayedOrder: 1,
+        optionOrderJson: [0, 1, 2, 3],
+        selectedOptionIndex: null,
+      },
+    });
+
+    await request(server)
+      .put(`/api/v1/portal/quiz/attempts/${expiredAttempt.id}/progress`)
+      .set("Authorization", `Bearer ${studentToken}`)
+      .send({
+        answers: [
+          {
+            quizConfigQuestionId: quizQuestions[0].id,
+            selectedOptionIndex: 2,
+          },
+        ],
+      })
+      .expect(400);
+
+    const recheck = await prisma.quizConfigAttempt.findUniqueOrThrow({
+      where: { id: expiredAttempt.id },
+    });
+    expect(recheck.status).toBe("EXPIRED");
+  });
+
+  // ============================================================================
+  // Test 17: B03 Admin Exam Room Monitoring Endpoint
+  // ============================================================================
+  it("Test 17 [B03 Admin Monitoring]: Admin can query exam room monitoring list with filters and student details, non-admin blocked (403)", async () => {
+    // 1. Student or Unauthenticated cannot access admin monitoring endpoint
+    await request(server)
+      .get("/api/v1/admin/quiz-configs/attempts/monitoring")
+      .expect(401);
+
+    await request(server)
+      .get("/api/v1/admin/quiz-configs/attempts/monitoring")
+      .set("Authorization", `Bearer ${studentToken}`)
+      .expect(403);
+
+    // 2. Admin can fetch monitoring list
+    const res = await request(server)
+      .get("/api/v1/admin/quiz-configs/attempts/monitoring")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(res.body.data).toBeDefined();
+    expect(Array.isArray(res.body.data.items)).toBe(true);
+    expect(res.body.data.total).toBeGreaterThanOrEqual(1);
+    expect(res.body.data.page).toBe(1);
+    expect(res.body.data.limit).toBe(20);
+
+    const sample = res.body.data.items[0];
+    expect(sample.id).toBeDefined();
+    expect(sample.student).toBeDefined();
+    expect(sample.student.fullName).toBeDefined();
+    expect(sample.quizTitle).toBeDefined();
+    expect(sample.status).toBeDefined();
+    expect(typeof sample.totalQuestions).toBe("number");
+    expect(typeof sample.answeredCount).toBe("number");
+    expect(typeof sample.remainingSeconds).toBe("number");
+
+    // 3. Filter by status=EXPIRED
+    const expiredRes = await request(server)
+      .get("/api/v1/admin/quiz-configs/attempts/monitoring?status=EXPIRED")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+
+    for (const item of expiredRes.body.data.items) {
+      expect(item.status).toBe("EXPIRED");
+    }
+
+    // 4. Search by student name
+    const searchRes = await request(server)
+      .get(`/api/v1/admin/quiz-configs/attempts/monitoring?search=${encodeURIComponent("Hợp Lệ")}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(searchRes.body.data.items.length).toBeGreaterThanOrEqual(1);
+    for (const item of searchRes.body.data.items) {
+      expect(item.student.fullName).toContain("Hợp Lệ");
+    }
   });
 });

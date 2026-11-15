@@ -17,6 +17,8 @@ import {
   type QuestionListResponseDto,
   type UpdateQuestionInputDto,
   type UpdateQuestionStatusDto,
+  type AdminQuizAttemptListQueryDto,
+  type AdminQuizAttemptListResponseDto,
   type CreateQuizConfigInputDto,
   type QuizConfigFilterQuery,
   type QuizConfigListResponseDto,
@@ -645,6 +647,25 @@ export const quizConfigApi = {
       method: "DELETE",
       auth: true,
     });
+  },
+
+  async getAttemptsMonitoring(
+    params?: AdminQuizAttemptListQueryDto,
+  ): Promise<AdminQuizAttemptListResponseDto> {
+    const sp = new URLSearchParams();
+    if (params?.page) sp.set("page", String(params.page));
+    if (params?.limit) sp.set("limit", String(params.limit));
+    if (params?.quizConfigId) sp.set("quizConfigId", params.quizConfigId);
+    if (params?.status) sp.set("status", params.status);
+    if (params?.search) sp.set("search", params.search);
+    const qs = sp.toString();
+    return apiRequest<AdminQuizAttemptListResponseDto>(
+      `/admin/quiz-configs/attempts/monitoring${qs ? `?${qs}` : ""}`,
+      {
+        method: "GET",
+        auth: true,
+      },
+    );
   },
 };
 

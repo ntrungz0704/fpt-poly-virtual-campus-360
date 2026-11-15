@@ -15,6 +15,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import type {
+  AdminQuizAttemptListResponseDto,
   QuizConfigListResponseDto,
   QuizConfigurationDto,
 } from "@fpt-campus/shared";
@@ -28,6 +29,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../../common/guards/permissions.guard";
 import { sanitizeIpAddress } from "../../common/utils/ip-sanitizer";
 import {
+  AdminQuizAttemptQueryDto,
   CreateQuizConfigDto,
   ManageQuizQuestionsDto,
   QuizConfigQueryDto,
@@ -46,6 +48,13 @@ export class QuizConfigController {
     @Query() query: QuizConfigQueryDto,
   ): Promise<QuizConfigListResponseDto> {
     return this.quizConfigService.listConfigurations(query);
+  }
+
+  @Get("attempts/monitoring")
+  async getAttemptsMonitoring(
+    @Query() query: AdminQuizAttemptQueryDto,
+  ): Promise<AdminQuizAttemptListResponseDto> {
+    return this.quizConfigService.getAttemptsMonitoring(query);
   }
 
   @Get(":id")

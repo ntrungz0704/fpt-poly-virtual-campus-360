@@ -518,26 +518,50 @@ describe("Quiz Delivery Integration Suite (M7.2)", () => {
       },
     });
 
-    // --- Case 5.1: CONFIRMED student (studentToken) accesses event quiz: 200 OK
+    // --- Case 5.1: CONFIRMED student (studentToken) accesses event quiz: 200 OK & present in /active
     const confirmedRes = await request(server)
       .get(`/api/v1/portal/quiz/${eventPublishedQuizId}`)
       .set("Authorization", `Bearer ${studentToken}`)
       .expect(200);
     expect(confirmedRes.body.data.id).toBe(eventPublishedQuizId);
 
-    // --- Case 5.2: CHECKED_IN student accesses event quiz: 200 OK
+    const confirmedActiveRes = await request(server)
+      .get("/api/v1/portal/quiz/active")
+      .set("Authorization", `Bearer ${studentToken}`)
+      .expect(200);
+    const confirmedActiveIds = (confirmedActiveRes.body.data as PortalQuizSummaryDto[]).map((q) => q.id);
+    expect(confirmedActiveIds).toContain(eventPublishedQuizId);
+    expect(confirmedActiveIds).toContain(generalPublishedQuizId);
+
+    // --- Case 5.2: CHECKED_IN student accesses event quiz: 200 OK & present in /active
     const checkedInRes = await request(server)
       .get(`/api/v1/portal/quiz/${eventPublishedQuizId}`)
       .set("Authorization", `Bearer ${checkedInToken}`)
       .expect(200);
     expect(checkedInRes.body.data.id).toBe(eventPublishedQuizId);
 
-    // --- Case 5.3: INVITED student accesses event quiz: 200 OK (under { not: 'CANCELLED' })
+    const checkedInActiveRes = await request(server)
+      .get("/api/v1/portal/quiz/active")
+      .set("Authorization", `Bearer ${checkedInToken}`)
+      .expect(200);
+    const checkedInActiveIds = (checkedInActiveRes.body.data as PortalQuizSummaryDto[]).map((q) => q.id);
+    expect(checkedInActiveIds).toContain(eventPublishedQuizId);
+    expect(checkedInActiveIds).toContain(generalPublishedQuizId);
+
+    // --- Case 5.3: INVITED student accesses event quiz: 200 OK & present in /active
     const invitedRes = await request(server)
       .get(`/api/v1/portal/quiz/${eventPublishedQuizId}`)
       .set("Authorization", `Bearer ${invitedToken}`)
       .expect(200);
     expect(invitedRes.body.data.id).toBe(eventPublishedQuizId);
+
+    const invitedActiveRes = await request(server)
+      .get("/api/v1/portal/quiz/active")
+      .set("Authorization", `Bearer ${invitedToken}`)
+      .expect(200);
+    const invitedActiveIds = (invitedActiveRes.body.data as PortalQuizSummaryDto[]).map((q) => q.id);
+    expect(invitedActiveIds).toContain(eventPublishedQuizId);
+    expect(invitedActiveIds).toContain(generalPublishedQuizId);
 
     // --- Case 5.4: CANCELLED student is REJECTED (403 Forbidden) and excluded from /active
     const cancelledRes = await request(server)

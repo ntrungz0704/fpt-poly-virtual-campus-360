@@ -176,18 +176,21 @@ Tất cả 3 bộ test tích hợp liên quan trực tiếp đến Question Bank
 1. **M7.2 Quiz Delivery Integration Suite (`quiz-delivery.integration.spec.ts`):**
    - Lệnh: `pnpm --filter api exec jest test/integration/quiz-delivery.integration.spec.ts --runInBand`
    - Exit code: **0**
-   - Kết quả: **10/10 tests PASS** (27.03 s)
-   - Chi tiết: Test 5 kiểm tra đầy đủ cả 5 trạng thái sinh viên (`CONFIRMED`, `CHECKED_IN`, `INVITED`, `CANCELLED`, Unregistered). Test 4 bảo chứng Zero-leak 100%.
+   - Kết quả: **10/10 tests PASS** (26.92 s)
+   - Chi tiết hoàn tất **B01-TEST-01**: Test 5 kiểm tra ma trận 2 chiều đầy đủ cho 5 trạng thái sinh viên qua cả 2 endpoint:
+     * Endpoint GET `/api/v1/portal/quiz/:id` (Detail): `CONFIRMED` -> 200, `CHECKED_IN` -> 200, `INVITED` -> 200, `CANCELLED` -> 403, `Unregistered` -> 403.
+     * Endpoint GET `/api/v1/portal/quiz/active` (List): `CONFIRMED` -> chứa event quiz ID, `CHECKED_IN` -> chứa event quiz ID, `INVITED` -> chứa event quiz ID, `CANCELLED` -> KHÔNG chứa event quiz ID, `Unregistered` -> KHÔNG chứa event quiz ID.
+     * General quiz (`eventId == null`) luôn hiển thị đầy đủ và truy cập được với mọi sinh viên hợp lệ.
 
 2. **M7.1 Quiz Configuration Integration Suite (`quiz-config.integration.spec.ts`):**
    - Lệnh: `pnpm --filter api exec jest test/integration/quiz-config.integration.spec.ts --runInBand`
    - Exit code: **0**
-   - Kết quả: **13/13 tests PASS** (30.34 s)
+   - Kết quả: **13/13 tests PASS** (30.76 s)
    - Chi tiết: Toàn bộ kiểm thử bất biến cấu hình, concurrency race condition (B01-RACE) đều đạt tuyệt đối.
 
 3. **M6 Question Bank Integration Suite (`question-bank.integration.spec.ts`):**
    - Lệnh: `pnpm --filter api exec jest test/integration/question-bank.integration.spec.ts --runInBand`
    - Exit code: **0**
-   - Kết quả: **12/12 tests PASS** (25.69 s)
+   - Kết quả: **12/12 tests PASS** (25.49 s)
    - Chi tiết: Nghiệm thu hoàn tất import Excel, strict enum difficulty/status, và server-side validation.
 

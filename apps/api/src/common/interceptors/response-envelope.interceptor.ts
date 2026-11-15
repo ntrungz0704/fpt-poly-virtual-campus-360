@@ -3,6 +3,7 @@ import {
   ExecutionContext,
   Injectable,
   NestInterceptor,
+  StreamableFile,
 } from "@nestjs/common";
 import type { ApiMeta, ApiSuccessEnvelope } from "@fpt-campus/shared";
 import { map, type Observable } from "rxjs";
@@ -53,6 +54,10 @@ export class ResponseEnvelopeInterceptor<T>
 
     return next.handle().pipe(
       map((payload) => {
+        if (payload instanceof StreamableFile) {
+          return payload as never;
+        }
+
         const meta: ApiMeta = {
           requestId,
           timestamp: new Date().toISOString(),

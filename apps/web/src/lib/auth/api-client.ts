@@ -6,8 +6,17 @@ import {
   type ApiErrorDetail,
   type AuthUserProfileDto,
   type ChangePasswordRequest,
+  type CreateQuestionInputDto,
   type LoginRequest,
   type LoginResponse,
+  type QuestionBankItemDto,
+  type QuestionFilterQuery,
+  type QuestionImportConfirmResponse,
+  type QuestionImportPreviewResponse,
+  type QuestionImportPreviewRowDto,
+  type QuestionListResponseDto,
+  type UpdateQuestionInputDto,
+  type UpdateQuestionStatusDto,
 } from "@fpt-campus/shared";
 
 const DEFAULT_API_BASE_URL = "http://localhost:4000/api/v1";
@@ -470,6 +479,99 @@ export const mediaApi = {
         auth: true,
       },
     );
+  },
+};
+
+export const questionsApi = {
+  async listQuestions(query?: QuestionFilterQuery): Promise<QuestionListResponseDto> {
+    const searchParams = new URLSearchParams();
+    if (query?.page) searchParams.set("page", String(query.page));
+    if (query?.limit) searchParams.set("limit", String(query.limit));
+    if (query?.q && query.q.trim()) searchParams.set("q", query.q.trim());
+    if (query?.topic && query.topic.trim()) searchParams.set("topic", query.topic.trim());
+    if (query?.difficulty) searchParams.set("difficulty", query.difficulty);
+    if (query?.status) searchParams.set("status", query.status);
+    if (query?.tag && query.tag.trim()) searchParams.set("tag", query.tag.trim());
+    const qs = searchParams.toString() ? `?${searchParams.toString()}` : "";
+    return apiRequest<QuestionListResponseDto>(`/admin/questions${qs}`, {
+      method: "GET",
+      auth: true,
+    });
+  },
+
+  async getQuestion(id: string): Promise<QuestionBankItemDto> {
+    return apiRequest<QuestionBankItemDto>(`/admin/questions/${id}`, {
+      method: "GET",
+      auth: true,
+    });
+  },
+
+  async createQuestion(data: CreateQuestionInputDto): Promise<QuestionBankItemDto> {
+    return apiRequest<QuestionBankItemDto>("/admin/questions", {
+      method: "POST",
+      body: data,
+      auth: true,
+    });
+  },
+
+  async updateQuestion(id: string, data: UpdateQuestionInputDto): Promise<QuestionBankItemDto> {
+    return apiRequest<QuestionBankItemDto>(`/admin/questions/${id}`, {
+      method: "PATCH",
+      body: data,
+      auth: true,
+    });
+  },
+
+  async updateStatus(id: string, data: UpdateQuestionStatusDto): Promise<QuestionBankItemDto> {
+    return apiRequest<QuestionBankItemDto>(`/admin/questions/${id}/status`, {
+      method: "POST",
+      body: data,
+      auth: true,
+    });
+  },
+
+  async deleteQuestion(id: string): Promise<{ success: boolean; message: string }> {
+    return apiRequest<{ success: boolean; message: string }>(`/admin/questions/${id}`, {
+      method: "DELETE",
+      auth: true,
+    });
+  },
+
+  getTemplateDownloadUrl(): string {
+    return `${getApiBaseUrl().replace(/\/+$/, "")}/admin/questions/import/template`;
+  },
+
+  async previewImport(fileBase64: string): Promise<QuestionImportPreviewResponse> {
+    return apiRequest<QuestionImportPreviewResponse>("/admin/questions/import/preview", {
+      method: "POST",
+      body: { fileBase64 },
+      auth: true,
+    });
+  },
+
+  async confirmImport(rows: QuestionImportPreviewRowDto[]): Promise<QuestionImportConfirmResponse> {
+    return apiRequest<QuestionImportConfirmResponse>("/admin/questions/import/confirm", {
+      method: "POST",
+      body: { rows },
+      auth: true,
+    });
+  },
+
+  async exportErrors(rows: QuestionImportPreviewRowDto[]): Promise<Blob> {
+    const fullUrl = `${getApiBaseUrl().replace(/\/+$/, "")}/admin/questions/import/export-errors`;
+    const token = getInMemoryAccessToken();
+    const res = await fetch(fullUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ rows }),
+    });
+    if (!res.ok) {
+      throw new Error(`Xuất báo cáo lỗi thất bại (${res.status})`);
+    }
+    return res.blob();
   },
 };
 

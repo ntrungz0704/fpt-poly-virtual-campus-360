@@ -23,6 +23,19 @@ enum PublishStatus {
   ARCHIVED
 }
 
+enum QuestionDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum QuestionReviewStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  REJECTED
+}
+
 enum ProcessingStatus {
   PENDING
   PROCESSING
@@ -498,6 +511,8 @@ model User {
   parentLinks             ParentStudentLink[]          @relation("ParentLinks")
   studentLinks            ParentStudentLink[]          @relation("StudentLinks")
   authoredNews            NewsArticle[]                @relation("NewsArticleAuthor")
+  createdQuestions        QuestionBankItem[]           @relation("QuestionCreatedBy")
+  updatedQuestions        QuestionBankItem[]           @relation("QuestionUpdatedBy")
 
   @@map("users")
 }
@@ -908,6 +923,37 @@ model NewsArticle {
   @@index([status, deletedAt])
   @@index([publishedAt])
   @@map("news_articles")
+}
+
+// ============================================================================
+// Milestone M6: Question Bank Domain
+// ============================================================================
+
+model QuestionBankItem {
+  id           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questionText String               @map("question_text") @db.Text
+  optionsJson  Json                 @map("options_json") @db.JsonB
+  correctIndex Int                  @map("correct_index")
+  explanation  String?              @db.Text
+  topic        String               @default("Chung") @db.VarChar(120)
+  difficulty   QuestionDifficulty   @default(MEDIUM)
+  status       QuestionReviewStatus @default(DRAFT)
+  tags         Json                 @default("[]") @map("tags") @db.JsonB
+  createdById  String?              @map("created_by_id") @db.Uuid
+  updatedById  String?              @map("updated_by_id") @db.Uuid
+  createdAt    DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?            @map("deleted_at") @db.Timestamptz(6)
+
+  createdBy User? @relation("QuestionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("QuestionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([status], map: "idx_question_bank_status")
+  @@index([difficulty], map: "idx_question_bank_difficulty")
+  @@index([topic], map: "idx_question_bank_topic")
+  @@index([deletedAt], map: "idx_question_bank_deleted_at")
+  @@index([createdAt], map: "idx_question_bank_created_at")
+  @@map("question_bank_items")
 }
 
 

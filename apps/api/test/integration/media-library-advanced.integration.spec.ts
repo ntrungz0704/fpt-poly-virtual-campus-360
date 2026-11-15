@@ -153,6 +153,48 @@ describe("Advanced Media Library Integration Suite (WebP, Multi-File, Safety)", 
       expect(asset.category).toBe("PANORAMA_360");
     });
 
+    it("should automatically default category to PANORAMA_360 for 2:1 image when category is not specified", async () => {
+      const panoBuffer = await createTestImageBuffer(1200, 600);
+      const sha256 = crypto.createHash("sha256").update(panoBuffer).digest("hex");
+
+      const presignRes = await request(server)
+        .post("/api/v1/admin/media/presign")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          assetKind: "PANORAMA_2_1",
+          filename: "default_category_pano_test.jpg",
+          mimeType: "image/jpeg",
+          fileSizeBytes: panoBuffer.length,
+          declaredWidth: 1200,
+          declaredHeight: 600,
+          sha256,
+        })
+        .expect(201);
+
+      await request(server)
+        .put(`/api/v1/storage/upload?token=${presignRes.body.data.uploadToken}`)
+        .set("Content-Type", "image/jpeg")
+        .send(panoBuffer)
+        .expect(200);
+
+      const completeRes = await request(server)
+        .post("/api/v1/admin/media/complete-upload")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          token: presignRes.body.data.uploadToken,
+          sha256Checksum: sha256,
+        })
+        .expect(201);
+
+      expect(completeRes.body.data.category).toBe("PANORAMA_360");
+
+      const dbAsset = await prisma.mediaAsset.findUnique({
+        where: { id: presignRes.body.data.assetId },
+      });
+      const meta = dbAsset?.cameraMetadata as Record<string, unknown>;
+      expect(meta?.category).toBe("PANORAMA_360");
+    });
+
     it("should upload a standard 2D photo and convert WebP successfully", async () => {
       // 2D Photo (800x600)
       const photoBuffer = await createTestImageBuffer(800, 600);
@@ -194,6 +236,94 @@ describe("Advanced Media Library Integration Suite (WebP, Multi-File, Safety)", 
       expect(completeRes.body.data.id).toBe(photo2dAssetId);
       expect(completeRes.body.data.processingStatus).toBe("READY");
       expect(completeRes.body.data.isWebpOptimized).toBe(true);
+      expect(completeRes.body.data.category).toBe("STANDARD_IMAGE");
+    });
+
+    it("should mark asset FAILED, leave token unconsumed, and allow safe retry when image processing fails", async () => {
+      // Create a corrupted image payload that has valid JPEG magic bytes (\xFF\xD8\xFF\xE0) but corrupted body
+      const corruptBuffer = Buffer.from([
+        0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
+        0x01, 0x01, 0x00, 0x60, 0x00, 0x60, 0x00, 0x00, 0xde, 0xad, 0xbe, 0xef,
+      ]);
+      const corruptSha = crypto.createHash("sha256").update(corruptBuffer).digest("hex");
+
+      const presignRes = await request(server)
+        .post("/api/v1/admin/media/presign")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          assetKind: "PHOTO_2D",
+          filename: "corrupt_retry_test.jpg",
+          mimeType: "image/jpeg",
+          fileSizeBytes: 200_000,
+          declaredWidth: 400,
+          declaredHeight: 400,
+          sha256: corruptSha,
+        })
+        .expect(201);
+
+      const token = presignRes.body.data.uploadToken;
+      const assetId = presignRes.body.data.assetId;
+
+      await request(server)
+        .put(`/api/v1/storage/upload?token=${token}`)
+        .set("Content-Type", "image/jpeg")
+        .send(corruptBuffer)
+        .expect(200);
+
+      // Attempt completeUpload with corrupt image -> Sharp fails
+      const failRes = await request(server)
+        .post("/api/v1/admin/media/complete-upload")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          token,
+          sha256Checksum: corruptSha,
+        })
+        .expect(400);
+
+      expect(failRes.body.error.code).toBe("IMAGE_PROCESSING_FAILED");
+
+      // Verify in PostgreSQL: asset status is FAILED, NOT READY
+      const failedAsset = await prisma.mediaAsset.findUnique({ where: { id: assetId } });
+      expect(failedAsset?.processingStatus).toBe("FAILED");
+      expect(failedAsset?.processingError).toContain("Lỗi xử lý nén WebP");
+
+      // Verify token was NOT consumed (usedAt is null)
+      const tokenRecord = await prisma.uploadToken.findUnique({ where: { jti: token } });
+      expect(tokenRecord?.usedAt).toBeNull();
+
+      // NOW RETRY: Replace with valid image buffer in storage & call completeUpload
+      const validBuffer = await createTestImageBuffer(400, 400);
+      const validSha = crypto.createHash("sha256").update(validBuffer).digest("hex");
+
+      // Update asset's expected sha256 to allow retry verification
+      await prisma.mediaAsset.update({
+        where: { id: assetId },
+        data: { sha256Checksum: validSha },
+      });
+
+      // Upload valid binary to existing objectKey
+      await request(server)
+        .put(`/api/v1/storage/upload?token=${token}`)
+        .set("Content-Type", "image/jpeg")
+        .send(validBuffer)
+        .expect(200);
+
+      // Complete upload retry
+      const retryRes = await request(server)
+        .post("/api/v1/admin/media/complete-upload")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          token,
+          sha256Checksum: validSha,
+        })
+        .expect(201);
+
+      expect(retryRes.body.data.processingStatus).toBe("READY");
+      expect(retryRes.body.data.isWebpOptimized).toBe(true);
+
+      // Token is now consumed
+      const tokenAfter = await prisma.uploadToken.findUnique({ where: { jti: token } });
+      expect(tokenAfter?.usedAt).not.toBeNull();
     });
 
     it("should reject completion if SHA-256 does not match", async () => {
@@ -275,62 +405,46 @@ describe("Advanced Media Library Integration Suite (WebP, Multi-File, Safety)", 
     });
   });
 
-  describe("3. Referential Integrity & Deletion Protection", () => {
+  describe("3. Full 4-Way Referential Integrity & Deletion Protection", () => {
     let unreferencedAssetId = "";
     let referencedByNewsAssetId = "";
     let referencedByBuildingAssetId = "";
+    let referencedByTourNodeAssetId = "";
+    let referencedByLocationAssetId = "";
 
     beforeAll(async () => {
       const buffer = await createTestImageBuffer(300, 300);
       const sha = crypto.createHash("sha256").update(buffer).digest("hex");
 
+      const createUploadedAsset = async (filename: string): Promise<string> => {
+        const p = await request(server)
+          .post("/api/v1/admin/media/presign")
+          .set("Authorization", `Bearer ${adminToken}`)
+          .send({
+            assetKind: "PHOTO_2D",
+            filename,
+            mimeType: "image/jpeg",
+            fileSizeBytes: buffer.length,
+            declaredWidth: 300,
+            declaredHeight: 300,
+            sha256: sha,
+          });
+        await request(server)
+          .put(`/api/v1/storage/upload?token=${p.body.data.uploadToken}`)
+          .set("Content-Type", "image/jpeg")
+          .send(buffer);
+        await request(server)
+          .post("/api/v1/admin/media/complete-upload")
+          .set("Authorization", `Bearer ${adminToken}`)
+          .send({ token: p.body.data.uploadToken, sha256Checksum: sha });
+        return p.body.data.assetId;
+      };
+
       // 1. Unreferenced asset
-      const p1 = await request(server)
-        .post("/api/v1/admin/media/presign")
-        .set("Authorization", `Bearer ${adminToken}`)
-        .send({
-          assetKind: "PHOTO_2D",
-          filename: "unused_asset.jpg",
-          mimeType: "image/jpeg",
-          fileSizeBytes: buffer.length,
-          declaredWidth: 300,
-          declaredHeight: 300,
-          sha256: sha,
-        });
-      unreferencedAssetId = p1.body.data.assetId;
-      await request(server)
-        .put(`/api/v1/storage/upload?token=${p1.body.data.uploadToken}`)
-        .set("Content-Type", "image/jpeg")
-        .send(buffer);
-      await request(server)
-        .post("/api/v1/admin/media/complete-upload")
-        .set("Authorization", `Bearer ${adminToken}`)
-        .send({ token: p1.body.data.uploadToken, sha256Checksum: sha });
+      unreferencedAssetId = await createUploadedAsset("unused_asset.jpg");
 
       // 2. Asset to reference in NewsArticle
-      const p2 = await request(server)
-        .post("/api/v1/admin/media/presign")
-        .set("Authorization", `Bearer ${adminToken}`)
-        .send({
-          assetKind: "PHOTO_2D",
-          filename: "news_cover_referenced.jpg",
-          mimeType: "image/jpeg",
-          fileSizeBytes: buffer.length,
-          declaredWidth: 300,
-          declaredHeight: 300,
-          sha256: sha,
-        });
-      referencedByNewsAssetId = p2.body.data.assetId;
-      await request(server)
-        .put(`/api/v1/storage/upload?token=${p2.body.data.uploadToken}`)
-        .set("Content-Type", "image/jpeg")
-        .send(buffer);
-      await request(server)
-        .post("/api/v1/admin/media/complete-upload")
-        .set("Authorization", `Bearer ${adminToken}`)
-        .send({ token: p2.body.data.uploadToken, sha256Checksum: sha });
-
-      // Attach to NewsArticle
+      referencedByNewsAssetId = await createUploadedAsset("news_cover_referenced.jpg");
       await prisma.newsArticle.create({
         data: {
           slug: "bai-viet-gan-media-test-an-toan",
@@ -344,34 +458,46 @@ describe("Advanced Media Library Integration Suite (WebP, Multi-File, Safety)", 
       });
 
       // 3. Asset to reference in Building
-      const p3 = await request(server)
-        .post("/api/v1/admin/media/presign")
-        .set("Authorization", `Bearer ${adminToken}`)
-        .send({
-          assetKind: "PHOTO_2D",
-          filename: "building_cover_referenced.jpg",
-          mimeType: "image/jpeg",
-          fileSizeBytes: buffer.length,
-          declaredWidth: 300,
-          declaredHeight: 300,
-          sha256: sha,
-        });
-      referencedByBuildingAssetId = p3.body.data.assetId;
-      await request(server)
-        .put(`/api/v1/storage/upload?token=${p3.body.data.uploadToken}`)
-        .set("Content-Type", "image/jpeg")
-        .send(buffer);
-      await request(server)
-        .post("/api/v1/admin/media/complete-upload")
-        .set("Authorization", `Bearer ${adminToken}`)
-        .send({ token: p3.body.data.uploadToken, sha256Checksum: sha });
-
-      // Attach to existing Building
+      referencedByBuildingAssetId = await createUploadedAsset("building_cover_referenced.jpg");
       const firstBuilding = await prisma.building.findFirst();
       if (firstBuilding) {
         await prisma.building.update({
           where: { id: firstBuilding.id },
           data: { coverMediaId: referencedByBuildingAssetId },
+        });
+      }
+
+      // 4. Asset to reference in TourNode (Panorama 360)
+      referencedByTourNodeAssetId = await createUploadedAsset("tour_node_referenced.jpg");
+      const firstTourNode = await prisma.tourNode.findFirst();
+      if (firstTourNode) {
+        await prisma.tourNode.update({
+          where: { id: firstTourNode.id },
+          data: { panoramaAssetId: referencedByTourNodeAssetId },
+        });
+      } else {
+        const firstLoc = await prisma.location.findFirst();
+        await prisma.tourNode.create({
+          data: {
+            slug: "test-tour-node-media",
+            title: "Điểm dừng 360 kiểm thử",
+            intro: "Mô tả điểm dừng 360 kiểm thử an toàn.",
+            locationId: firstLoc!.id,
+            panoramaAssetId: referencedByTourNodeAssetId,
+          },
+        });
+      }
+
+      // 5. Asset to reference in LocationMedia
+      referencedByLocationAssetId = await createUploadedAsset("location_media_referenced.jpg");
+      const firstLocation = await prisma.location.findFirst();
+      if (firstLocation) {
+        await prisma.locationMedia.create({
+          data: {
+            locationId: firstLocation.id,
+            mediaAssetId: referencedByLocationAssetId,
+            caption: "Ảnh minh họa địa điểm kiểm thử",
+          },
         });
       }
     });
@@ -384,7 +510,6 @@ describe("Advanced Media Library Integration Suite (WebP, Multi-File, Safety)", 
 
       expect(res.body.data.success).toBe(true);
 
-      // Verify soft-deleted in DB
       const dbAsset = await prisma.mediaAsset.findUnique({
         where: { id: unreferencedAssetId },
       });
@@ -399,6 +524,9 @@ describe("Advanced Media Library Integration Suite (WebP, Multi-File, Safety)", 
 
       expect(res.body.error.code).toBe("MEDIA_IN_USE");
       expect(res.body.error.message).toContain("Tin tức: 1");
+
+      const dbAsset = await prisma.mediaAsset.findUnique({ where: { id: referencedByNewsAssetId } });
+      expect(dbAsset?.deletedAt).toBeNull();
     });
 
     it("should prevent deletion with 409 Conflict when asset is referenced by a Building", async () => {
@@ -409,6 +537,35 @@ describe("Advanced Media Library Integration Suite (WebP, Multi-File, Safety)", 
 
       expect(res.body.error.code).toBe("MEDIA_IN_USE");
       expect(res.body.error.message).toContain("Tòa nhà: 1");
+
+      const dbAsset = await prisma.mediaAsset.findUnique({ where: { id: referencedByBuildingAssetId } });
+      expect(dbAsset?.deletedAt).toBeNull();
+    });
+
+    it("should prevent deletion with 409 Conflict when asset is referenced by a TourNode", async () => {
+      const res = await request(server)
+        .delete(`/api/v1/admin/media/${referencedByTourNodeAssetId}`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(409);
+
+      expect(res.body.error.code).toBe("MEDIA_IN_USE");
+      expect(res.body.error.message).toContain("Cảnh 360°: 1");
+
+      const dbAsset = await prisma.mediaAsset.findUnique({ where: { id: referencedByTourNodeAssetId } });
+      expect(dbAsset?.deletedAt).toBeNull();
+    });
+
+    it("should prevent deletion with 409 Conflict when asset is referenced by a LocationMedia", async () => {
+      const res = await request(server)
+        .delete(`/api/v1/admin/media/${referencedByLocationAssetId}`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(409);
+
+      expect(res.body.error.code).toBe("MEDIA_IN_USE");
+      expect(res.body.error.message).toContain("Địa điểm: 1");
+
+      const dbAsset = await prisma.mediaAsset.findUnique({ where: { id: referencedByLocationAssetId } });
+      expect(dbAsset?.deletedAt).toBeNull();
     });
   });
 

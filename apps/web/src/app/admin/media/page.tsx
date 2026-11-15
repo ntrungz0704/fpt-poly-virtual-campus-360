@@ -21,9 +21,9 @@ interface UploadQueueItem {
   filename: string;
   fileSizeBytes: number;
   status: "queued" | "probing" | "presigning" | "uploading" | "completing" | "success" | "error";
-  statusLabel: string;
+  stageLabel: string;
+  statusDetail: string;
   errorMessage?: string;
-  progressPercent: number;
   tags: string[];
   category: string;
 }
@@ -102,7 +102,7 @@ export default function AdminMediaPage() {
     return () => clearTimeout(timer);
   }, [loadMedia]);
 
-  // Queue item executor
+  // Queue item executor (Sequential queue processing)
   const processUploadItem = async (item: UploadQueueItem) => {
     const updateItem = (updates: Partial<UploadQueueItem>) => {
       setUploadQueue((prev) =>
@@ -114,27 +114,35 @@ export default function AdminMediaPage() {
       // 1. Probing dimensions & aspect ratio
       updateItem({
         status: "probing",
-        statusLabel: "Kiểm tra kích thước & tỷ lệ ảnh...",
-        progressPercent: 15,
+        stageLabel: "KIỂM ĐỊNH 2:1",
+        statusDetail: "Kiểm tra kích thước & tính toán tỷ lệ khung hình...",
       });
       const { width, height } = await probeDimensions(item.file);
       const ratio = height > 0 ? width / height : 0;
       const is2to1 = Math.abs(ratio - 2) <= 0.08;
       const assetKind = is2to1 ? "PANORAMA_2_1" : "PHOTO_2D";
 
+      // Explicitly resolve category: 2:1 ratio ALWAYS defaults to PANORAMA_360; otherwise STANDARD_IMAGE
+      const resolvedCategory =
+        item.category && item.category !== "all" && item.category !== "STANDARD_IMAGE" && item.category.trim().length > 0
+          ? item.category
+          : is2to1
+            ? "PANORAMA_360"
+            : "STANDARD_IMAGE";
+
       // 2. Compute SHA-256 checksum
       updateItem({
         status: "presigning",
-        statusLabel: "Tính mã kiểm tra SHA-256...",
-        progressPercent: 30,
+        stageLabel: "TÍNH TOÁN SHA-256",
+        statusDetail: "Băm SHA-256 đối soát toàn vẹn nhị phân...",
       });
       const sha256 = await computeSha256(item.file);
 
       // 3. Presign request
       updateItem({
         status: "presigning",
-        statusLabel: "Đăng ký tải lên & xin quyền lưu trữ...",
-        progressPercent: 45,
+        stageLabel: "XIN QUYỀN UPLOAD",
+        statusDetail: "Đăng ký tải lên & xin cấp token bảo mật...",
       });
       const presignResult = await mediaApi.presign({
         assetKind,
@@ -145,37 +153,37 @@ export default function AdminMediaPage() {
         declaredHeight: Math.max(1, height),
         sha256,
         tags: item.tags,
-        category: item.category,
+        category: resolvedCategory,
       });
 
       // 4. Binary upload
       updateItem({
         status: "uploading",
-        statusLabel: "Đang truyền tải dữ liệu nhị phân...",
-        progressPercent: 65,
+        stageLabel: "TRUYỀN TẢI NHỊ PHÂN",
+        statusDetail: "Đang truyền tải dữ liệu tệp lên máy chủ lưu trữ...",
       });
       await mediaApi.uploadBinary(presignResult.uploadUrl, item.file);
 
       // 5. Complete & WebP generation
       updateItem({
         status: "completing",
-        statusLabel: "Xác thực & sinh các biến thể WebP (Sharp)...",
-        progressPercent: 85,
+        stageLabel: "XỬ LÝ WEBP SHARP",
+        statusDetail: "Sharp sinh 3 biến thể WebP (Thumb, Desktop, Mobile)...",
       });
       await mediaApi.completeUpload(presignResult.uploadToken, sha256);
 
       // 6. Succeeded
       updateItem({
         status: "success",
-        statusLabel: "Hoàn tất xử lý & lưu trữ vào PostgreSQL!",
-        progressPercent: 100,
+        stageLabel: "HOÀN TẤT",
+        statusDetail: "Xử lý WebP thành công và đã lưu trữ PostgreSQL an toàn!",
       });
     } catch (err) {
       updateItem({
         status: "error",
-        statusLabel: "Thất bại",
+        stageLabel: "THẤT BẠI",
+        statusDetail: "Lỗi trong quá trình xử lý.",
         errorMessage: formatAuthErrorMessage(err, "Không thể tải tệp lên."),
-        progressPercent: 0,
       });
     }
   };
@@ -212,10 +220,10 @@ export default function AdminMediaPage() {
       filename: file.name,
       fileSizeBytes: file.size,
       status: "queued",
-      statusLabel: "Đang chờ hàng đợi...",
-      progressPercent: 0,
+      stageLabel: "CHỜ XỬ LÝ",
+      statusDetail: "Đang xếp hàng chờ xử lý tuần tự...",
       tags: selectedTag ? [selectedTag] : [],
-      category: selectedCategory !== "all" ? selectedCategory : "STANDARD_IMAGE",
+      category: "", // Category is dynamically resolved in processUploadItem based on detected 2:1 ratio
     }));
 
     setUploadQueue((prev) => {
@@ -235,9 +243,9 @@ export default function AdminMediaPage() {
           ? {
               ...it,
               status: "queued",
-              statusLabel: "Đang chuẩn bị thử lại...",
+              stageLabel: "CHUẨN BỊ THỬ LẠI",
+              statusDetail: "Đang chuẩn bị gửi lại yêu cầu...",
               errorMessage: undefined,
-              progressPercent: 0,
             }
           : it,
       ),
@@ -377,34 +385,32 @@ export default function AdminMediaPage() {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span
-                        className={`text-[11px] font-medium ${
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
                           item.status === "success"
-                            ? "text-emerald-700"
+                            ? "bg-emerald-100 text-emerald-800"
                             : item.status === "error"
-                              ? "text-rose-700"
-                              : "text-primary"
+                              ? "bg-rose-100 text-rose-800"
+                              : "bg-primary/10 text-primary"
                         }`}
                       >
-                        {item.statusLabel}
+                        {item.status !== "success" && item.status !== "error" && (
+                          <span className="material-symbols-outlined text-[12px] animate-spin">
+                            sync
+                          </span>
+                        )}
+                        {item.stageLabel}
+                      </span>
+                      <span className="text-[11px] text-secondary">
+                        {item.statusDetail}
                       </span>
                       {item.errorMessage && (
                         <span className="text-[11px] text-rose-600 truncate max-w-xs" title={item.errorMessage}>
-                          - {item.errorMessage}
+                          ({item.errorMessage})
                         </span>
                       )}
                     </div>
-
-                    {/* Mini progress bar */}
-                    {item.status !== "success" && item.status !== "error" && (
-                      <div className="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
-                        <div
-                          className="bg-primary h-full transition-all duration-300"
-                          style={{ width: `${item.progressPercent}%` }}
-                        />
-                      </div>
-                    )}
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">

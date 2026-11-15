@@ -79,6 +79,18 @@ export class MediaService {
     const is2to1 =
       dto.assetKind === "PANORAMA_2_1" ? Math.abs(ratio - 2) <= 0.08 : false;
 
+    const defaultCategory =
+      dto.assetKind === "PANORAMA_2_1" || is2to1
+        ? "PANORAMA_360"
+        : "STANDARD_IMAGE";
+    const resolvedCategory =
+      dto.category &&
+      dto.category !== "all" &&
+      dto.category !== "STANDARD_IMAGE" &&
+      dto.category.trim().length > 0
+        ? dto.category.trim()
+        : defaultCategory;
+
     // Subdirectory mapping
     const subfolder =
       dto.assetKind === "PANORAMA_2_1"
@@ -108,7 +120,7 @@ export class MediaService {
         processingStatus: "PENDING",
         cameraMetadata: {
           tags: dto.tags ?? [],
-          category: dto.category ?? (is2to1 ? "PANORAMA_360" : "STANDARD_IMAGE"),
+          category: resolvedCategory,
         },
         uploadedBy: user.id,
       },
@@ -313,7 +325,7 @@ export class MediaService {
     let thumbnailKey: string | null = null;
     let optimizedDesktopKey: string | null = null;
     let optimizedMobileKey: string | null = null;
-    let processingError: string | null = null;
+    const writtenVariantKeys: string[] = [];
 
     try {
       const isPanorama = uploadToken.mediaAsset.assetKind === "PANORAMA_2_1";
@@ -326,6 +338,7 @@ export class MediaService {
         .toBuffer();
       thumbnailKey = `${baseKey}-thumb.webp`;
       await this.storageAdapter.putObject(thumbnailKey, thumbBuffer, "image/webp");
+      writtenVariantKeys.push(thumbnailKey);
 
       // 2. Generate Desktop WebP (up to 4096px for panorama, 2560px for standard image)
       const desktopMaxWidth = isPanorama ? 4096 : 2560;
@@ -335,6 +348,7 @@ export class MediaService {
         .toBuffer();
       optimizedDesktopKey = `${baseKey}-desktop.webp`;
       await this.storageAdapter.putObject(optimizedDesktopKey, desktopBuffer, "image/webp");
+      writtenVariantKeys.push(optimizedDesktopKey);
 
       // 3. Generate Mobile WebP (up to 2048px for panorama, 1280px for standard image)
       const mobileMaxWidth = isPanorama ? 2048 : 1280;
@@ -344,8 +358,44 @@ export class MediaService {
         .toBuffer();
       optimizedMobileKey = `${baseKey}-mobile.webp`;
       await this.storageAdapter.putObject(optimizedMobileKey, mobileBuffer, "image/webp");
+      writtenVariantKeys.push(optimizedMobileKey);
     } catch (err) {
-      processingError = `WebP processing notice: ${err instanceof Error ? err.message : String(err)}`;
+      // Clean up partially written variants so no orphaned files exist
+      for (const k of writtenVariantKeys) {
+        try {
+          await this.storageAdapter.deleteObject(k);
+        } catch {
+          // ignore cleanup failures
+        }
+      }
+
+      const errorMessage = `Lỗi xử lý nén WebP (Sharp): ${err instanceof Error ? err.message : String(err)}`;
+
+      // Update MediaAsset to FAILED status in PostgreSQL, but do NOT consume the uploadToken
+      await this.prisma.mediaAsset.update({
+        where: { id: uploadToken.mediaAsset.id },
+        data: {
+          processingStatus: "FAILED",
+          processingError: errorMessage,
+          thumbnailKey: null,
+          optimizedDesktopKey: null,
+          optimizedMobileKey: null,
+          updatedAt: new Date(),
+        },
+      });
+
+      throw new BadRequestException({
+        code: "IMAGE_PROCESSING_FAILED",
+        message: errorMessage,
+      });
+    }
+
+    // Verify all 3 required variants exist before setting READY
+    if (!thumbnailKey || !optimizedDesktopKey || !optimizedMobileKey) {
+      throw new BadRequestException({
+        code: "IMAGE_PROCESSING_INCOMPLETE",
+        message: "Không thể tạo đủ 3 biến thể ảnh WebP (Thumbnail, Desktop, Mobile).",
+      });
     }
 
     const existingMeta = (uploadToken.mediaAsset.cameraMetadata as Record<string, unknown>) ?? {};
@@ -356,7 +406,7 @@ export class MediaService {
         desktop: optimizedDesktopKey,
         mobile: optimizedMobileKey,
       },
-      webpOptimized: thumbnailKey !== null,
+      webpOptimized: true,
     };
 
     // Atomic update: Mark token as used, set media asset READY with WebP variants
@@ -369,7 +419,7 @@ export class MediaService {
           thumbnailKey,
           optimizedDesktopKey,
           optimizedMobileKey,
-          processingError,
+          processingError: null,
           cameraMetadata: updatedMeta,
           updatedAt: now,
         },

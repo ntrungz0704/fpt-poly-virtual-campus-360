@@ -107,3 +107,25 @@ export interface LeaderboardResponseDto {
   totalParticipants: number;
   currentEntry?: LeaderboardEntryDto | null;
 }
+
+export interface AdminQuizAttemptDto {
+  id: string;
+  eventId: string;
+  userId?: string | null;
+  ticketCode: string | null;
+  attendeeName: string;
+  totalQuestions: number;
+  correctCount: number;
+  scorePercent: number;
+  scoreXp: number;
+  createdAt: string;
+}
+
+export interface AdminQuizResultsSummaryDto {
+  items: AdminQuizAttemptDto[];
+  totalAttempts: number;
+  averageScorePercent: number;
+  passedCount: number;
+  totalXpAwarded: number;
+}
+

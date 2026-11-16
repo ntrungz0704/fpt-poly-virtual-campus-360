@@ -2,6 +2,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { chromium, defineConfig } from "@playwright/test";
+import dotenv from "dotenv";
+
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 function resolveBrowserExecutable(): string | undefined {
   if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {

@@ -92,8 +92,8 @@ async function setupScratchDatabase(baseUrl) {
     );
     if (eventRes.rows.length > 0) {
       await client.query(
-        `INSERT INTO event_participations (id, user_id, event_id, participation_status, created_at, updated_at)
-         VALUES (gen_random_uuid(), $1, $2, 'INVITED', NOW(), NOW());`,
+        `INSERT INTO event_participations (id, user_id, event_id, participation_status, ticket_code, created_at, updated_at)
+         VALUES (gen_random_uuid(), $1, $2, 'INVITED', 'OD26-E2ESTU', NOW(), NOW());`,
         [studentId, eventRes.rows[0].id],
       );
     }

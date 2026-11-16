@@ -23,7 +23,11 @@ import { PublicModule } from "./modules/public/public.module";
 import { GamificationModule } from "./modules/gamification/gamification.module";
 import { PortalModule } from "./modules/portal/portal.module";
 import { StorageModule } from "./modules/storage/storage.module";
+import { TourAdminModule } from "./modules/tour/tour-admin.module";
 import { UsersRbacModule } from "./modules/users-rbac/users-rbac.module";
+import { NewsModule } from "./modules/news/news.module";
+import { QuestionsModule } from "./modules/questions/questions.module";
+import { QuizConfigModule } from "./modules/quiz-config/quiz-config.module";
 
 @Module({
   imports: [
@@ -39,6 +43,7 @@ import { UsersRbacModule } from "./modules/users-rbac/users-rbac.module";
     }),
     StorageModule,
     MediaModule,
+    TourAdminModule,
     AuditLogModule,
     UsersRbacModule,
     AuthModule,
@@ -47,6 +52,9 @@ import { UsersRbacModule } from "./modules/users-rbac/users-rbac.module";
     PublicModule,
     GamificationModule,
     PortalModule,
+    NewsModule,
+    QuestionsModule,
+    QuizConfigModule,
   ],
   providers: [
     {

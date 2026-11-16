@@ -1,10 +1,8 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BuildingCode,
-  CAMPUS_BUILDINGS,
-  CAMPUS_LOCATIONS,
   CampusLocationItem,
   TOUR_SCENES,
 } from "@/data/campus-data";
@@ -14,15 +12,29 @@ import {
   DataTable,
   DataTableColumn,
   Drawer,
+  ErrorState,
   Input,
+  LoadingState,
   SearchInput,
   Select,
   StatusToast,
   Textarea,
 } from "@/components/ui";
+import {
+  type BuildingStructureItem,
+  createAdminLocation,
+  deleteAdminLocation,
+  fetchAdminLocations,
+  fetchCampusStructure,
+  updateAdminLocation,
+} from "@/lib/admin/locations-admin-api";
 
 export default function AdminLocationsPage() {
-  const [locations, setLocations] = useState<CampusLocationItem[]>(CAMPUS_LOCATIONS);
+  const [locations, setLocations] = useState<CampusLocationItem[]>([]);
+  const [structures, setStructures] = useState<BuildingStructureItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [buildingFilter, setBuildingFilter] = useState<string>("ALL");
 
@@ -41,14 +53,73 @@ export default function AdminLocationsPage() {
     name: "",
     code: "",
     buildingCode: "INNOVATION",
-    floor: "Tầng 1",
+    floor: "Tầng Trệt",
     category: "common",
     shortDesc: "",
     sceneId: "",
     status: "published",
   });
 
-  const [toast, setToast] = useState({ open: false, message: "" });
+  const [toast, setToast] = useState<{
+    open: boolean;
+    message: string;
+    type: "success" | "error" | "info";
+  }>({ open: false, message: "", type: "info" });
+
+  const refreshLocations = useCallback(async () => {
+    try {
+      const [data, structData] = await Promise.all([
+        fetchAdminLocations(),
+        fetchCampusStructure(),
+      ]);
+      setLocations(data);
+      setStructures(structData);
+      setFetchError(null);
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Không thể kết nối máy chủ API quản trị địa điểm và cấu trúc cơ sở.";
+      setFetchError(msg);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      fetchAdminLocations(),
+      fetchCampusStructure(),
+    ])
+      .then(([data, structData]) => {
+        if (active) {
+          setLocations(data);
+          setStructures(structData);
+          setFetchError(null);
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          const msg =
+            err instanceof Error
+              ? err.message
+              : "Không thể kết nối máy chủ API quản trị địa điểm và cấu trúc cơ sở.";
+          setFetchError(msg);
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const currentBuildingFloors = useMemo(() => {
+    const b = structures.find((s) => s.code === formState.buildingCode);
+    if (!b || b.floors.length === 0) return [];
+    return b.floors.map((f) => ({ code: f.name, label: f.name }));
+  }, [structures, formState.buildingCode]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -64,12 +135,22 @@ export default function AdminLocationsPage() {
   }, [locations, query, buildingFilter]);
 
   const openCreate = () => {
+    if (structures.length === 0) {
+      setToast({
+        open: true,
+        message: "Chưa tải được danh mục tòa nhà từ PostgreSQL. Vui lòng thử lại.",
+        type: "error",
+      });
+      return;
+    }
     setEditing(null);
+    const initialBuilding = structures[0].code as BuildingCode;
+    const initialFloor = structures[0].floors[0]?.name ?? "";
     setFormState({
       name: "",
       code: `QTSC-${locations.length + 1}`,
-      buildingCode: "INNOVATION",
-      floor: "Tầng 1",
+      buildingCode: initialBuilding,
+      floor: initialFloor,
       category: "common",
       shortDesc: "",
       sceneId: TOUR_SCENES[0]?.id ?? "",
@@ -79,6 +160,14 @@ export default function AdminLocationsPage() {
   };
 
   const openEdit = (loc: CampusLocationItem) => {
+    if (structures.length === 0) {
+      setToast({
+        open: true,
+        message: "Chưa tải được danh mục tòa nhà từ PostgreSQL. Vui lòng thử lại.",
+        type: "error",
+      });
+      return;
+    }
     setEditing(loc);
     setFormState({
       name: loc.name,
@@ -93,76 +182,102 @@ export default function AdminLocationsPage() {
     setDrawerOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formState.name.trim()) return;
-
-    const matchedBuilding = CAMPUS_BUILDINGS.find(
-      (b) => b.code === formState.buildingCode
-    );
-    const buildingName = matchedBuilding?.shortName ?? "Tòa Innovation";
-    const categoryLabel =
-      formState.category === "lab"
-        ? "Phòng Lab CNTT"
-        : formState.category === "studio"
-        ? "Studio & Multimedia"
-        : "Không gian Chung";
-
-    if (editing) {
-      setLocations((prev) =>
-        prev.map((item) =>
-          item.id === editing.id
-            ? {
-                ...item,
-                name: formState.name.trim(),
-                code: formState.code.trim(),
-                buildingCode: formState.buildingCode,
-                buildingName,
-                floor: formState.floor.trim(),
-                category: formState.category,
-                categoryLabel,
-                shortDesc: formState.shortDesc.trim(),
-                sceneId: formState.sceneId || null,
-                status: formState.status,
-              }
-            : item
-        )
-      );
-      setToast({ open: true, message: `Đã cập nhật địa điểm "${formState.name}".` });
-    } else {
-      const slugBase = formState.code.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-      const created: CampusLocationItem = {
-        id: `loc-${Date.now()}`,
-        slug: `${slugBase}-${Date.now().toString().slice(-4)}`,
-        code: formState.code.trim(),
-        name: formState.name.trim(),
-        buildingCode: formState.buildingCode,
-        buildingName,
-        floor: formState.floor.trim(),
-        category: formState.category,
-        categoryLabel,
-        shortDesc: formState.shortDesc.trim() || "Không gian học tập tại CVPM Quang Trung.",
-        description: formState.shortDesc.trim() || "Không gian học tập tại CVPM Quang Trung.",
-        highlights: ["Đang cập nhật mô tả chi tiết"],
-        imageUrl: matchedBuilding?.imageUrl ?? "/images/locations/building-innovation.jpg",
-        sceneId: formState.sceneId || null,
-        status: formState.status,
-      };
-      setLocations((prev) => [created, ...prev]);
-      setToast({ open: true, message: `Đã tạo địa điểm mới "${created.name}".` });
-    }
-    setDrawerOpen(false);
+  const handleBuildingChange = (newBuildingCode: BuildingCode) => {
+    const b = structures.find((s) => s.code === newBuildingCode);
+    const firstFloor = b?.floors[0]?.name ?? "";
+    setFormState((s) => ({
+      ...s,
+      buildingCode: newBuildingCode,
+      floor: firstFloor,
+    }));
   };
 
-  const toggleStatus = (id: string) => {
-    setLocations((prev) =>
-      prev.map((item) =>
-        item.id === id
-          ? { ...item, status: item.status === "published" ? "draft" : "published" }
-          : item
-      )
-    );
-    setToast({ open: true, message: "Đã thay đổi trạng thái xuất bản." });
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formState.name.trim() || !formState.code.trim()) {
+      setToast({
+        open: true,
+        message: "Vui lòng nhập đầy đủ tên và mã địa điểm.",
+        type: "error",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      if (editing) {
+        const updated = await updateAdminLocation(editing.id, formState);
+        setToast({
+          open: true,
+          message: `Đã cập nhật thành công địa điểm "${updated.name}" vào cơ sở dữ liệu.`,
+          type: "success",
+        });
+      } else {
+        const created = await createAdminLocation(formState);
+        setToast({
+          open: true,
+          message: `Đã lưu thành công địa điểm mới "${created.name}" (${created.code}) vào cơ sở dữ liệu.`,
+          type: "success",
+        });
+      }
+      setDrawerOpen(false);
+      await refreshLocations();
+    } catch (err) {
+      // Must not close drawer on failure, must not show fake success
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Không thể lưu địa điểm vào cơ sở dữ liệu.";
+      setToast({ open: true, message: msg, type: "error" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const toggleStatus = async (id: string) => {
+    const target = locations.find((l) => l.id === id);
+    if (!target) return;
+    const nextStatus = target.status === "published" ? "draft" : "published";
+
+    try {
+      await updateAdminLocation(id, {
+        ...target,
+        status: nextStatus,
+      });
+      await refreshLocations();
+      setToast({
+        open: true,
+        message: `Đã cập nhật trạng thái địa điểm "${target.name}" thành "${nextStatus === "published" ? "Đã xuất bản" : "Bản nháp"}".`,
+        type: "success",
+      });
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Lỗi cập nhật trạng thái xuất bản trên máy chủ.";
+      setToast({ open: true, message: msg, type: "error" });
+    }
+  };
+
+  const handleDelete = async (loc: CampusLocationItem) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa địa điểm "${loc.name}" (${loc.code}) khỏi cơ sở dữ liệu?`)) {
+      return;
+    }
+    try {
+      await deleteAdminLocation(loc.id);
+      await refreshLocations();
+      setToast({
+        open: true,
+        message: `Đã gỡ bỏ thành công địa điểm "${loc.name}".`,
+        type: "success",
+      });
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Lỗi gỡ bỏ địa điểm trên máy chủ.";
+      setToast({ open: true, message: msg, type: "error" });
+    }
   };
 
   const columns: DataTableColumn<CampusLocationItem>[] = [
@@ -221,9 +336,14 @@ export default function AdminLocationsPage() {
       header: "Thao tác",
       align: "right",
       render: (row) => (
-        <Button variant="ghost" size="sm" icon="edit" onClick={() => openEdit(row)}>
-          Sửa
-        </Button>
+        <div className="flex items-center justify-end gap-1.5">
+          <Button variant="ghost" size="sm" icon="edit" onClick={() => openEdit(row)}>
+            Sửa
+          </Button>
+          <Button variant="outline" size="sm" icon="delete" onClick={() => handleDelete(row)}>
+            Xóa
+          </Button>
+        </div>
       ),
     },
   ];
@@ -234,44 +354,62 @@ export default function AdminLocationsPage() {
         <div>
           <h1 className="type-h1 text-on-surface">Quản lý Địa điểm QTSC</h1>
           <p className="type-body-sm text-secondary mt-1">
-            Cấu hình danh sách phòng học, Lab, Hội trường và liên kết sang cảnh 360°.
+            Cấu hình danh sách phòng học, Lab, Hội trường và liên kết sang cảnh 360° thực tế trong cơ sở dữ liệu.
           </p>
         </div>
-        <Button variant="primary" size="md" icon="add" onClick={openCreate}>
+        <Button
+          variant="primary"
+          size="md"
+          icon="add"
+          onClick={openCreate}
+          disabled={structures.length === 0}
+          title={structures.length === 0 ? "Chưa tải được danh mục tòa nhà từ PostgreSQL" : undefined}
+        >
           Thêm địa điểm
         </Button>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={filtered}
-        rowKey={(row) => row.id}
-        toolbar={
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <SearchInput
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onClear={() => setQuery("")}
-              placeholder="Tìm theo mã phòng, tên không gian..."
-              containerClassName="w-full sm:max-w-sm"
-            />
-
-            <Select
-              value={buildingFilter}
-              onChange={(e) => setBuildingFilter(e.target.value)}
-              aria-label="Lọc theo tòa nhà"
-              containerClassName="w-full sm:w-52"
-            >
-              <option value="ALL">Tất cả tòa nhà</option>
-              {CAMPUS_BUILDINGS.map((b) => (
-                <option key={b.code} value={b.code}>
-                  {b.shortName}
-                </option>
-              ))}
-            </Select>
-          </div>
-        }
-      />
+      {loading && locations.length === 0 ? (
+        <div className="p-12 flex justify-center">
+          <LoadingState label="Đang nạp danh mục địa điểm từ cơ sở dữ liệu PostgreSQL..." />
+        </div>
+      ) : fetchError && locations.length === 0 ? (
+        <ErrorState
+          title="Không thể tải danh sách địa điểm"
+          description={fetchError}
+          actionLabel="Thử lại"
+          onAction={() => void refreshLocations()}
+        />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={filtered}
+          rowKey={(row) => row.id}
+          toolbar={
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <SearchInput
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onClear={() => setQuery("")}
+                placeholder="Tìm theo tên, mã phòng, tòa nhà..."
+                className="w-full sm:w-80"
+              />
+              <Select
+                value={buildingFilter}
+                onChange={(e) => setBuildingFilter(e.target.value)}
+                className="w-full sm:w-60"
+              >
+                <option value="ALL">Tất cả tòa nhà</option>
+                {structures.map((b) => (
+                  <option key={b.code} value={b.code}>
+                    {b.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          }
+        />
+      )}
 
       <Drawer
         open={drawerOpen}
@@ -294,23 +432,31 @@ export default function AdminLocationsPage() {
               onChange={(e) => setFormState((s) => ({ ...s, code: e.target.value }))}
               required
             />
-            <Input
+            <Select
               label="Vị trí tầng"
               value={formState.floor}
               onChange={(e) => setFormState((s) => ({ ...s, floor: e.target.value }))}
-            />
+            >
+              {currentBuildingFloors.length > 0 ? (
+                <>
+                  <option value="">-- Không gắn tầng (Ngoài trời / Độc lập) --</option>
+                  {currentBuildingFloors.map((fl) => (
+                    <option key={fl.code} value={fl.code}>
+                      {fl.label}
+                    </option>
+                  ))}
+                </>
+              ) : (
+                <option value="">Tòa nhà không phân tầng</option>
+              )}
+            </Select>
           </div>
           <Select
             label="Thuộc tòa nhà"
             value={formState.buildingCode}
-            onChange={(e) =>
-              setFormState((s) => ({
-                ...s,
-                buildingCode: e.target.value as BuildingCode,
-              }))
-            }
+            onChange={(e) => handleBuildingChange(e.target.value as BuildingCode)}
           >
-            {CAMPUS_BUILDINGS.map((b) => (
+            {structures.map((b) => (
               <option key={b.code} value={b.code}>
                 {b.name}
               </option>
@@ -371,7 +517,14 @@ export default function AdminLocationsPage() {
             >
               Hủy
             </Button>
-            <Button type="submit" variant="primary" size="md" icon="save" className="flex-1">
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              icon="save"
+              loading={isSaving}
+              className="flex-1"
+            >
               Lưu thay đổi
             </Button>
           </div>
@@ -380,7 +533,7 @@ export default function AdminLocationsPage() {
 
       <StatusToast
         open={toast.open}
-        type="success"
+        type={toast.type}
         message={toast.message}
         onClose={() => setToast((t) => ({ ...t, open: false }))}
       />

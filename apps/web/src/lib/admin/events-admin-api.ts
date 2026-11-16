@@ -1,7 +1,9 @@
 import type {
   AdminOpenDayEventDto,
+  AdminOpenDayQuizItemDto,
   AdminOpenDaySessionDto,
   AdminParticipationsListResponseDto,
+  AdminQuizResultsSummaryDto,
   CheckInResultDto,
   CheckInTicketInput,
 } from "@fpt-campus/shared";
@@ -19,6 +21,15 @@ export interface ListParticipationsParams {
   status?: string;
   page?: number;
   pageSize?: number;
+}
+
+export interface UpsertQuizItemInput {
+  questionText: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  sortOrder?: number;
+  tourNodeId?: string;
 }
 
 /**
@@ -80,3 +91,86 @@ export async function checkInAttendeeTicket(
     auth: true,
   });
 }
+
+/**
+ * List quiz questions for an event.
+ * GET /api/v1/admin/events/:eventId/quiz-items
+ */
+export async function fetchAdminQuizItems(
+  eventId: string,
+): Promise<AdminOpenDayQuizItemDto[]> {
+  return apiRequest<AdminOpenDayQuizItemDto[]>(
+    `/admin/events/${encodeURIComponent(eventId)}/quiz-items`,
+    { auth: true },
+  );
+}
+
+/**
+ * Create a new quiz item for an event.
+ * POST /api/v1/admin/events/:eventId/quiz-items
+ */
+export async function createAdminQuizItem(
+  eventId: string,
+  input: UpsertQuizItemInput,
+): Promise<AdminOpenDayQuizItemDto> {
+  return apiRequest<AdminOpenDayQuizItemDto>(
+    `/admin/events/${encodeURIComponent(eventId)}/quiz-items`,
+    {
+      method: "POST",
+      body: input,
+      auth: true,
+    },
+  );
+}
+
+/**
+ * Update an existing quiz item.
+ * PATCH /api/v1/admin/events/:eventId/quiz-items/:quizItemId
+ */
+export async function updateAdminQuizItem(
+  eventId: string,
+  quizItemId: string,
+  input: Partial<UpsertQuizItemInput>,
+): Promise<AdminOpenDayQuizItemDto> {
+  return apiRequest<AdminOpenDayQuizItemDto>(
+    `/admin/events/${encodeURIComponent(eventId)}/quiz-items/${encodeURIComponent(quizItemId)}`,
+    {
+      method: "PATCH",
+      body: input,
+      auth: true,
+    },
+  );
+}
+
+/**
+ * Delete a quiz item.
+ * DELETE /api/v1/admin/events/:eventId/quiz-items/:quizItemId
+ */
+export async function deleteAdminQuizItem(
+  eventId: string,
+  quizItemId: string,
+): Promise<{ id: string; deleted: true }> {
+  return apiRequest<{ id: string; deleted: true }>(
+    `/admin/events/${encodeURIComponent(eventId)}/quiz-items/${encodeURIComponent(quizItemId)}`,
+    {
+      method: "DELETE",
+      auth: true,
+    },
+  );
+}
+
+/**
+ * Fetch quiz results for an event.
+ * GET /api/v1/admin/events/:eventId/quiz-results
+ */
+export async function getAdminQuizResults(
+  eventId: string,
+): Promise<AdminQuizResultsSummaryDto> {
+  return apiRequest<AdminQuizResultsSummaryDto>(
+    `/admin/events/${encodeURIComponent(eventId)}/quiz-results`,
+    {
+      auth: true,
+    },
+  );
+}
+

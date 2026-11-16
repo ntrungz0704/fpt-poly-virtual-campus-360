@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { Button, Input, LoadingState } from "@/components/ui";
-import { OFFICIAL_CAMPUS_INFO } from "@/data/campus-data";
 import { formatAuthErrorMessage } from "@/lib/auth/api-client";
 import {
   resolvePostAuthRoute,
@@ -98,27 +97,24 @@ export function LoginForm() {
           <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
             verified_user
           </span>
-          <span>Cổng xác thực chung</span>
+          <span>FPT Edu SSO</span>
         </span>
       </div>
 
-      <div className="ui-card p-6 sm:p-8 shadow-sm space-y-6">
-        <div className="space-y-1.5">
-          <p className="text-xs font-bold uppercase tracking-wider text-primary">
-            {OFFICIAL_CAMPUS_INFO.shortName} · {OFFICIAL_CAMPUS_INFO.campusLabel}
-          </p>
-          <h1 className="type-h2 text-on-surface">Đăng nhập Virtual Campus</h1>
-          <p className="type-body-sm text-secondary leading-relaxed">
-            Dành cho Sinh viên, Phụ huynh tham dự Open Day và Cán bộ quản trị hệ thống.
-            Khách tham quan tự do không cần tài khoản để xem{" "}
-            <Link href="/campus" className="text-primary font-semibold hover:underline">
-              Tour 360°
-            </Link>{" "}
-            hoặc{" "}
-            <Link href="/map" className="text-primary font-semibold hover:underline">
-              Bản đồ GIS
-            </Link>
-            .
+      <div className="bg-surface-container-lowest rounded-3xl p-6 sm:p-9 border border-surface-container shadow-elevation-2 relative overflow-hidden space-y-6">
+        {/* Top Brand Accent Line */}
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary via-primary-container to-secondary" />
+
+        {/* Brand Header with Preserved Logo */}
+        <div className="text-center pt-2">
+          <img
+            src="/images/fpt-logo-official.png"
+            alt="FPT Polytechnic"
+            className="h-9 w-auto mx-auto object-contain mb-3"
+          />
+          <h1 className="type-h2 text-on-surface">Đăng Nhập Tập Trung</h1>
+          <p className="type-body-sm text-secondary mt-1">
+            Cổng Virtual Campus, Student Portal &amp; Hệ thống Quản trị QTSC
           </p>
         </div>
 
@@ -127,10 +123,7 @@ export function LoginForm() {
             role="status"
             className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs sm:text-sm text-amber-950 flex items-start gap-2.5"
           >
-            <span
-              aria-hidden="true"
-              className="material-symbols-outlined text-[18px] text-amber-700 mt-0.5 shrink-0"
-            >
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-amber-700 mt-0.5 shrink-0">
               info
             </span>
             <span>Vui lòng đăng nhập để tiếp tục truy cập khu vực tài khoản.</span>
@@ -142,10 +135,7 @@ export function LoginForm() {
             role="status"
             className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs sm:text-sm text-amber-950 flex items-start gap-2.5"
           >
-            <span
-              aria-hidden="true"
-              className="material-symbols-outlined text-[18px] text-amber-700 mt-0.5 shrink-0"
-            >
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-amber-700 mt-0.5 shrink-0">
               schedule
             </span>
             <span>Phiên đăng nhập đã hết hạn hoặc bị thu hồi. Vui lòng đăng nhập lại.</span>
@@ -158,10 +148,7 @@ export function LoginForm() {
             data-testid="login-error"
             className="rounded-xl border border-error/40 bg-error-container px-4 py-3 text-xs sm:text-sm text-on-error-container flex items-start gap-2.5"
           >
-            <span
-              aria-hidden="true"
-              className="material-symbols-outlined text-[18px] text-error mt-0.5 shrink-0"
-            >
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-error mt-0.5 shrink-0">
               error
             </span>
             <span>{errorMessage}</span>
@@ -173,7 +160,7 @@ export function LoginForm() {
             id="login-identifier"
             name="identifier"
             label="Tên đăng nhập, Email hoặc Số điện thoại"
-            placeholder="Nhập username, email hoặc SĐT đã được cấp"
+            placeholder="Nhập username, email hoặc SĐT"
             autoComplete="username"
             required
             disabled={submitting}
@@ -184,10 +171,15 @@ export function LoginForm() {
           <div className="space-y-1.5">
             <label
               htmlFor="login-password"
-              className="font-label-md text-label-md text-on-surface flex items-center gap-1"
+              className="font-label-md text-label-md text-on-surface flex items-center justify-between"
             >
-              <span>Mật khẩu</span>
-              <span className="text-error" aria-hidden="true">*</span>
+              <div className="flex items-center gap-1">
+                <span>Mật khẩu</span>
+                <span className="text-error" aria-hidden="true">*</span>
+              </div>
+              <a href="#" className="text-xs font-semibold text-primary hover:underline">
+                Quên mật khẩu?
+              </a>
             </label>
             <div className="relative">
               <input
@@ -225,20 +217,19 @@ export function LoginForm() {
             icon="login"
             className="mt-2"
           >
-            {submitting ? "Đang xác thực..." : "Đăng nhập"}
+            {submitting ? "Đang xác thực..." : "Đăng nhập hệ thống"}
           </Button>
         </form>
 
-        <div className="rounded-xl border border-outline-variant bg-surface-container-low p-4 space-y-2 text-xs text-secondary leading-relaxed">
+        <div className="rounded-xl border border-outline-variant bg-surface-container-low p-4 space-y-1.5 text-xs text-secondary leading-relaxed">
           <p className="font-semibold text-on-surface flex items-center gap-1.5">
             <span aria-hidden="true" className="material-symbols-outlined text-[16px] text-primary">
               shield
             </span>
-            <span>Lưu ý bảo mật tài khoản</span>
+            <span>Bảo mật &amp; Quy định truy cập</span>
           </p>
           <p>
-            Hệ thống không mở tự đăng ký công khai. Tài khoản mới kích hoạt hoặc tài khoản có yêu cầu
-            đổi mật khẩu lần đầu sẽ được chuyển sang bước cập nhật mật khẩu trước khi vào hệ thống.
+            Tài khoản mới kích hoạt hoặc tài khoản yêu cầu đổi mật khẩu lần đầu sẽ tự động chuyển sang trang đổi mật khẩu theo tiêu chuẩn ISO 27001 FPT Education.
           </p>
         </div>
       </div>

@@ -116,8 +116,8 @@ export default async function LocationDetailPage({
               </p>
             </div>
 
-            <div className="ui-card p-5 space-y-3 bg-surface-container-low/60">
-              <h2 className="type-label text-on-surface">Đặc điểm không gian</h2>
+            <div className="ui-card p-5 space-y-3 bg-surface-container-low/60 rounded-2xl border border-surface-container">
+              <h2 className="type-label text-on-surface">Đặc điểm &amp; Trang thiết bị kỹ thuật</h2>
               <ul className="space-y-2.5">
                 {location.highlights.map((highlight) => (
                   <li
@@ -134,6 +134,18 @@ export default async function LocationDetailPage({
                   </li>
                 ))}
               </ul>
+            </div>
+
+            {/* Quick Metrics */}
+            <div className="grid grid-cols-2 gap-3 pt-1 text-xs">
+              <div className="p-3 rounded-xl bg-surface-container-low border border-surface-container">
+                <span className="text-secondary block">Sức chứa tối đa:</span>
+                <span className="font-heading font-black text-on-surface text-base">60 Sinh viên</span>
+              </div>
+              <div className="p-3 rounded-xl bg-surface-container-low border border-surface-container">
+                <span className="text-secondary block">Trang bị chính:</span>
+                <span className="font-heading font-black text-primary text-base">GPU RTX 4080</span>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">

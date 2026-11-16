@@ -1,4 +1,18 @@
-import { IsIn, IsNotEmpty, IsOptional, IsString, MaxLength } from "class-validator";
+import { Transform, Type } from "class-transformer";
+import {
+  IsBoolean,
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+} from "class-validator";
+import type { QuizAttemptStatus } from "@fpt-campus/shared";
 
 export class UpdateProfileDto {
   @IsOptional()
@@ -44,3 +58,37 @@ export class RespondLinkDto {
   @IsIn(["APPROVE", "REJECT"])
   action!: "APPROVE" | "REJECT";
 }
+
+export class StudentQuizHistoryQueryDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  page?: number = 1;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  @IsOptional()
+  limit?: number = 10;
+
+  @IsUUID("4")
+  @IsOptional()
+  quizConfigId?: string;
+
+  @IsEnum(["IN_PROGRESS", "SUBMITTED", "EXPIRED"])
+  @IsOptional()
+  status?: QuizAttemptStatus;
+
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === "") return undefined;
+    if (value === true || value === "true" || value === 1 || value === "1") return true;
+    if (value === false || value === "false" || value === 0 || value === "0") return false;
+    return value;
+  })
+  @IsBoolean()
+  @IsOptional()
+  passed?: boolean;
+}
+

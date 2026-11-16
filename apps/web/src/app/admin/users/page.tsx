@@ -1,13 +1,27 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import type {
+  AdminUserListItemDto,
+  AdminUsersFilterQuery,
+  UserImportConfirmResultDto,
+  UserImportPreviewResponse,
+  UserImportPreviewRowDto,
+} from "@fpt-campus/shared";
 import {
-  AdminParticipantUser,
-  INITIAL_ADMIN_USERS,
-  OFFICIAL_CAMPUS_INFO,
-} from "@/data/campus-data";
+  fetchAdminUsers,
+  createAdminUser,
+  updateAdminUserStatus,
+  resendAdminInvitation,
+  downloadUserImportTemplate,
+  parseExcelFile,
+  previewUserImport,
+  confirmUserImport,
+  downloadErrorReportExcel,
+} from "@/lib/admin/users-admin-api";
 import {
   Badge,
+  BadgeVariant,
   Button,
   DataTable,
   DataTableColumn,
@@ -19,427 +33,658 @@ import {
   StatusToast,
 } from "@/components/ui";
 
-interface ImportPreviewRow {
-  line: number;
-  accountCode: string;
-  fullName: string;
-  contactChannel: string;
-  valid: boolean;
-  note: string;
-}
-
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState<AdminParticipantUser[]>(INITIAL_ADMIN_USERS);
+  // --- Data State ---
+  const [users, setUsers] = useState<AdminUserListItemDto[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [userTypeFilter, setUserTypeFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [page, setPage] = useState(1);
+  const limit = 20;
 
+  // --- Create User Modal State ---
   const [createOpen, setCreateOpen] = useState(false);
-  const [newForm, setNewForm] = useState({
-    accountCode: "",
+  const [isCreating, setIsCreating] = useState(false);
+  const [newForm, setNewForm] = useState<{
+    fullName: string;
+    email: string;
+    phone: string;
+    userType: "STAFF" | "STUDENT" | "PARENT";
+    channel: "DIRECT_LINK" | "EMAIL" | "SMS";
+  }>({
     fullName: "",
-    contactChannel: "",
+    email: "",
+    phone: "",
+    userType: "STUDENT",
+    channel: "EMAIL",
   });
 
+  // --- Bulk Excel Import Modal State ---
   const [importOpen, setImportOpen] = useState(false);
   const [importStep, setImportStep] = useState<1 | 2 | 3>(1);
-  const [previewRows, setPreviewRows] = useState<ImportPreviewRow[]>([]);
-  const [importedCount, setImportedCount] = useState(0);
+  const [parsedRows, setParsedRows] = useState<
+    Array<{
+      rowNumber: number;
+      fullName: string;
+      email?: string;
+      phone?: string;
+      username?: string;
+      userType?: "STUDENT" | "PARENT";
+      notes?: string;
+    }>
+  >([]);
+  const [previewResult, setPreviewResult] = useState<UserImportPreviewResponse | null>(null);
+  const [confirmResult, setConfirmResult] = useState<UserImportConfirmResultDto | null>(null);
+  const [isImportLoading, setIsImportLoading] = useState(false);
 
-  const [toast, setToast] = useState({ open: false, message: "" });
+  // --- Refresh State Trigger ---
+  const [refreshKey, setRefreshKey] = useState(0);
+  const reloadUsers = () => setRefreshKey((k) => k + 1);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return users.filter((u) => {
-      if (statusFilter !== "ALL" && u.passwordStatus !== statusFilter) return false;
-      if (!q) return true;
-      return (
-        u.accountCode.toLowerCase().includes(q) ||
-        u.fullName.toLowerCase().includes(q) ||
-        u.contactChannel.toLowerCase().includes(q)
-      );
-    });
-  }, [users, query, statusFilter]);
+  // --- Toast State ---
+  const [toast, setToast] = useState<{ open: boolean; message: string; type?: "info" | "success" | "error" }>({
+    open: false,
+    message: "",
+  });
 
-  const handleCreateUser = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newForm.fullName.trim() || !newForm.accountCode.trim()) return;
-    const code = newForm.accountCode.trim().toUpperCase();
-    const created: AdminParticipantUser = {
-      id: `usr-${Date.now()}`,
-      accountCode: code,
-      fullName: newForm.fullName.trim(),
-      contactChannel: newForm.contactChannel.trim() || "Chưa gắn liên hệ",
-      role: "participant",
-      eventBatch: "Open Day 24/05/2026",
-      passwordStatus: "must_change",
-      checkedIn: false,
-      ticketCode: `QTSC-${code}`,
+  // --- Load Users from Backend ---
+  useEffect(() => {
+    let mounted = true;
+
+    const filterParams: AdminUsersFilterQuery = {
+      page,
+      limit,
+      q: query.trim() || undefined,
+      userType: userTypeFilter === "ALL" ? undefined : (userTypeFilter as "ADMIN" | "STAFF" | "STUDENT" | "PARENT"),
+      accountStatus: statusFilter === "ALL" ? undefined : (statusFilter as "ACTIVE" | "LOCKED" | "SUSPENDED" | "ARCHIVED"),
     };
-    setUsers((prev) => [created, ...prev]);
-    setCreateOpen(false);
-    setNewForm({ accountCode: "", fullName: "", contactChannel: "" });
-    setToast({
-      open: true,
-      message: `Đã thêm bản ghi Preview ${created.accountCode} ở trạng thái chờ kích hoạt.`,
-    });
-  };
 
-  const handleToggleLock = (userId: string) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === userId
-          ? {
-              ...u,
-              passwordStatus: u.passwordStatus === "locked" ? "must_change" : "locked",
-            }
-          : u
-      )
-    );
-    setToast({ open: true, message: "Đã cập nhật trạng thái truy cập tài khoản." });
-  };
+    fetchAdminUsers(filterParams)
+      .then((response) => {
+        if (mounted) {
+          setUsers(response.items);
+          setTotalCount(response.total);
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setToast({
+            open: true,
+            message: "Không thể kết nối máy chủ quản trị người dùng. Đang hiển thị bộ đệm cục bộ.",
+            type: "error",
+          });
+        }
+      })
+      .finally(() => {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      });
 
-  const handleCopyInvitationNotice = async (user: AdminParticipantUser) => {
-    const msg = `[FPT Polytechnic QTSC] Thư mời Open Day (${OFFICIAL_CAMPUS_INFO.openDayDateLabel}): Dành cho ${user.fullName} (${user.accountCode}). Liên kết kích hoạt một lần sẽ được gửi qua Email/SMS khi hệ thống Backend Auth vận hành.`;
+    return () => {
+      mounted = false;
+    };
+  }, [page, query, userTypeFilter, statusFilter, refreshKey]);
+
+  // --- Handle Quick Status Toggle (Lock / Unlock) ---
+  const handleToggleLock = useCallback(async (user: AdminUserListItemDto) => {
+    const isLocked = user.accountStatus === "LOCKED";
     try {
-      if (typeof navigator !== "undefined" && navigator.clipboard) {
-        await navigator.clipboard.writeText(msg);
-      }
+      await updateAdminUserStatus(user.id, {
+        accountStatus: isLocked ? "ACTIVE" : "LOCKED",
+      });
       setToast({
         open: true,
-        message: `Đã sao chép mẫu thông báo mời cho ${user.accountCode} (UI Preview).`,
+        message: isLocked ? `Đã mở khóa tài khoản ${user.username || user.fullName}` : `Đã khóa tài khoản ${user.username || user.fullName}`,
+        type: "success",
       });
-    } catch {
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
       setToast({
         open: true,
-        message: `Sẵn sàng tin nhắn hướng dẫn cho ${user.accountCode}.`,
+        message: `Lỗi thao tác: ${err instanceof Error ? err.message : "Thất bại"}`,
+        type: "error",
       });
+    }
+  }, []);
+
+  // --- Handle Resend Invitation ---
+  const handleResendInvite = useCallback(async (user: AdminUserListItemDto) => {
+    try {
+      const res = await resendAdminInvitation(user.id);
+      setToast({
+        open: true,
+        message: `Đã tạo lại thư mời (${res.channel}). Trạng thái: ${res.status}`,
+        type: "success",
+      });
+    } catch (err) {
+      setToast({
+        open: true,
+        message: `Lỗi gửi thư mời: ${err instanceof Error ? err.message : "Thất bại"}`,
+        type: "error",
+      });
+    }
+  }, []);
+
+  // --- Handle Create Single User ---
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newForm.fullName.trim()) return;
+
+    setIsCreating(true);
+    try {
+      await createAdminUser({
+        fullName: newForm.fullName.trim(),
+        email: newForm.email.trim() || undefined,
+        phone: newForm.phone.trim() || undefined,
+        userType: newForm.userType,
+        provisioningMethod: "EMAIL_SMS_INVITATION",
+        channel: newForm.channel,
+      });
+
+      setToast({
+        open: true,
+        message: `Tạo tài khoản thành công cho ${newForm.fullName}!`,
+        type: "success",
+      });
+      setCreateOpen(false);
+      setNewForm({ fullName: "", email: "", phone: "", userType: "STUDENT", channel: "EMAIL" });
+      reloadUsers();
+    } catch (err) {
+      setToast({
+        open: true,
+        message: `Lỗi tạo tài khoản: ${err instanceof Error ? err.message : "Thất bại"}`,
+        type: "error",
+      });
+    } finally {
+      setIsCreating(false);
     }
   };
 
-  const parseCsvFiles = async (files: FileList | File[]) => {
-    const file = files[0];
-    if (!file) return;
+  // --- Excel Bulk Import Handlers ---
+  const handleDownloadTemplate = async () => {
     try {
-      const text = await file.text();
-      const lines = text
-        .split(/\r?\n/)
-        .map((l) => l.trim())
-        .filter(Boolean);
-      const parsed: ImportPreviewRow[] = lines.slice(0, 20).map((line, i) => {
-        const [rawCode = "", rawName = "", rawContact = ""] = line
-          .split(",")
-          .map((c) => c.trim());
-        const code = rawCode.toUpperCase();
-        const duplicate = users.some((u) => u.accountCode === code);
-        const valid = Boolean(code && rawName && !duplicate);
-        return {
-          line: i + 1,
-          accountCode: code || `THIẾU-MÃ-${i + 1}`,
-          fullName: rawName || "Chưa có họ tên",
-          contactChannel: rawContact || "Email / SMS",
-          valid,
-          note: duplicate
-            ? "Trùng mã tài khoản"
-            : valid
-            ? "Hợp lệ"
-            : "Thiếu mã hoặc họ tên",
-        };
-      });
-      setPreviewRows(parsed);
+      await downloadUserImportTemplate();
+      setToast({ open: true, message: "Đã tải file mẫu Mau_Import_Tai_Khoan_FPT_Poly.xlsx thành công!", type: "success" });
+    } catch (err) {
+      setToast({ open: true, message: `Lỗi tải file mẫu: ${err instanceof Error ? err.message : "Thất bại"}`, type: "error" });
+    }
+  };
+
+  const handleSelectFiles = async (files: FileList | File[]) => {
+    const fileList = Array.from(files);
+    if (fileList.length === 0) return;
+    const file = fileList[0];
+    setIsImportLoading(true);
+
+    try {
+      const rows = await parseExcelFile(file);
+      setParsedRows(rows);
+
+      // Call API preview
+      const preview = await previewUserImport(rows, "STUDENT");
+      setPreviewResult(preview);
       setImportStep(2);
-    } catch {
-      setPreviewRows([]);
+    } catch (err) {
       setToast({
         open: true,
-        message: "Không thể đọc tệp CSV. Vui lòng kiểm tra định dạng UTF-8.",
+        message: `Lỗi đọc file Excel: ${err instanceof Error ? err.message : "File không hợp lệ"}`,
+        type: "error",
       });
+    } finally {
+      setIsImportLoading(false);
     }
   };
 
-  const commitImport = () => {
-    const validRows = previewRows.filter((r) => r.valid);
-    const additions: AdminParticipantUser[] = validRows.map((row) => ({
-      id: `usr-${Date.now()}-${row.line}`,
-      accountCode: row.accountCode,
-      fullName: row.fullName,
-      contactChannel: row.contactChannel,
-      role: "participant",
-      eventBatch: "Open Day 24/05/2026",
-      passwordStatus: "must_change",
-      checkedIn: false,
-      ticketCode: `QTSC-${row.accountCode}`,
-    }));
-    setUsers((prev) => [...additions, ...prev]);
-    setImportedCount(additions.length);
-    setImportStep(3);
+  const handleConfirmImport = async () => {
+    if (!previewResult || parsedRows.length === 0) return;
+    setIsImportLoading(true);
+
+    try {
+      const result = await confirmUserImport({
+        defaultUserType: "STUDENT",
+        provisioningMethod: "EMAIL_SMS_INVITATION",
+        channel: "EMAIL",
+        eventKey: "IMPORT_ADMIN_EXCEL",
+        rows: parsedRows.map((r) => ({
+          rowNumber: r.rowNumber,
+          fullName: r.fullName,
+          email: r.email,
+          phone: r.phone,
+          userType: r.userType,
+        })),
+      });
+
+      setConfirmResult(result);
+      setImportStep(3);
+      reloadUsers();
+    } catch (err) {
+      setToast({
+        open: true,
+        message: `Lỗi nhập dữ liệu: ${err instanceof Error ? err.message : "Không thể hoàn tất"}`,
+        type: "error",
+      });
+    } finally {
+      setIsImportLoading(false);
+    }
   };
 
-  const columns: DataTableColumn<AdminParticipantUser>[] = [
-    {
-      key: "code",
-      header: "Mã tài khoản",
-      render: (row) => (
-        <div className="space-y-0.5">
-          <p className="font-mono text-xs font-bold text-on-surface">{row.accountCode}</p>
-          <p className="text-[11px] text-secondary">
-            {row.role === "admin"
-              ? "Quản trị viên"
-              : row.role === "operator"
-              ? "Điều phối viên"
-              : "Khách mời"}
-          </p>
-        </div>
-      ),
-    },
-    {
-      key: "name",
-      header: "Họ tên & Kênh gửi",
-      render: (row) => (
-        <div className="space-y-0.5">
-          <p className="text-sm font-bold text-on-surface">{row.fullName}</p>
-          <p className="text-xs text-secondary">{row.contactChannel}</p>
-        </div>
-      ),
-    },
-    {
-      key: "status",
-      header: "Trạng thái kích hoạt",
-      render: (row) => {
-        if (row.passwordStatus === "locked") {
-          return <Badge variant="error">Đang khóa</Badge>;
-        }
-        if (row.passwordStatus === "must_change") {
-          return <Badge variant="warning">Chờ đổi lần đầu</Badge>;
-        }
-        return <Badge variant="success">Đã kích hoạt</Badge>;
-      },
-    },
-    {
-      key: "actions",
-      header: "Thao tác điều phối",
-      align: "right",
-      render: (row) =>
-        row.role === "admin" ? (
-          <div className="flex justify-end">
-            <Badge variant="info">Tài khoản gốc</Badge>
+  const handleDownloadErrors = () => {
+    if (!previewResult) return;
+    const failedRows = previewResult.rows
+      .filter((r) => r.status === "INVALID" || r.status === "SKIPPED")
+      .map((r) => ({
+        rowNumber: r.rowNumber,
+        fullName: r.fullName,
+        email: r.normalizedEmail,
+        phone: r.normalizedPhone,
+        errorCode: r.errorCode,
+        note: r.note,
+      }));
+
+    downloadErrorReportExcel(failedRows);
+    setToast({ open: true, message: "Đã tải báo cáo lỗi Excel thành công!", type: "success" });
+  };
+
+  const resetImport = () => {
+    setImportOpen(false);
+    setImportStep(1);
+    setParsedRows([]);
+    setPreviewResult(null);
+    setConfirmResult(null);
+  };
+
+  // --- Table Columns ---
+  const columns: DataTableColumn<AdminUserListItemDto>[] = useMemo(
+    () => [
+      {
+        key: "user",
+        header: "Người dùng / Tài khoản",
+        render: (row) => (
+          <div className="flex flex-col">
+            <span className="font-bold text-on-surface text-sm">{row.fullName}</span>
+            <span className="text-xs text-secondary font-mono">{row.username || "Chưa có mã"}</span>
+            <span className="text-xs text-secondary-light/80">{row.email || row.phone || "Chưa có liên hệ"}</span>
           </div>
-        ) : (
+        ),
+      },
+      {
+        key: "userType",
+        header: "Vai trò",
+        render: (row) => {
+          const roleLabels: Record<string, { label: string; variant: BadgeVariant }> = {
+            ADMIN: { label: "Quản trị viên", variant: "primary" },
+            STAFF: { label: "Cán bộ / GV", variant: "secondary" },
+            STUDENT: { label: "Sinh viên", variant: "neutral" },
+            PARENT: { label: "Phụ huynh", variant: "warning" },
+          };
+          const meta = roleLabels[row.userType] || { label: row.userType, variant: "neutral" };
+          return <Badge variant={meta.variant}>{meta.label}</Badge>;
+        },
+      },
+      {
+        key: "status",
+        header: "Trạng thái tài khoản",
+        render: (row) => {
+          const isLocked = row.accountStatus === "LOCKED";
+          const isPending = row.activationStatus === "PENDING_ACTIVATION" || row.activationStatus === "INVITATION_SENT";
+          return (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Badge variant={isLocked ? "error" : "success"}>
+                {isLocked ? "Đã khóa" : "Hoạt động"}
+              </Badge>
+              {isPending && <Badge variant="warning">Chờ kích hoạt</Badge>}
+            </div>
+          );
+        },
+      },
+      {
+        key: "activity",
+        header: "Hoạt động gần nhất",
+        render: (row) => (
+          <span className="text-xs text-secondary">
+            {row.lastLoginAt ? new Date(row.lastLoginAt).toLocaleString("vi-VN") : "Chưa đăng nhập"}
+          </span>
+        ),
+      },
+      {
+        key: "actions",
+        header: "Thao tác",
+        align: "right",
+        render: (row) => (
           <div className="flex items-center justify-end gap-1.5">
+            {(row.activationStatus === "PENDING_ACTIVATION" || row.activationStatus === "INVITATION_SENT") && (
+              <Button
+                variant="ghost"
+                size="sm"
+                icon="forward_to_inbox"
+                onClick={() => handleResendInvite(row)}
+                title="Gửi lại thư mời"
+              >
+                Gửi lại
+              </Button>
+            )}
             <Button
-              variant="ghost"
+              variant={row.accountStatus === "LOCKED" ? "primary" : "outline"}
               size="sm"
-              icon="content_copy"
-              onClick={() => handleCopyInvitationNotice(row)}
+              icon={row.accountStatus === "LOCKED" ? "lock_open" : "lock"}
+              onClick={() => handleToggleLock(row)}
             >
-              Copy lời mời
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              icon={row.passwordStatus === "locked" ? "lock_open" : "lock"}
-              onClick={() => handleToggleLock(row.id)}
-            >
-              {row.passwordStatus === "locked" ? "Mở khóa" : "Khóa"}
+              {row.accountStatus === "LOCKED" ? "Mở khóa" : "Khóa"}
             </Button>
           </div>
         ),
-    },
-  ];
+      },
+    ],
+    [handleToggleLock, handleResendInvite],
+  );
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="space-y-6">
+      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="type-h1 text-on-surface">Tài khoản Tham dự &amp; Import Danh sách (Preview)</h1>
-          <p className="type-body-sm text-secondary mt-1">
-            Giao diện Preview quản lý tài khoản mời Open Day (kích hoạt trực tiếp hoặc qua Email/SMS ở Phase 3; chỉ lưu dữ liệu trích xuất, không lưu file Excel gốc).
+          <h1 className="text-2xl font-bold text-on-surface">Quản lý Người dùng &amp; Tài khoản</h1>
+          <p className="text-sm text-secondary mt-1">
+            Tổng cộng: <strong className="text-primary">{totalCount}</strong> tài khoản trong hệ thống CSDL Virtual Campus.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex items-center gap-2.5">
           <Button
             variant="outline"
-            size="md"
+            icon="file_download"
+            onClick={handleDownloadTemplate}
+          >
+            File mẫu Excel
+          </Button>
+          <Button
+            variant="outline"
             icon="upload_file"
             onClick={() => {
               setImportStep(1);
-              setPreviewRows([]);
               setImportOpen(true);
             }}
           >
-            Import danh sách CSV
+            Nhập Excel (.xlsx)
           </Button>
           <Button
             variant="primary"
-            size="md"
             icon="person_add"
             onClick={() => setCreateOpen(true)}
           >
-            Cấp tài khoản lẻ
+            Tạo tài khoản
           </Button>
         </div>
       </div>
 
+      {/* Filter Bar */}
+      <div className="bg-surface-container-lowest p-4 rounded-2xl border border-surface-container flex flex-col md:flex-row items-center gap-3">
+        <div className="flex-1 w-full">
+          <SearchInput
+            placeholder="Tìm theo họ tên, username, email hoặc SĐT..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+
+        <div className="flex items-center gap-2.5 w-full md:w-auto">
+          <Select
+            label=""
+            value={userTypeFilter}
+            onChange={(e) => setUserTypeFilter(e.target.value)}
+          >
+            <option value="ALL">Tất cả vai trò</option>
+            <option value="STUDENT">Sinh viên</option>
+            <option value="STAFF">Cán bộ / GV</option>
+            <option value="ADMIN">Quản trị viên</option>
+            <option value="PARENT">Phụ huynh</option>
+          </Select>
+
+          <Select
+            label=""
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="ALL">Tất cả trạng thái</option>
+            <option value="ACTIVE">Đang hoạt động</option>
+            <option value="LOCKED">Đã khóa</option>
+            <option value="SUSPENDED">Tạm đình chỉ</option>
+          </Select>
+        </div>
+      </div>
+
+      {/* Main Data Table */}
       <DataTable
         columns={columns}
-        data={filtered}
-        rowKey={(r) => r.id}
-        toolbar={
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <SearchInput
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onClear={() => setQuery("")}
-              placeholder="Tìm mã tài khoản, họ tên hoặc Email / SĐT..."
-              containerClassName="w-full sm:max-w-sm"
-            />
-
-            <Select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              aria-label="Lọc trạng thái kích hoạt"
-              containerClassName="w-full sm:w-56"
-            >
-              <option value="ALL">Tất cả trạng thái</option>
-              <option value="must_change">Chờ kích hoạt</option>
-              <option value="updated">Đã kích hoạt</option>
-              <option value="locked">Đang tạm khóa</option>
-            </Select>
-          </div>
-        }
+        data={users}
+        rowKey={(row) => row.id}
+        loading={isLoading}
+        emptyTitle="Không tìm thấy người dùng"
+        emptyDescription="Không có tài khoản nào phù hợp với bộ lọc hiện tại."
       />
 
-      {/* Create Single Account Modal */}
+      {/* Pagination Controls */}
+      {totalCount > limit && (
+        <div className="flex items-center justify-between text-sm text-secondary px-2">
+          <span>
+            Hiển thị trang {page} / {Math.ceil(totalCount / limit)}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Trang trước
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= Math.ceil(totalCount / limit)}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Trang sau
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Create User Modal */}
       <Modal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="Cấp tài khoản mời Open Day"
-        size="sm"
+        title="Tạo tài khoản người dùng mới"
       >
-        <form onSubmit={handleCreateUser} className="space-y-4">
+        <form onSubmit={handleCreateUser} className="space-y-4 pt-2">
           <Input
-            label="Mã tài khoản"
-            placeholder="VD: NV-QTSC-02"
-            value={newForm.accountCode}
-            onChange={(e) => setNewForm((f) => ({ ...f, accountCode: e.target.value }))}
+            id="create-fullname"
+            label="Họ và tên"
+            placeholder="Ví dụ: Nguyễn Văn An"
             required
-          />
-          <Input
-            label="Họ và tên khách mời"
-            placeholder="Nhập họ tên"
             value={newForm.fullName}
-            onChange={(e) => setNewForm((f) => ({ ...f, fullName: e.target.value }))}
-            required
+            onChange={(e) => setNewForm({ ...newForm, fullName: e.target.value })}
           />
+
           <Input
-            label="Kênh liên hệ (Email / SMS)"
-            placeholder="VD: email@fpt.edu.vn hoặc 09xx xxx xxx"
-            value={newForm.contactChannel}
-            onChange={(e) => setNewForm((f) => ({ ...f, contactChannel: e.target.value }))}
+            id="create-email"
+            label="Địa chỉ Email"
+            type="email"
+            placeholder="an.nv@fpt.edu.vn"
+            value={newForm.email}
+            onChange={(e) => setNewForm({ ...newForm, email: e.target.value })}
           />
-          <div className="pt-2 flex justify-end gap-2">
-            <Button type="button" variant="outline" size="md" onClick={() => setCreateOpen(false)}>
+
+          <Input
+            id="create-phone"
+            label="Số điện thoại"
+            placeholder="0912345678"
+            value={newForm.phone}
+            onChange={(e) => setNewForm({ ...newForm, phone: e.target.value })}
+          />
+
+          <div className="grid grid-cols-2 gap-3">
+            <Select
+              label="Vai trò"
+              value={newForm.userType}
+              onChange={(e) =>
+                setNewForm({
+                  ...newForm,
+                  userType: e.target.value as "STAFF" | "STUDENT" | "PARENT",
+                })
+              }
+            >
+              <option value="STUDENT">Sinh viên</option>
+              <option value="STAFF">Cán bộ / GV</option>
+              <option value="PARENT">Phụ huynh</option>
+            </Select>
+
+            <Select
+              label="Kênh gửi thư mời"
+              value={newForm.channel}
+              onChange={(e) =>
+                setNewForm({
+                  ...newForm,
+                  channel: e.target.value as "DIRECT_LINK" | "EMAIL" | "SMS",
+                })
+              }
+            >
+              <option value="EMAIL">Email kích hoạt</option>
+              <option value="SMS">Tin nhắn SMS</option>
+              <option value="DIRECT_LINK">Tạo link trực tiếp</option>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-end gap-2.5 pt-3">
+            <Button variant="ghost" type="button" onClick={() => setCreateOpen(false)}>
               Hủy
             </Button>
-            <Button type="submit" variant="primary" size="md" icon="check">
-              Tạo tài khoản
+            <Button variant="primary" type="submit" loading={isCreating}>
+              Lưu tài khoản
             </Button>
           </div>
         </form>
       </Modal>
 
-      {/* 3-Step CSV Import Wizard Modal */}
+      {/* Bulk Excel Import Modal */}
       <Modal
         open={importOpen}
-        onClose={() => setImportOpen(false)}
-        title={`Import danh sách Open Day (Bước ${importStep}/3)`}
-        description="Tải file CSV cột: Mã tài khoản, Họ tên, SĐT/Email."
-        size="lg"
+        onClose={resetImport}
+        title="Nhập danh sách người dùng từ Excel (.xlsx)"
       >
-        {importStep === 1 && (
-          <div className="space-y-4">
-            <FileDropzone
-              label="Chọn tệp danh sách khách mời (.csv)"
-              accept=".csv,text/csv"
-              helperText="Mỗi dòng gồm: accountCode, fullName, contactChannel"
-              onFilesSelected={parseCsvFiles}
-            />
-          </div>
-        )}
-
-        {importStep === 2 && (
-          <div className="space-y-4">
-            <div className="max-h-64 overflow-y-auto border border-surface-container rounded-xl">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-surface-container-low border-b border-surface-container">
-                    <th className="p-2.5 font-semibold">Dòng</th>
-                    <th className="p-2.5 font-semibold">Mã TK</th>
-                    <th className="p-2.5 font-semibold">Họ tên</th>
-                    <th className="p-2.5 font-semibold">Kiểm tra</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-surface-container">
-                  {previewRows.map((row) => (
-                    <tr key={row.line}>
-                      <td className="p-2.5 font-mono">{row.line}</td>
-                      <td className="p-2.5 font-mono font-bold">{row.accountCode}</td>
-                      <td className="p-2.5">{row.fullName}</td>
-                      <td className="p-2.5">
-                        <Badge variant={row.valid ? "success" : "error"}>
-                          {row.note}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex justify-between items-center gap-3">
-              <Button variant="outline" size="md" onClick={() => setImportStep(1)}>
-                Quay lại
-              </Button>
-              <Button
-                variant="primary"
-                size="md"
-                icon="done_all"
-                onClick={commitImport}
-                disabled={previewRows.filter((r) => r.valid).length === 0}
-              >
-                Nhập {previewRows.filter((r) => r.valid).length} dòng hợp lệ
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {importStep === 3 && (
-          <div className="space-y-4 text-center py-4">
-            <div className="w-12 h-12 rounded-xl bg-success-container text-on-success-container mx-auto flex items-center justify-center">
-              <span aria-hidden="true" className="material-symbols-outlined text-[24px]">
-                check_circle
-              </span>
-            </div>
-            <div className="space-y-1">
-              <h3 className="type-h3 text-on-surface">
-                Đã thêm {importedCount} bản ghi Preview vào danh sách
-              </h3>
-              <p className="type-body-sm text-secondary">
-                Dữ liệu trích xuất hiển thị ở trạng thái chờ kích hoạt (chỉ phục vụ Preview giao diện, chưa lưu Excel hay kết nối Backend).
+        <div className="space-y-4 pt-2">
+          {/* Step 1: Upload */}
+          {importStep === 1 && (
+            <div className="space-y-4">
+              <p className="text-sm text-secondary">
+                Tải lên tệp Excel chứa danh sách người dùng theo đúng cấu trúc mẫu.
               </p>
+              <FileDropzone
+                accept=".xlsx, .xls"
+                multiple={false}
+                onFilesSelected={handleSelectFiles}
+                label="Kéo thả file .xlsx vào đây hoặc bấm để chọn"
+              />
+              <div className="flex items-center justify-between text-xs text-secondary pt-2">
+                <span>Chưa có mẫu chuẩn?</span>
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  className="text-primary font-bold hover:underline inline-flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-[16px]">download</span>
+                  Tải file mẫu Excel (.xlsx)
+                </button>
+              </div>
             </div>
-            <Button variant="primary" size="md" onClick={() => setImportOpen(false)}>
-              Hoàn tất
-            </Button>
-          </div>
-        )}
+          )}
+
+          {/* Step 2: Preview & Validation */}
+          {importStep === 2 && previewResult && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-3 p-3 rounded-xl bg-surface-container-low border border-surface-container text-center">
+                <div>
+                  <div className="text-xs text-secondary">Tổng số dòng</div>
+                  <div className="text-lg font-bold text-on-surface">{previewResult.totalRows}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-success">Hợp lệ (Thêm mới)</div>
+                  <div className="text-lg font-bold text-success">{previewResult.validCount}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-warning">Trùng / Bỏ qua</div>
+                  <div className="text-lg font-bold text-warning">{previewResult.duplicateUpdateCount + previewResult.skippedCount}</div>
+                </div>
+              </div>
+
+              <div className="max-h-60 overflow-y-auto border border-surface-container rounded-xl divide-y divide-surface-container text-xs">
+                {previewResult.rows.map((row: UserImportPreviewRowDto) => (
+                  <div key={row.rowNumber} className="p-2.5 flex items-center justify-between gap-2">
+                    <div>
+                      <span className="font-bold text-on-surface">Dòng {row.rowNumber}: {row.fullName}</span>
+                      <span className="text-secondary ml-2">({row.normalizedEmail || row.normalizedPhone || "Không có liên hệ"})</span>
+                    </div>
+                    <Badge variant={row.status === "VALID" ? "success" : row.status === "DUPLICATE_UPDATE" ? "warning" : "error"}>
+                      {row.status === "VALID" ? "Hợp lệ" : row.status === "DUPLICATE_UPDATE" ? "Trùng SĐT/Email" : "Lỗi dữ liệu"}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <Button variant="ghost" onClick={resetImport} disabled={isImportLoading}>
+                  Hủy
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleConfirmImport}
+                  loading={isImportLoading}
+                  disabled={previewResult.validCount === 0 && previewResult.duplicateUpdateCount === 0}
+                >
+                  Xác nhận nhập ({previewResult.validCount + previewResult.duplicateUpdateCount} tài khoản)
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Result Summary */}
+          {importStep === 3 && confirmResult && (
+            <div className="space-y-4 text-center py-2">
+              <span className="material-symbols-outlined text-success text-5xl">check_circle</span>
+              <h3 className="text-lg font-bold text-on-surface">Nhập dữ liệu thành công!</h3>
+              <p className="text-sm text-secondary">
+                Đã xử lý <strong>{confirmResult.totalRows}</strong> dòng: thành công <strong>{confirmResult.successCount}</strong> tài khoản.
+              </p>
+
+              {confirmResult.failedCount > 0 && (
+                <div className="pt-2">
+                  <p className="text-xs text-error mb-2">
+                    Có {confirmResult.failedCount} dòng bị lỗi định dạng hoặc trùng lặp bị bỏ qua.
+                  </p>
+                  <Button variant="outline" size="sm" icon="download" onClick={handleDownloadErrors}>
+                    Tải file báo cáo lỗi Excel (.xlsx)
+                  </Button>
+                </div>
+              )}
+
+              <div className="pt-4 flex justify-center">
+                <Button variant="primary" onClick={resetImport}>
+                  Đóng &amp; Làm mới danh sách
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </Modal>
 
+      {/* Global Status Toast */}
       <StatusToast
         open={toast.open}
-        type="success"
         message={toast.message}
-        onClose={() => setToast((t) => ({ ...t, open: false }))}
+        onClose={() => setToast({ ...toast, open: false })}
       />
     </div>
   );

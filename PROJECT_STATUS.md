@@ -1,15 +1,28 @@
 # PROJECT_STATUS — FPT Polytechnic Virtual Campus 360°
 
 > [!IMPORTANT]
-> **Nguồn sự thật hiện hành (Đã đối soát hậu nghiệm thu Phase 2A-2 tại commit `ff13f14`, cập nhật `2026-11-12` — Phase 2A-3 Milestone `M0`):**
-> - **Branch & Authoritative HEAD:** `main` @ `ff13f14372a92738ee472a2577ceba50225b5021` (`ff13f14`)
-> - **Phase 2A-1 (`Database Bootstrap`):** **ACCEPTED** ([`PHASE_2A_1_FINAL_ACCEPTANCE_REPORT.md`](docs/project-audit/PHASE_2A_1_FINAL_ACCEPTANCE_REPORT.md), commit `7e1753d`)
-> - **Phase 2A-2 (`Core Backend & Auth/Public Read`):** **ACCEPTED & MERGED** ([`PHASE_2A_2_FINAL_QUIZ_SECURITY_REMEDIATION_REPORT.md`](docs/project-audit/PHASE_2A_2_FINAL_QUIZ_SECURITY_REMEDIATION_REPORT.md), commit `ff13f14`)
-> - **Phase 2A-3 (`Business Backend APIs — Backend First`):** **Discovery COMPLETED**, 8 quyết định `D-2A3-01` → `D-2A3-08` đạt trạng thái **`OWNER APPROVED`**; đang thực thi **Milestone 0 (`M0`: Baseline Reconciliation & Formal Documentation)** — **CHƯA bắt đầu triển khai code `M1–M7`**.
+> **Nguồn sự thật đương đại (Đã kiểm toán & nghiệm thu M4 tại commit `935d27b`, cập nhật `2026-11-14` — Sẵn sàng Redesign Toàn diện UI/UX):**
+> - **Branch & Authoritative HEAD:** `fix/m4-acceptance-blockers` @ `935d27b`
+> - **Bộ Kiểm toán Redesign Toàn diện:** Đầy đủ 19 tài liệu báo cáo tại [`docs/project-redesign-audit/`](docs/project-redesign-audit/00-executive-summary.md) kèm 50 ảnh chụp giao diện thực tế tại [`docs/project-redesign-audit/screenshots/`](docs/project-redesign-audit/screenshots/).
+> - **Chất lượng kiểm chứng:** 100% Typecheck pass (0 lỗi), 41/41 Unit tests pass (10 Web, 31 Backend), Turbopack build 29/29 routes pass.
+> - **Milestones Đã Nghiệm Thu Đầy Đủ:** Phase 2A-1, 2A-2, 2A-3, Phase 2B, M1, M2, M3A, M3B, M3C, M3D, M4 (Đã siết chặt IDOR phân quyền Phụ huynh - Học sinh & sổ cái XP 120).
+> - **Trạng thái:** **READY FOR REDESIGN** (Sẵn sàng 100% triển khai tạo ảnh UI và code giao diện mới, bảo toàn nguyên vẹn 32 Prisma Models, 19 Enums và 10 NestJS Modules).
 
 ---
 
-## 1. Trạng thái Hiện hành Chính thức (Reconciled Status @ `main / ff13f14`)
+## 1A. Hiện Trạng Đương Đại Chi Tiết (Cập nhật 2026-11-14)
+
+| Lĩnh vực | Trạng thái Thực tế | Chi tiết Kiểm chứng Kỹ thuật |
+|---|---|---|
+| **Cơ sở dữ liệu (Prisma + PostgreSQL 16)** | **ACCEPTED (S6 - Production Ready)** | 32 Models, 19 Enums, quản lý qua migrations. Seed dữ liệu mẫu chuẩn, idempotent. |
+| **Backend Core & Business API (`apps/api`)** | **ACCEPTED (S6 - Production Ready)** | 10 NestJS Modules: `auth`, `users-rbac`, `public`, `open-day`, `gamification`, `portal`, `media`, `storage`, `audit-log`, `health`. Chuẩn Envelope RESTful `/api/v1`. |
+| **Bảo mật & Phân quyền (Auth & RBAC)** | **ACCEPTED (S6 - Production Ready)** | Băm Argon2id, JWT in-memory + Cookie HttpOnly rotation, RBAC 6 vai trò, chống IDOR tuyệt đối trên Server-Side. |
+| **Giao diện Web (`apps/web`)** | **READY FOR REDESIGN** | 27 unique route templates (25 trang chức năng + 2 hệ thống). Đã chụp 50 ảnh screenshot đối soát. Chuẩn bị bước vào 10 Pha Redesign. |
+| **Bộ kiểm thử tự động (Unit & E2E)** | **VERIFIED (41/41 Unit, 6/6 E2E)** | 10 unit test web (Node test runner), 31 unit test backend (Jest in-band), Playwright E2E suite kiểm tra luồng thực tế. |
+
+---
+
+## 1. Trạng thái Lịch sử Mốc Phase 2A-3 (`ff13f14`)
 
 - **Cơ sở mục tiêu:** Trường Cao đẳng FPT Polytechnic TP.HCM — Công viên Phần mềm Quang Trung (QTSC), Quận 12.
 - **Tài liệu chuẩn hóa Phase 2A-3 (`M0`):**

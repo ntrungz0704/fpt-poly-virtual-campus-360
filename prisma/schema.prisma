@@ -23,6 +23,19 @@ enum PublishStatus {
   ARCHIVED
 }
 
+enum QuestionDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum QuestionReviewStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  REJECTED
+}
+
 enum ProcessingStatus {
   PENDING
   PROCESSING
@@ -349,6 +362,7 @@ model MediaAsset {
   panoramaTourNodes TourNode[]      @relation("TourNodePanoramaAsset")
   locationMedia     LocationMedia[]
   uploadTokens      UploadToken[]
+  newsArticles      NewsArticle[]   @relation("NewsArticleCoverMedia")
 
   @@index([sha256Checksum], map: "idx_media_sha256")
   @@map("media_assets")
@@ -496,6 +510,13 @@ model User {
   bio                     String?                      @db.VarChar(500)
   parentLinks             ParentStudentLink[]          @relation("ParentLinks")
   studentLinks            ParentStudentLink[]          @relation("StudentLinks")
+  authoredNews            NewsArticle[]                @relation("NewsArticleAuthor")
+  createdQuestions        QuestionBankItem[]           @relation("QuestionCreatedBy")
+  updatedQuestions        QuestionBankItem[]           @relation("QuestionUpdatedBy")
+  createdQuizConfigs      QuizConfiguration[]          @relation("QuizConfigCreatedBy")
+  updatedQuizConfigs      QuizConfiguration[]          @relation("QuizConfigUpdatedBy")
+  quizConfigAttempts      QuizConfigAttempt[]          @relation("UserQuizConfigAttempts")
+  quizXpClaims            QuizXpClaim[]                @relation("UserQuizXpClaims")
 
   @@map("users")
 }
@@ -667,8 +688,9 @@ model OpenDayEvent {
   sessions       OpenDaySession[]
   faqs           OpenDayFaq[]
   participations EventParticipation[]
-  quizItems      OpenDayQuizItem[]
-  quizAttempts   QuizAttempt[]
+  quizItems          OpenDayQuizItem[]
+  quizAttempts       QuizAttempt[]
+  quizConfigurations QuizConfiguration[]
 
   @@map("open_day_events")
 }
@@ -796,15 +818,16 @@ model QuizAttempt {
 }
 
 model XpLedger {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId       String?  @map("user_id") @db.Uuid
-  ticketCode   String?  @map("ticket_code") @db.VarChar(64)
-  attendeeName String   @map("attendee_name") @db.VarChar(160)
-  amountXp     Int      @map("amount_xp")
-  source       String   @db.VarChar(64)
-  referenceId  String?  @map("reference_id") @db.VarChar(128)
-  metadataJson Json?    @map("metadata_json") @db.JsonB
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
+  ticketCode     String?  @map("ticket_code") @db.VarChar(64)
+  attendeeName   String   @map("attendee_name") @db.VarChar(160)
+  amountXp       Int      @map("amount_xp")
+  source         String   @db.VarChar(64)
+  referenceId    String?  @map("reference_id") @db.VarChar(128)
+  idempotencyKey String?  @unique @map("idempotency_key") @db.VarChar(160)
+  metadataJson   Json?    @map("metadata_json") @db.JsonB
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
@@ -881,4 +904,211 @@ model ParentStudentLink {
   @@index([studentId], map: "idx_parent_student_links_student_id")
   @@map("parent_student_links")
 }
+
+model NewsArticle {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title          String        @db.VarChar(240)
+  slug           String        @unique @db.VarChar(240)
+  tag            String        @default("Tin tức chung") @db.VarChar(80)
+  excerpt        String        @db.VarChar(500)
+  content        String        @db.Text
+  contentJson    Json          @default("[]") @map("content_json") @db.JsonB
+  coverMediaId   String?       @map("cover_media_id") @db.Uuid
+  coverImageUrl  String?       @map("cover_image_url") @db.Text
+  relatedSceneId String?       @map("related_scene_id") @db.VarChar(100)
+  status         PublishStatus @default(DRAFT)
+  publishedAt    DateTime?     @map("published_at") @db.Timestamptz(6)
+  authorId       String?       @map("author_id") @db.Uuid
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?     @map("deleted_at") @db.Timestamptz(6)
+
+  coverMedia     MediaAsset?   @relation("NewsArticleCoverMedia", fields: [coverMediaId], references: [id], onDelete: SetNull)
+  author         User?         @relation("NewsArticleAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([status, deletedAt])
+  @@index([publishedAt])
+  @@map("news_articles")
+}
+
+// ============================================================================
+// Milestone M6: Question Bank Domain
+// ============================================================================
+
+model QuestionBankItem {
+  id           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questionText String               @map("question_text") @db.Text
+  optionsJson  Json                 @map("options_json") @db.JsonB
+  correctIndex Int                  @map("correct_index")
+  explanation  String?              @db.Text
+  topic        String               @default("Chung") @db.VarChar(120)
+  difficulty   QuestionDifficulty   @default(MEDIUM)
+  status       QuestionReviewStatus @default(DRAFT)
+  tags         Json                 @default("[]") @map("tags") @db.JsonB
+  createdById  String?              @map("created_by_id") @db.Uuid
+  updatedById  String?              @map("updated_by_id") @db.Uuid
+  createdAt    DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?            @map("deleted_at") @db.Timestamptz(6)
+
+  createdBy User? @relation("QuestionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("QuestionUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  quizQuestions QuizConfigQuestion[]
+
+  @@index([status], map: "idx_question_bank_status")
+  @@index([difficulty], map: "idx_question_bank_difficulty")
+  @@index([topic], map: "idx_question_bank_topic")
+  @@index([deletedAt], map: "idx_question_bank_deleted_at")
+  @@index([createdAt], map: "idx_question_bank_created_at")
+  @@map("question_bank_items")
+}
+
+// ============================================================================
+// Milestone M7.1: Quiz Configuration & Question Snapshot Domain
+// ============================================================================
+
+enum QuizConfigStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model QuizConfiguration {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title              String           @db.VarChar(200)
+  description        String?          @db.Text
+  eventId            String?          @map("event_id") @db.Uuid
+  timeLimitMinutes   Int              @default(15) @map("time_limit_minutes")
+  passingScore       Int              @default(70) @map("passing_score")
+  maxAttempts        Int              @default(3) @map("max_attempts")
+  isShuffleQuestions Boolean          @default(true) @map("is_shuffle_questions")
+  isShuffleOptions   Boolean          @default(true) @map("is_shuffle_options")
+  status             QuizConfigStatus @default(DRAFT)
+  createdById        String?          @map("created_by_id") @db.Uuid
+  updatedById        String?          @map("updated_by_id") @db.Uuid
+  publishedAt        DateTime?        @map("published_at") @db.Timestamptz(6)
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?        @map("deleted_at") @db.Timestamptz(6)
+
+  event     OpenDayEvent?        @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  createdBy User?                @relation("QuizConfigCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?                @relation("QuizConfigUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  questions QuizConfigQuestion[]
+  attempts  QuizConfigAttempt[]
+  xpClaims  QuizXpClaim[]
+
+  @@index([status], map: "idx_quiz_configs_status")
+  @@index([eventId], map: "idx_quiz_configs_event_id")
+  @@index([deletedAt], map: "idx_quiz_configs_deleted_at")
+  @@index([createdAt], map: "idx_quiz_configs_created_at")
+  @@map("quiz_configurations")
+}
+
+model QuizConfigQuestion {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quizConfigId       String             @map("quiz_config_id") @db.Uuid
+  questionBankItemId String?            @map("question_bank_item_id") @db.Uuid
+  sortOrder          Int                @default(0) @map("sort_order")
+  questionText       String             @map("question_text") @db.Text
+  optionsJson        Json               @map("options_json") @db.JsonB
+  correctIndex       Int                @map("correct_index")
+  explanation        String?            @db.Text
+  topic              String             @default("Chung") @db.VarChar(120)
+  difficulty         QuestionDifficulty @default(MEDIUM)
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  quizConfig       QuizConfiguration         @relation(fields: [quizConfigId], references: [id], onDelete: Cascade)
+  questionBankItem QuestionBankItem?         @relation(fields: [questionBankItemId], references: [id], onDelete: SetNull)
+  attemptAnswers   QuizConfigAttemptAnswer[]
+
+  @@unique([quizConfigId, questionBankItemId], map: "uq_quiz_config_question_bank_item")
+  @@index([quizConfigId, sortOrder], map: "idx_quiz_config_questions_order")
+  @@map("quiz_config_questions")
+}
+
+// ============================================================================
+// Milestone M7.3: Quiz Attempt & Real-time Delivery Engine Domain
+// ============================================================================
+
+enum QuizAttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  EXPIRED
+}
+
+model QuizConfigAttempt {
+  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String            @map("user_id") @db.Uuid
+  quizConfigId  String            @map("quiz_config_id") @db.Uuid
+  attemptNumber Int               @map("attempt_number")
+  status        QuizAttemptStatus @default(IN_PROGRESS)
+  startedAt     DateTime          @default(now()) @map("started_at") @db.Timestamptz(6)
+  expiresAt     DateTime          @map("expires_at") @db.Timestamptz(6)
+  submittedAt   DateTime?         @map("submitted_at") @db.Timestamptz(6)
+  totalQuestions Int?              @map("total_questions")
+  answeredCount  Int?              @map("answered_count")
+  correctCount   Int?              @map("correct_count")
+  scorePercent   Int?              @map("score_percent")
+  passed         Boolean?          @map("passed")
+  baseXp         Int?              @map("base_xp")
+  bonusXp        Int?              @map("bonus_xp")
+  awardedXp      Int?              @map("awarded_xp")
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user       User                      @relation("UserQuizConfigAttempts", fields: [userId], references: [id], onDelete: Cascade)
+  quizConfig QuizConfiguration         @relation(fields: [quizConfigId], references: [id], onDelete: Cascade)
+  answers    QuizConfigAttemptAnswer[]
+  xpClaims   QuizXpClaim[]
+
+  @@unique([userId, quizConfigId, attemptNumber], map: "uq_quiz_config_attempt_user_quiz_number")
+  @@index([userId], map: "idx_quiz_config_attempts_user_id")
+  @@index([quizConfigId], map: "idx_quiz_config_attempts_quiz_config_id")
+  @@index([status], map: "idx_quiz_config_attempts_status")
+  @@index([expiresAt], map: "idx_quiz_config_attempts_expires_at")
+  @@map("quiz_config_attempts")
+}
+
+model QuizConfigAttemptAnswer {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId            String             @map("attempt_id") @db.Uuid
+  quizConfigQuestionId String             @map("quiz_config_question_id") @db.Uuid
+  displayedOrder       Int                @map("displayed_order")
+  optionOrderJson      Json               @map("option_order_json") @db.JsonB
+  selectedOptionIndex  Int?               @map("selected_option_index")
+  answeredAt           DateTime?          @map("answered_at") @db.Timestamptz(6)
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  attempt            QuizConfigAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  quizConfigQuestion QuizConfigQuestion @relation(fields: [quizConfigQuestionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, quizConfigQuestionId], map: "uq_quiz_config_attempt_answer_attempt_question")
+  @@index([attemptId, displayedOrder], map: "idx_quiz_config_attempt_answers_order")
+  @@map("quiz_config_attempt_answers")
+}
+
+model QuizXpClaim {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  quizConfigId String   @map("quiz_config_id") @db.Uuid
+  attemptId    String   @map("attempt_id") @db.Uuid
+  awardedXp    Int      @default(0) @map("awarded_xp")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user       User              @relation("UserQuizXpClaims", fields: [userId], references: [id], onDelete: Cascade)
+  quizConfig QuizConfiguration @relation(fields: [quizConfigId], references: [id], onDelete: Cascade)
+  attempt    QuizConfigAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, quizConfigId], map: "uq_quiz_xp_claims_user_quiz")
+  @@index([userId], map: "idx_quiz_xp_claims_user_id")
+  @@index([attemptId], map: "idx_quiz_xp_claims_attempt_id")
+  @@map("quiz_xp_claims")
+}
+
+
+
+
 

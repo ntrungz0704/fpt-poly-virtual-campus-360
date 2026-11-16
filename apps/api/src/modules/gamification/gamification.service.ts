@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import crypto from "node:crypto";
-import { PublishStatus } from "@prisma/client";
+import { Prisma, PublishStatus } from "@prisma/client";
 import type {
   GamificationProfileDto,
   LeaderboardEntryDto,
@@ -358,17 +358,36 @@ export class GamificationService {
     userId?: string,
   ): Promise<GamificationProfileDto> {
     const rawName = attendeeName || (ticketCode ? `Khách mời ${ticketCode.slice(-4)}` : "Khách tham quan");
-    const whereConditions: any[] = [];
+    const xpWhereConditions: Prisma.XpLedgerWhereInput[] = [];
+    const spinWhereConditions: Prisma.UserSpinHistoryWhereInput[] = [];
+    const quizWhereConditions: Prisma.QuizAttemptWhereInput[] = [];
 
-    if (ticketCode) whereConditions.push({ ticketCode });
-    if (userId) whereConditions.push({ userId });
-    if (attendeeName) whereConditions.push({ attendeeName: { equals: attendeeName, mode: "insensitive" } });
+    if (ticketCode) {
+      xpWhereConditions.push({ ticketCode });
+      spinWhereConditions.push({ ticketCode });
+      quizWhereConditions.push({ ticketCode });
+    }
+    if (userId) {
+      xpWhereConditions.push({ userId });
+      spinWhereConditions.push({ userId });
+      quizWhereConditions.push({ userId });
+    }
+    if (attendeeName) {
+      xpWhereConditions.push({ attendeeName: { equals: attendeeName, mode: "insensitive" } });
+      spinWhereConditions.push({ attendeeName: { equals: attendeeName, mode: "insensitive" } });
+      quizWhereConditions.push({ attendeeName: { equals: attendeeName, mode: "insensitive" } });
+    }
 
-    const filter = whereConditions.length > 0 ? { OR: whereConditions } : { ticketCode: "NONE" };
+    const xpFilter: Prisma.XpLedgerWhereInput =
+      xpWhereConditions.length > 0 ? { OR: xpWhereConditions } : { ticketCode: "NONE" };
+    const spinFilter: Prisma.UserSpinHistoryWhereInput =
+      spinWhereConditions.length > 0 ? { OR: spinWhereConditions } : { ticketCode: "NONE" };
+    const quizFilter: Prisma.QuizAttemptWhereInput =
+      quizWhereConditions.length > 0 ? { OR: quizWhereConditions } : { ticketCode: "NONE" };
 
     // 1. Calculate Total XP from Ledger
     const xpRecords = await this.prisma.xpLedger.findMany({
-      where: filter,
+      where: xpFilter,
       orderBy: { createdAt: "desc" },
     });
 
@@ -376,12 +395,12 @@ export class GamificationService {
 
     // 2. Count Spins Used
     const spinsUsed = await this.prisma.userSpinHistory.count({
-      where: filter,
+      where: spinFilter,
     });
 
     // 3. Count Quiz Attempts
     const quizAttempts = await this.prisma.quizAttempt.findMany({
-      where: filter,
+      where: quizFilter,
     });
 
     // 4. Check Open Day Ticket Status (for bonus spins)
@@ -434,7 +453,7 @@ export class GamificationService {
     }));
 
     const recentRewardsRows = await this.prisma.userSpinHistory.findMany({
-      where: filter,
+      where: spinFilter,
       orderBy: { createdAt: "desc" },
       take: 5,
     });

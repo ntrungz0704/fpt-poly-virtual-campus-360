@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -63,6 +64,15 @@ export class CreatePresignDto {
     message: "sha256 must be a 64-character hexadecimal string",
   })
   sha256!: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
+
+  @IsOptional()
+  @IsString()
+  category?: string;
 }
 
 export class CompleteUploadDto {
@@ -84,6 +94,18 @@ export class MediaFilterDto {
   @IsOptional()
   @IsEnum(ProcessingStatusEnum)
   processingStatus?: ProcessingStatusEnum;
+
+  @IsOptional()
+  @IsString()
+  q?: string;
+
+  @IsOptional()
+  @IsString()
+  tag?: string;
+
+  @IsOptional()
+  @IsString()
+  category?: string;
 
   @IsOptional()
   @Type(() => Number)

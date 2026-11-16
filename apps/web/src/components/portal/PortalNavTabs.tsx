@@ -16,6 +16,7 @@ const PORTAL_TABS: TabItem[] = [
   { href: "/portal/tickets", label: "Vé Open Day của tôi", icon: "confirmation_number" },
   { href: "/portal/schedule", label: "Lịch trình sự kiện", icon: "calendar_month" },
   { href: "/portal/progress", label: "Tiến trình & Quà", icon: "military_tech" },
+  { href: "/portal/quiz", label: "Bài thi trắc nghiệm", icon: "quiz" },
   { href: "/parent", label: "Cổng Phụ huynh", icon: "family_restroom" },
 ];
 

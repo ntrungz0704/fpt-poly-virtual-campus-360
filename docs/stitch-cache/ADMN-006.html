@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"error-container":"#ffdad6","secondary-fixed":"#d9e2ff","on-secondary-fixed-variant":"#00429c","on-primary-fixed":"#351000","on-tertiary-fixed":"#131b2e","primary-fixed-dim":"#ffb693","on-primary-container":"#531e00","inverse-on-surface":"#eaf1ff","surface-dim":"#cbdbf5","on-error-container":"#93000a","surface-tint":"#a04100","on-error":"#ffffff","surface-container-lowest":"#ffffff","on-surface":"#0b1c30","tertiary":"#565e74","secondary-container":"#759efd","on-tertiary":"#ffffff","surface-container-low":"#eff4ff","primary-fixed":"#ffdbcc","inverse-primary":"#ffb693","surface-container":"#e5eeff","on-background":"#0b1c30","on-tertiary-container":"#262e42","secondary-fixed-dim":"#b0c6ff","surface-container-high":"#dce9ff","surface":"#f8f9ff","error":"#ba1a1a","surface-container-highest":"#d3e4fe","surface-bright":"#f8f9ff","tertiary-container":"#8e95ae","on-primary":"#ffffff","tertiary-fixed":"#dae2fd","background":"#f8f9ff","on-secondary-container":"#00337c","on-secondary":"#ffffff","on-tertiary-fixed-variant":"#3f465c","primary-container":"#f26f21","secondary":"#2b5bb5","primary":"#a04100","inverse-surface":"#213145","tertiary-fixed-dim":"#bec6e0","outline":"#8c7166","on-primary-fixed-variant":"#7a3000","surface-variant":"#d3e4fe","outline-variant":"#e0c0b2","on-secondary-fixed":"#001945","on-surface-variant":"#584238"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"gutter-sm":"1rem","margin":"2rem","gutter-lg":"2rem","space-xl":"2rem","space-md":"1rem","space-xs":"0.25rem","space-lg":"1.5rem","space-sm":"0.5rem","margin-sm":"1rem","gutter":"1.5rem","margin-lg":"3rem"},"fontFamily":{"display-hero-mobile":["Plus Jakarta Sans"],"spatial-hud":["Plus Jakarta Sans"],"headline-lg":["Plus Jakarta Sans"],"headline-md":["Plus Jakarta Sans"],"label-md":["Inter"],"headline-sm":["Plus Jakarta Sans"],"headline-lg-mobile":["Plus Jakarta Sans"],"body-md":["Inter"],"body-sm":["Inter"],"body-lg":["Inter"],"display-hero":["Plus Jakarta Sans"],"label-sm":["Inter"]},"fontSize":{"display-hero-mobile":["32px",{"lineHeight":"40px","letterSpacing":"-0.01em","fontWeight":"800"}],"spatial-hud":["12px",{"lineHeight":"16px","letterSpacing":"0.06em","fontWeight":"700"}],"headline-lg":["32px",{"lineHeight":"40px","letterSpacing":"-0.015em","fontWeight":"700"}],"headline-md":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}],"label-md":["13px",{"lineHeight":"18px","letterSpacing":"0.02em","fontWeight":"600"}],"headline-sm":["18px",{"lineHeight":"26px","letterSpacing":"0","fontWeight":"600"}],"headline-lg-mobile":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"700"}],"body-md":["14px",{"lineHeight":"22px","letterSpacing":"0","fontWeight":"400"}],"body-sm":["12px",{"lineHeight":"18px","letterSpacing":"0.01em","fontWeight":"400"}],"body-lg":["16px",{"lineHeight":"26px","letterSpacing":"0","fontWeight":"400"}],"display-hero":["48px",{"lineHeight":"58px","letterSpacing":"-0.02em","fontWeight":"800"}],"label-sm":["11px",{"lineHeight":"16px","letterSpacing":"0.04em","fontWeight":"600"}]}}}}</script></head><body class="bg-surface font-body-md text-on-surface antialiased"><header class="fixed top-0 left-0 right-0 h-16 bg-surface/90 backdrop-blur-xl z-50 flex items-center justify-between px-space-md shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="flex items-center gap-space-md"><div class="flex items-center gap-space-sm"><div class="w-9 h-9 rounded-lg bg-primary-container flex items-center justify-center text-on-primary font-headline-sm font-bold shadow-sm">FPT</div><div class="flex flex-col"><span class="font-headline-sm text-headline-sm leading-tight text-on-surface tracking-tight">Polytechnic</span><span class="font-spatial-hud text-spatial-hud text-primary tracking-wider uppercase">Campus 360° Studio</span></div></div><div class="h-6 w-px bg-surface-container-highest mx-space-xs"></div><div class="flex items-center gap-space-xs bg-surface-container-low px-space-sm py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface cursor-pointer"><span class="material-symbols-outlined text-[18px] text-secondary">domain</span><span class="font-label-md text-label-md">Cơ sở Hà Nội (Trịnh Văn Bô)</span><span class="material-symbols-outlined text-[16px]">expand_more</span></div></div><nav class="hidden xl:flex items-center gap-space-xs bg-surface-container-lowest p-1 rounded-xl shadow-[0_1px_8px_rgba(0,0,0,0.02)]" data-active-classes="bg-primary-container text-on-primary font-label-md rounded-lg"><a class="px-space-md py-1.5 font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors" data-path="dashboard" href="#">Dashboard</a><a class="px-space-md py-1.5 font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors" data-path="campus-360" href="#">Campus 360</a><a aria-current="page" class="px-space-md py-1.5 transition-colors bg-primary-container text-on-primary font-label-md rounded-lg" data-path="tour-studio" href="#">Tour Studio</a><a class="px-space-md py-1.5 font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors" data-path="media-assets" href="#">Media Assets</a><a class="px-space-md py-1.5 font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors" data-path="gis-nodes" href="#">GIS Nodes</a><a class="px-space-md py-1.5 font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors" data-path="cai-dat" href="#">Cài đặt</a></nav><div class="flex items-center gap-space-md"><div class="hidden md:flex items-center gap-space-sm"><div class="flex items-center gap-1.5 px-space-sm py-1 bg-surface-container-low rounded-full"><span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span><span class="font-spatial-hud text-spatial-hud text-on-surface-variant">LIVE SYNC</span></div><div class="flex items-center gap-1.5 px-space-sm py-1 bg-surface-container-low rounded-full"><span class="material-symbols-outlined text-[14px] text-secondary">view_in_ar</span><span class="font-spatial-hud text-spatial-hud text-secondary">VR ENGINE v2.4</span></div></div><div class="flex items-center gap-space-sm"><button class="w-9 h-9 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant hover:text-on-surface flex items-center justify-center transition-colors"><span class="material-symbols-outlined text-[20px]">notifications</span></button><button class="w-9 h-9 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant hover:text-on-surface flex items-center justify-center transition-colors"><span class="material-symbols-outlined text-[20px]">help</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><aside class="fixed left-0 top-16 bottom-0 w-72 bg-surface-container-lowest z-40 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="flex flex-col flex-1 overflow-y-auto p-space-md"><div class="flex items-center justify-between pb-space-sm mb-space-sm"><span class="font-spatial-hud text-spatial-hud text-on-surface-variant uppercase tracking-wider">Cấu hình Studio</span><span class="material-symbols-outlined text-[16px] text-on-surface-variant">tune</span></div><nav class="flex flex-col gap-1" data-active-classes="bg-surface-container-high text-on-surface font-label-md rounded-lg"><a aria-current="page" class="flex items-center justify-between px-space-sm py-2 transition-all bg-surface-container-high text-on-surface font-label-md rounded-lg" data-path="tour-studio" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px] text-primary">build</span><span class="font-label-md text-label-md">Studio Tools</span></div><span class="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface">v2</span></a><a class="flex items-center justify-between px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="gis-nodes" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px] text-secondary">hub</span><span class="font-label-md text-label-md">Spatial Nodes</span></div><span class="font-label-sm text-label-sm text-on-surface-variant">64 POI</span></a><a class="flex items-center justify-between px-space-sm py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="campus-360" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px] text-tertiary">panorama_photosphere</span><span class="font-label-md text-label-md">360 Scenes</span></div><span class="font-label-sm text-label-sm text-on-surface-variant">12 Halls</span></a><a aria-current="page" class="flex items-center justify-between px-space-sm py-2 transition-all bg-surface-container-high text-on-surface font-label-md rounded-lg" data-path="tour-studio" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px] text-on-surface-variant">layers</span><span class="font-label-md text-label-md">Layers &amp; Floors</span></div><span class="font-label-sm text-label-sm text-on-surface-variant">T1-T7</span></a><a aria-current="page" class="flex items-center justify-between px-space-sm py-2 transition-all bg-surface-container-high text-on-surface font-label-md rounded-lg" data-path="tour-studio" href="#"><div class="flex items-center gap-space-sm"><span class="material-symbols-outlined text-[20px] text-primary-container">ads_click</span><span class="font-label-md text-label-md">Hotspot Config</span></div><span class="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-primary-fixed text-on-primary-fixed">Live</span></a></nav><div class="mt-space-lg pt-space-sm"><div class="flex items-center justify-between pb-space-sm mb-space-sm"><span class="font-spatial-hud text-spatial-hud text-on-surface-variant uppercase tracking-wider">Thông số Viewport</span><span class="material-symbols-outlined text-[16px] text-secondary">spatial_audio_off</span></div><div class="flex flex-col gap-space-xs bg-surface-container-low p-space-sm rounded-xl"><div class="flex justify-between items-center"><span class="font-body-sm text-body-sm text-on-surface-variant">FOV Camera:</span><span class="font-spatial-hud text-spatial-hud text-on-surface">85° Spherical</span></div><div class="flex justify-between items-center"><span class="font-body-sm text-body-sm text-on-surface-variant">Độ phân giải:</span><span class="font-spatial-hud text-spatial-hud text-on-surface">8192 × 4096</span></div><div class="flex justify-between items-center"><span class="font-body-sm text-body-sm text-on-surface-variant">Hotspot Render:</span><span class="font-spatial-hud text-spatial-hud text-primary-container">GPU Raycast</span></div></div></div></div><div class="p-space-md bg-surface-container-low m-space-sm rounded-xl flex items-center justify-between"><div class="flex items-center gap-space-xs"><span class="material-symbols-outlined text-[20px] text-on-surface-variant">terminal</span><div class="flex flex-col"><span class="font-label-md text-label-md text-on-surface">Admin CLI</span><span class="font-label-sm text-label-sm text-on-surface-variant">port 3600:active</span></div></div><button class="p-1 rounded-lg bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors"><span class="material-symbols-outlined text-[16px]">open_in_new</span></button></div></aside><div class="pl-72"><main class="w-full pt-16 bg-surface min-h-screen"><div class="flex flex-col w-full">
+<!-- 1. STUDIO TOOLBAR: Breadcrumbs, Mode Switcher, Placement Tools, Output Actions -->
+<header class="w-full bg-surface-container-lowest shadow-sm z-30 px-space-md py-2.5 flex flex-wrap items-center justify-between gap-y-3">
+<!-- Left: Breadcrumb & Tour Metadata -->
+<div class="flex items-center gap-space-md">
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-spatial-hud text-spatial-hud text-secondary uppercase tracking-wider">Dự án VR 360</span>
+<span class="text-outline-variant">•</span>
+<span class="font-headline-sm text-headline-sm text-on-surface">Tour Cơ sở CVPM Quang Trung (TP.HCM)</span>
+</div>
+<div class="flex items-center gap-space-xs mt-0.5">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Bản nháp (Đã lưu tự động lúc 14:28:09)</span>
+<button class="ml-2 flex items-center gap-1 px-2 py-0.5 rounded bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[14px]">history</span>
+            Lịch sử v2.4.1
+          </button>
+</div>
+</div>
+<div class="h-8 w-px bg-surface-container-high hidden md:block"></div>
+<!-- Current Scene Selector -->
+<div class="hidden lg:flex items-center gap-2 bg-surface-container-low px-3 py-1.5 rounded-lg cursor-pointer hover:bg-surface-container transition-all">
+<span class="material-symbols-outlined text-[20px] text-primary-container">panorama_photosphere</span>
+<div class="flex flex-col text-left">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Node Đang Mở (Canvas)</span>
+<span class="font-label-md text-label-md text-on-surface truncate max-w-[260px]">Node 04: Sảnh Hội Trường Trống Đồng - Tòa T</span>
+</div>
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant">arrow_drop_down</span>
+</div>
+</div>
+<!-- Center: Hotspot Quick Placer Dock -->
+<div class="flex items-center gap-1 bg-surface-container-low p-1 rounded-xl">
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-lowest shadow-sm text-primary-container font-label-md text-label-md" title="Thêm Điểm chuyển tiếp (Navigation Hotspot)">
+<span class="material-symbols-outlined text-[18px]">near_me</span>
+<span class="hidden sm:inline">Chuyển tiếp</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-surface-container-lowest text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-all" title="Thêm Thẻ thông tin POI">
+<span class="material-symbols-outlined text-[18px] text-secondary">info</span>
+<span class="hidden sm:inline">Thẻ tin</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-surface-container-lowest text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-all" title="Thêm Video / Media nhúng">
+<span class="material-symbols-outlined text-[18px] text-tertiary">smart_display</span>
+<span class="hidden sm:inline">Media</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-surface-container-lowest text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-all" title="Thêm Âm thanh vòm Spatial Audio">
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant">spatial_audio</span>
+<span class="hidden sm:inline">Âm thanh</span>
+</button>
+<div class="h-5 w-px bg-surface-container-highest my-auto"></div>
+<button class="p-1.5 rounded-lg hover:bg-surface-container-lowest text-on-surface-variant hover:text-on-surface transition-all" title="Thước đo khoảng cách 3D">
+<span class="material-symbols-outlined text-[18px]">straighten</span>
+</button>
+</div>
+<!-- Right: Studio Actions & Publishing -->
+<div class="flex items-center gap-2">
+<button class="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface font-label-md text-label-md transition-colors">
+<span class="material-symbols-outlined text-[18px]">hub</span>
+<span class="hidden xl:inline">Đồ thị Graph</span>
+</button>
+<button class="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-secondary font-label-md text-label-md transition-colors">
+<span class="material-symbols-outlined text-[18px]">view_in_ar</span>
+<span>Xem trước</span>
+</button>
+<button class="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-primary-container hover:bg-primary text-on-primary font-label-md text-label-md shadow-sm transition-transform active:scale-95">
+<span class="material-symbols-outlined text-[18px]">cloud_upload</span>
+<span>Xuất bản Tour</span>
+</button>
+</div>
+</header>
+<!-- 2. STUDIO WORKSPACE (3-Column Layout: Left Navigator, Central 360 Viewport, Right Inspector) -->
+<div class="grid grid-cols-12 gap-0 w-full flex-1 relative bg-surface-container">
+<!-- LEFT PANEL: SCENE NAVIGATOR & CLUSTER TREE (Col 1-3 Desktop) -->
+<aside class="col-span-12 lg:col-span-3 xl:col-span-3 bg-surface-container-lowest flex flex-col h-[calc(100vh-8.5rem)] shadow-sm overflow-hidden z-20">
+<!-- Panel Header & Search -->
+<div class="p-space-sm bg-surface-container-low flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[18px] text-secondary">account_tree</span>
+<span class="font-spatial-hud text-spatial-hud text-on-surface uppercase tracking-wider">Cấu trúc Nodes &amp; Scenes</span>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-secondary-fixed text-on-secondary-fixed font-spatial-hud text-spatial-hud">8 Nodes • 3 Cụm</span>
+</div>
+<div class="relative w-full">
+<input class="w-full bg-surface-container-lowest py-1.5 pl-8 pr-3 text-body-sm font-body-sm rounded-lg text-on-surface placeholder:text-on-surface-variant focus:outline-none" placeholder="Tìm node, phòng học, mã POI..." type="text"/>
+<span class="material-symbols-outlined absolute left-2 top-2 text-[18px] text-on-surface-variant">search</span>
+</div>
+</div>
+<!-- Node Hierarchy Tree -->
+<div class="flex-1 overflow-y-auto p-space-sm space-y-3">
+<!-- Cluster 1: Tòa T (Innovation Hall) -->
+<div class="space-y-1">
+<div class="flex items-center justify-between px-2 py-1 bg-surface-container-high rounded-md">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">apartment</span>
+<span class="font-label-md text-label-md text-on-surface">Tòa T — Innovation Hall</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">4 Nodes</span>
+</div>
+<!-- Active Scene Card -->
+<div class="p-2 rounded-xl bg-primary-fixed/20 shadow-sm cursor-pointer transition-all">
+<div class="flex gap-2">
+<div class="relative w-16 h-12 rounded-lg overflow-hidden shrink-0 bg-surface-container-highest">
+<div class="w-full h-full bg-cover bg-center" data-alt="High quality 360 interior panoramic view of FPT Polytechnic modern university atrium hall featuring iconic bronze drum motif, glossy floor, digital LED screen wall and contemporary orange and navy blue architecture" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuADNjnJU3xv8VbDcxoo0wuX5r9z7ahPOCpoUUmg8CV6RXL3SafV3IaAbJasROIDHMUlChvm0KzZxe4xd0oureGXKm9GBRMG7XLJohThXk0gUlSS5KhLlolVH5Fm3jxPEasaCAFnAEAVMJcGR2XQMTmDxblO-dFtEOdEWde3vGpdC9kDCD0mMSK_ULKi-SAo_lsAzTM6_oGygz8iZ_vFqgsCD1rAQKu50NP_27EXRXU')"></div>
+<span class="absolute bottom-0.5 right-0.5 bg-inverse-surface/80 text-inverse-on-surface font-spatial-hud text-[9px] px-1 rounded">8K</span>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-primary font-bold truncate">Node 04: Sảnh Trống Đồng</span>
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+</div>
+<div class="flex items-center gap-2 mt-1 text-on-surface-variant font-body-sm text-[11px]">
+<span class="flex items-center gap-0.5"><span class="material-symbols-outlined text-[13px] text-primary-container">near_me</span> 12 Hotspots</span>
+<span>•</span>
+<span class="text-secondary font-semibold">Tầng 1 (T1)</span>
+</div>
+<div class="flex items-center gap-1 mt-1 font-spatial-hud text-[10px] text-on-surface-variant">
+<span class="material-symbols-outlined text-[12px] text-secondary">explore</span>
+<span>GIS: 10.8532° N, 106.6261° E</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Other Nodes in Cluster 1 -->
+<div class="p-2 rounded-xl bg-surface-container-low hover:bg-surface-container cursor-pointer transition-all">
+<div class="flex gap-2">
+<div class="relative w-16 h-12 rounded-lg overflow-hidden shrink-0 bg-surface-container-highest">
+<div class="w-full h-full bg-cover bg-center" data-alt="Modern AI and Data Science computer laboratory at FPT Polytechnic with rows of high-end dual screen workstations, robotic arm kits, ambient neon orange LED ceiling strips" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAfcpRGd3Or4u3N90GED46wB_wvRK8-_Me2poeNmrgeI0SMvvW-3kNshAwdZy8ajK6DzKdS5om_K-z3RC8mL-yq9EEFCiegLum6NrNXPMIIcdqyvI13FvmlB6Hua_zEEQbRIApoN7HwxbHZhMFLNipiXXix5tKU2PTOkORnLwBM_WAkPoR3s3uWKUrrmUvwTzA7P5aekoRcE0nP7WFghZC6u_YJPN-kLRGJYPev7SI')"></div>
+<span class="absolute bottom-0.5 right-0.5 bg-inverse-surface/80 text-inverse-on-surface font-spatial-hud text-[9px] px-1 rounded">8K</span>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<span class="font-label-md text-label-md text-on-surface truncate">Node 05: Lab AI &amp; Big Data (T301)</span>
+<div class="flex items-center gap-2 mt-1 text-on-surface-variant font-body-sm text-[11px]">
+<span class="flex items-center gap-0.5"><span class="material-symbols-outlined text-[13px]">near_me</span> 6 Hotspots</span>
+<span>•</span>
+<span>Tầng 3</span>
+</div>
+</div>
+</div>
+</div>
+<div class="p-2 rounded-xl bg-surface-container-low hover:bg-surface-container cursor-pointer transition-all">
+<div class="flex gap-2">
+<div class="relative w-16 h-12 rounded-lg overflow-hidden shrink-0 bg-surface-container-highest">
+<div class="w-full h-full bg-cover bg-center" data-alt="Internet of Things hardware lab at FPT Polytechnic with electronic breadboards, soldering stations, smart sensor arrays and test benches" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBAb3AuLO9QkvG1yZy3YQKKpNXYSq3ClIIW1LTcHWZXYerHBTtErOwwlcN4VIQefa37Y3TrTuKc-ys3S3GujTs9ZEn1F4oXM0wGuzM5nG17vAkAMyUuqQaerDKU-POAQnKqzXwh7cZcUbMcRW_TZgq2udoQ6bOMeZxOhz9xbNjIFZK_sJfGxkxmV6v_378Z83t3U1XvJOz8cT8nPKjHm2EwnauPQZ-CWvA4PPs19zU')"></div>
+<span class="absolute bottom-0.5 right-0.5 bg-inverse-surface/80 text-inverse-on-surface font-spatial-hud text-[9px] px-1 rounded">4K</span>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<span class="font-label-md text-label-md text-on-surface truncate">Node 06: Lab Thực hành IoT (T302)</span>
+<div class="flex items-center gap-2 mt-1 text-on-surface-variant font-body-sm text-[11px]">
+<span>4 Hotspots</span>
+<span>•</span>
+<span>Tầng 3</span>
+</div>
+</div>
+</div>
+</div>
+<div class="p-2 rounded-xl bg-surface-container-low hover:bg-surface-container cursor-pointer transition-all">
+<div class="flex gap-2">
+<div class="relative w-16 h-12 rounded-lg overflow-hidden shrink-0 bg-surface-container-highest">
+<div class="w-full h-full bg-cover bg-center" data-alt="Spacious digital university library with reading pods, glass book towers, open acoustic discussion corners and students studying with laptops" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAIuq9l5WjDFq7kqvB1qm_vOs-wGiGwLnPUGbtN2D0dHzb2xoCjcMkO0rGAtHfBP2V7fPXuWOwoa4ZvcH9fG2TR0EBFbP4A0BVtkTa4vm95Q1tVVXAb6xdL1i3I6Dg-izpT1VZlT2t6EU8Fwno_bEbvX6u5K_qRu0uzYTYBaWvoKxzL6jTYlD6-1qp-aquK-cRkd9Tb8zzlKJFNjF6cNE8A-VCLc7V53v7gCSTtJco')"></div>
+<span class="absolute bottom-0.5 right-0.5 bg-inverse-surface/80 text-inverse-on-surface font-spatial-hud text-[9px] px-1 rounded">8K</span>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<span class="font-label-md text-label-md text-on-surface truncate">Node 07: Thư viện số Tòa T (T401)</span>
+<div class="flex items-center gap-2 mt-1 text-on-surface-variant font-body-sm text-[11px]">
+<span>8 Hotspots</span>
+<span>•</span>
+<span>Tầng 4</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Cluster 2: Tòa P (Creative Complex) -->
+<div class="space-y-1">
+<div class="flex items-center justify-between px-2 py-1 bg-surface-container-high rounded-md">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-secondary">palette</span>
+<span class="font-label-md text-label-md text-on-surface">Tòa P — Creative Complex</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">2 Nodes</span>
+</div>
+<div class="p-2 rounded-xl bg-surface-container-low hover:bg-surface-container cursor-pointer transition-all">
+<div class="flex gap-2">
+<div class="relative w-16 h-12 rounded-lg overflow-hidden shrink-0 bg-surface-container-highest">
+<div class="w-full h-full bg-cover bg-center" data-alt="Creative media studio with green screens, professional broadcast lighting rigs, cinema cameras and sound recording isolation booths at FPT Polytechnic campus" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC_rR_NsFMjaMww6D7OfhIXuJ1eE1wzKy3JHzwmg8F_Jha2bumA7oWtaZCsfBx8G5c3pKbe2pZtRjtH8tdDXDEykmikl8Mn_k7ztel4Z7C62s19oYJv5C7vxexbdVo4Jjj01LIRrcQ1reQIq18BsR5Tlpw5Nwk0G0gfBg7lRvYMF3uvkQJV3_AGWnOIme_SyZDXRUfa-tcE2CezaVs16mYa2Ky_5wd_kM3evyDZ1ms')"></div>
+<span class="absolute bottom-0.5 right-0.5 bg-inverse-surface/80 text-inverse-on-surface font-spatial-hud text-[9px] px-1 rounded">4K</span>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<span class="font-label-md text-label-md text-on-surface truncate">Node 08: Studio Đồ họa &amp; Web P201</span>
+<div class="flex items-center gap-2 mt-1 text-on-surface-variant font-body-sm text-[11px]">
+<span>5 Hotspots</span>
+<span>•</span>
+<span>Tầng 2</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Cluster 3: Campus Ngoài Trời -->
+<div class="space-y-1">
+<div class="flex items-center justify-between px-2 py-1 bg-surface-container-high rounded-md">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-tertiary">park</span>
+<span class="font-label-md text-label-md text-on-surface">Khuôn viên Ngoài trời</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">2 Nodes</span>
+</div>
+<div class="p-2 rounded-xl bg-surface-container-low hover:bg-surface-container cursor-pointer transition-all">
+<div class="flex gap-2">
+<div class="relative w-16 h-12 rounded-lg overflow-hidden shrink-0 bg-surface-container-highest">
+<div class="w-full h-full bg-cover bg-center" data-alt="Grand entrance gate of FPT Polytechnic campus in Quang Trung Software City with lush tropical landscaping, modern branding signs and bright sunlight" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBJRCtwM_UXKAuaZ_-uXKmQomUMntbR-BoPqjhYsCfoot9rEkfhGIOzV-dQzmXs7NPpgEOKv-6h8-0h6DSSi-d-H0T5MAwH6snKZtuucaeSHhq0qs0xGQqaMUp4N3SXXPW41Ij2Mdre894-AD3-fTjTTK79YseUKJ9hiTINd6aQjiatxt6_RsWRN5T685cUtZoSMDmUITMG_gBer66t0g-67UzMPsZyGcAf5lfe8uA')"></div>
+<span class="absolute bottom-0.5 right-0.5 bg-inverse-surface/80 text-inverse-on-surface font-spatial-hud text-[9px] px-1 rounded">16K</span>
+</div>
+<div class="flex flex-col flex-1 min-w-0">
+<span class="font-label-md text-label-md text-on-surface truncate">Node 01: Cổng Chính Quang Trung</span>
+<div class="flex items-center gap-2 mt-1 text-on-surface-variant font-body-sm text-[11px]">
+<span>14 Hotspots</span>
+<span>•</span>
+<span>Outdoor GIS</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Upload Button Footer -->
+<div class="p-space-sm bg-surface-container-low">
+<button class="w-full py-2.5 px-3 rounded-xl bg-surface-container-highest hover:bg-surface-container text-on-surface font-label-md text-label-md flex items-center justify-center gap-2 transition-all">
+<span class="material-symbols-outlined text-[20px] text-primary-container">add_photo_alternate</span>
+<span>Tải lên ảnh 360° Panorama (.jpg/.exr)</span>
+</button>
+</div>
+</aside>
+<!-- CENTER PANEL: 360° SPATIAL VIEWPORT & INTERACTIVE CANVAS (Col 4-9 Desktop) -->
+<main class="col-span-12 lg:col-span-6 xl:col-span-6 relative h-[calc(100vh-8.5rem)] flex flex-col justify-between overflow-hidden bg-inverse-surface select-none">
+<!-- Canvas 360 Background Texture Representation -->
+<div class="absolute inset-0 bg-cover bg-center transform scale-105 filter brightness-95" data-alt="Equirectangular 360 spherical panorama view of FPT Polytechnic modern university atrium hall featuring wide angle perspective, vibrant architectural lighting, grand staircase, digital video wall, students walking and high ceiling orange accents" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuD4lOidkt-9t1XHl5LoDmTR2ZzxEjLrVNye7UWBE9T2zgVeh9j5TBR0FTMXfy2hwBz8l5kxCqzuzpJXxBSZ_6f0NCVepFQL1JuSnyehqLmqUHJDGHSh-aDixhc3Fqun7eIDTgQHfyxnZdYj-hcW-43QtxWZN9Qcd-d2-P-E63LOEkrlfBrsZ_XN4KR_yrPo1BCYJiQ2Msy9VRX7kZEfh-Mh7tRPYJbttzW13OE5O-w')">
+</div>
+<!-- Spatial HUD Top Bar Over Canvas -->
+<div class="relative z-10 p-space-sm flex items-center justify-between pointer-events-none">
+<!-- Spatial Gizmo / Compass HUD -->
+<div class="pointer-events-auto bg-inverse-surface/85 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-lg flex items-center gap-3 text-inverse-on-surface">
+<!-- Compass Dial Ring -->
+<div class="relative w-8 h-8 flex items-center justify-center">
+<svg class="w-8 h-8 text-secondary-container" viewbox="0 0 36 36">
+<circle cx="18" cy="18" fill="none" r="15" stroke="currentColor" stroke-opacity="0.25" stroke-width="2"></circle>
+<polygon fill="#f26f21" points="18,5 21,18 18,15 15,18"></polygon>
+<polygon fill="#e5eeff" fill-opacity="0.4" points="18,31 21,18 18,21 15,18"></polygon>
+</svg>
+<span class="absolute font-spatial-hud text-[9px] font-black text-primary-container">N</span>
+</div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-spatial-hud text-spatial-hud text-primary-fixed-dim">GÓC NHÌN 360°</span>
+<span class="font-label-sm text-label-sm text-inverse-on-surface">Pitch: +12.4° • Yaw: 145.2°</span>
+</div>
+<div class="flex items-center gap-2 text-inverse-on-surface/70 font-spatial-hud text-[10px]">
+<span>FOV: 75.0° (Spherical)</span>
+<span>•</span>
+<span class="text-secondary-fixed">8192 × 4096 PX</span>
+</div>
+</div>
+</div>
+<!-- Canvas Mode Pills -->
+<div class="pointer-events-auto flex items-center gap-1.5 bg-inverse-surface/85 backdrop-blur-md p-1 rounded-xl shadow-lg text-inverse-on-surface">
+<button class="px-2.5 py-1 rounded-lg bg-primary-container text-on-primary font-label-sm text-label-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[15px]">edit</span>
+            Chế độ Biên tập
+          </button>
+<button class="px-2.5 py-1 rounded-lg hover:bg-inverse-surface/60 text-inverse-on-surface font-label-sm text-label-sm flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-[15px]">pan_tool</span>
+            Điều hướng
+          </button>
+</div>
+</div>
+<!-- HOTSPOT LAYER (Spatial Anchors placed in spherical coordinates) -->
+<div class="absolute inset-0 pointer-events-none z-10">
+<!-- Hotspot 1 (ACTIVE / SELECTED): Navigation to Lab AI T301 -->
+<div class="absolute top-[42%] left-[58%] pointer-events-auto group -translate-x-1/2 -translate-y-1/2 cursor-pointer">
+<!-- Outer Pulsing Ripple Rings -->
+<div class="relative flex items-center justify-center">
+<span class="absolute w-12 h-12 rounded-full bg-primary-container/30 animate-ping"></span>
+<span class="absolute w-9 h-9 rounded-full bg-primary-container/50"></span>
+<!-- Center Hotspot Icon Core -->
+<div class="w-8 h-8 rounded-full bg-primary-container text-on-primary shadow-lg flex items-center justify-center shadow-primary-container/50 ring-2 ring-surface-container-lowest">
+<span class="material-symbols-outlined text-[18px]">directions_walk</span>
+</div>
+</div>
+<!-- Active Tooltip Card Floating Above Hotspot -->
+<div class="absolute bottom-11 left-1/2 -translate-x-1/2 w-64 bg-inverse-surface/95 backdrop-blur-md p-2.5 rounded-xl shadow-2xl text-inverse-on-surface pointer-events-auto">
+<div class="flex items-center justify-between pb-1 mb-1">
+<span class="font-spatial-hud text-[10px] text-primary-fixed-dim uppercase tracking-wider">ĐANG CHỌN • #HS-042</span>
+<span class="px-1.5 py-0.2 rounded bg-primary-container text-on-primary font-spatial-hud text-[9px]">Điểm chuyển cảnh</span>
+</div>
+<div class="font-label-md text-label-md font-bold text-inverse-on-surface">Đến: Lab AI &amp; Big Data (T301)</div>
+<div class="flex items-center justify-between mt-1 text-[11px] font-body-sm text-inverse-on-surface/75">
+<span>Đích: Tòa T • Tầng 3</span>
+<span class="font-spatial-hud text-[10px] text-secondary-fixed">X: 145.2° | Y: +12.4°</span>
+</div>
+<div class="w-2 h-2 bg-inverse-surface/95 rotate-45 absolute -bottom-1 left-1/2 -translate-x-1/2"></div>
+</div>
+</div>
+<!-- Hotspot 2: POI Info Card (Phòng Truyền thống & Thành tựu FPT Edu) -->
+<div class="absolute top-[35%] left-[28%] pointer-events-auto group -translate-x-1/2 -translate-y-1/2 cursor-pointer">
+<div class="relative flex items-center justify-center">
+<span class="absolute w-10 h-10 rounded-full bg-secondary/20 group-hover:scale-125 transition-transform"></span>
+<div class="w-7 h-7 rounded-full bg-secondary text-on-secondary shadow-md flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px]">info</span>
+</div>
+</div>
+<!-- Hover Badge -->
+<div class="hidden group-hover:flex absolute top-9 left-1/2 -translate-x-1/2 bg-inverse-surface/90 backdrop-blur-md px-2.5 py-1 rounded-lg shadow-lg text-inverse-on-surface whitespace-nowrap items-center gap-1 font-label-sm text-label-sm">
+<span>Phòng Truyền thống &amp; Thành tựu</span>
+</div>
+</div>
+<!-- Hotspot 3: Video Media POI (Khoa Thiết kế Đồ họa) -->
+<div class="absolute top-[58%] left-[36%] pointer-events-auto group -translate-x-1/2 -translate-y-1/2 cursor-pointer">
+<div class="relative flex items-center justify-center">
+<span class="absolute w-9 h-9 rounded-full bg-tertiary-container/30"></span>
+<div class="w-7 h-7 rounded-full bg-tertiary text-on-tertiary shadow-md flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px]">play_circle</span>
+</div>
+</div>
+<div class="hidden group-hover:flex absolute top-9 left-1/2 -translate-x-1/2 bg-inverse-surface/90 backdrop-blur-md px-2.5 py-1 rounded-lg shadow-lg text-inverse-on-surface whitespace-nowrap items-center gap-1 font-label-sm text-label-sm">
+<span>Clip: Giới thiệu ngành Thiết kế Đồ họa</span>
+</div>
+</div>
+<!-- Hotspot 4: Waypoint ra Sân bóng & Khu phức hợp ngoài trời -->
+<div class="absolute top-[48%] left-[78%] pointer-events-auto group -translate-x-1/2 -translate-y-1/2 cursor-pointer">
+<div class="relative flex items-center justify-center">
+<div class="w-7 h-7 rounded-full bg-surface-container-lowest/90 text-primary-container shadow-md flex items-center justify-center hover:bg-primary-container hover:text-on-primary transition-colors">
+<span class="material-symbols-outlined text-[16px]">exit_to_app</span>
+</div>
+</div>
+<div class="hidden group-hover:flex absolute top-9 left-1/2 -translate-x-1/2 bg-inverse-surface/90 backdrop-blur-md px-2.5 py-1 rounded-lg shadow-lg text-inverse-on-surface whitespace-nowrap items-center gap-1 font-label-sm text-label-sm">
+<span>Lối ra Sân bóng đá &amp; Canteen</span>
+</div>
+</div>
+<!-- Crosshair Center Pointer Guide (Spatial Editor) -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-40 pointer-events-none">
+<svg class="w-10 h-10 text-surface-container-lowest" viewbox="0 0 40 40">
+<line stroke="currentColor" stroke-width="1.5" x1="20" x2="20" y1="5" y2="15"></line>
+<line stroke="currentColor" stroke-width="1.5" x1="20" x2="20" y1="25" y2="35"></line>
+<line stroke="currentColor" stroke-width="1.5" x1="5" x2="15" y1="20" y2="20"></line>
+<line stroke="currentColor" stroke-width="1.5" x1="25" x2="35" y1="20" y2="20"></line>
+<circle cx="20" cy="20" fill="none" r="3" stroke="currentColor" stroke-width="1.5"></circle>
+</svg>
+</div>
+</div>
+<!-- Bottom Viewport Controls Dock -->
+<div class="relative z-10 p-space-sm flex items-center justify-between pointer-events-none">
+<!-- Viewport Quick Coordinates Readout -->
+<div class="bg-inverse-surface/80 backdrop-blur-md px-3 py-1 rounded-lg text-inverse-on-surface font-spatial-hud text-[11px] hidden sm:flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span>SPATIAL RAYCAST: HIT MESH (T_HALL_FLOOR_01)</span>
+</div>
+<!-- Floating Camera Control Bar -->
+<div class="pointer-events-auto mx-auto sm:mx-0 flex items-center gap-1 bg-inverse-surface/85 backdrop-blur-md p-1.5 rounded-xl shadow-xl text-inverse-on-surface">
+<button class="w-8 h-8 rounded-lg hover:bg-inverse-surface/60 flex items-center justify-center transition-colors" title="Thu phóng cực cận (Zoom In)">
+<span class="material-symbols-outlined text-[18px]">zoom_in</span>
+</button>
+<button class="w-8 h-8 rounded-lg hover:bg-inverse-surface/60 flex items-center justify-center transition-colors" title="Thu phóng toàn cảnh (Zoom Out)">
+<span class="material-symbols-outlined text-[18px]">zoom_out</span>
+</button>
+<div class="h-4 w-px bg-inverse-surface/40 my-auto"></div>
+<button class="w-8 h-8 rounded-lg hover:bg-inverse-surface/60 flex items-center justify-center text-primary-container transition-colors" title="Bật xoay 360 tự động">
+<span class="material-symbols-outlined text-[18px]">sync</span>
+</button>
+<button class="w-8 h-8 rounded-lg hover:bg-inverse-surface/60 flex items-center justify-center transition-colors" title="Bật lưới toạ độ cầu (Grid Sphere Helper)">
+<span class="material-symbols-outlined text-[18px]">grid_4x4</span>
+</button>
+<button class="w-8 h-8 rounded-lg hover:bg-inverse-surface/60 flex items-center justify-center text-secondary-fixed transition-colors" title="Chế độ chia đôi màn hình VR Kính">
+<span class="material-symbols-outlined text-[18px]">vrpano</span>
+</button>
+<button class="w-8 h-8 rounded-lg hover:bg-inverse-surface/60 flex items-center justify-center transition-colors" title="Toàn màn hình canvas">
+<span class="material-symbols-outlined text-[18px]">fullscreen</span>
+</button>
+</div>
+</div>
+</main>
+<!-- RIGHT PANEL: INSPECTOR & HOTSPOT ATTRIBUTE CONFIG (Col 10-12 Desktop) -->
+<aside class="col-span-12 lg:col-span-3 xl:col-span-3 bg-surface-container-lowest flex flex-col h-[calc(100vh-8.5rem)] shadow-sm overflow-hidden z-20">
+<!-- Inspector Header -->
+<div class="p-space-sm bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[18px] text-primary-container">tune</span>
+<span class="font-spatial-hud text-spatial-hud text-on-surface uppercase tracking-wider">Cấu hình Hotspot</span>
+</div>
+<span class="font-spatial-hud text-[11px] font-bold text-primary-container bg-primary-fixed px-2 py-0.5 rounded-full">#HS-042</span>
+</div>
+<!-- Attributes Form Fields -->
+<div class="flex-1 overflow-y-auto p-space-sm space-y-4">
+<!-- Field 1: Hotspot Type -->
+<div class="space-y-1">
+<label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Loại Hotspot tương tác</label>
+<div class="grid grid-cols-2 gap-2">
+<button class="p-2 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md flex items-center justify-center gap-1.5 shadow-sm">
+<span class="material-symbols-outlined text-[16px]">directions_walk</span>
+              Chuyển cảnh
+            </button>
+<button class="p-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md flex items-center justify-center gap-1.5 transition-colors">
+<span class="material-symbols-outlined text-[16px]">info</span>
+              Thông tin POI
+            </button>
+</div>
+</div>
+<!-- Field 2: Label & Display Name -->
+<div class="space-y-1">
+<label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Tiêu đề điểm đến (Label Display)</label>
+<input class="w-full bg-surface-container-low p-2 rounded-lg text-body-md font-body-md text-on-surface focus:outline-none focus:bg-surface-container transition-all" type="text" value="Đến: Phòng Lab AI &amp; Big Data (T301)"/>
+<span class="font-body-sm text-[11px] text-on-surface-variant">Hiển thị trong HUD hover và bản đồ định vị mini</span>
+</div>
+<!-- Field 3: Target Scene Link -->
+<div class="space-y-1">
+<label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Scene / Node đích chuyển đến</label>
+<div class="relative">
+<select class="w-full bg-surface-container-low p-2 pr-8 rounded-lg text-body-md font-body-md text-on-surface appearance-none focus:outline-none">
+<option selected="">Node 05: Lab AI &amp; Big Data (Tòa T - T301)</option>
+<option>Node 06: Lab Thực hành IoT (Tòa T - T302)</option>
+<option>Node 07: Thư viện số Tòa T (T401)</option>
+<option>Node 08: Studio Đồ họa &amp; Web (Tòa P)</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-2.5 text-[18px] text-on-surface-variant pointer-events-none">unfold_more</span>
+</div>
+</div>
+<!-- Field 4: 3D Transition Animation Effect -->
+<div class="space-y-1">
+<label class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Hiệu ứng Warp Chuyển Cảnh</label>
+<div class="relative">
+<select class="w-full bg-surface-container-low p-2 pr-8 rounded-lg text-body-md font-body-md text-on-surface appearance-none focus:outline-none">
+<option selected="">3D Warp Zoom-through (Đẩy sâu không gian)</option>
+<option>Crossfade Radial Blur (Làm mờ chuyển dần)</option>
+<option>Portal Expand (Mở cổng thực tế ảo)</option>
+<option>Instant Cut (Chuyển tức thì)</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-2.5 text-[18px] text-on-surface-variant pointer-events-none">unfold_more</span>
+</div>
+</div>
+<!-- Field 5: Spherical Coordinates (Pitch & Yaw) -->
+<div class="space-y-1.5 p-2.5 bg-surface-container-low rounded-xl">
+<div class="flex items-center justify-between">
+<span class="font-spatial-hud text-spatial-hud text-on-surface uppercase tracking-wider">Toạ độ không gian cầu</span>
+<button class="font-label-sm text-label-sm text-secondary hover:underline">Gắn tâm camera</button>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<div class="flex flex-col">
+<span class="font-body-sm text-[11px] text-on-surface-variant">Pitch (Trục Y)</span>
+<div class="flex items-center bg-surface-container-lowest px-2 py-1 rounded-md">
+<input class="w-full text-body-sm font-body-sm text-on-surface bg-transparent focus:outline-none" step="0.1" type="number" value="12.4"/>
+<span class="font-spatial-hud text-[11px] text-on-surface-variant">deg</span>
+</div>
+</div>
+<div class="flex flex-col">
+<span class="font-body-sm text-[11px] text-on-surface-variant">Yaw (Trục X)</span>
+<div class="flex items-center bg-surface-container-lowest px-2 py-1 rounded-md">
+<input class="w-full text-body-sm font-body-sm text-on-surface bg-transparent focus:outline-none" step="0.1" type="number" value="145.2"/>
+<span class="font-spatial-hud text-[11px] text-on-surface-variant">deg</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Field 6: Spatial Audio Config -->
+<div class="space-y-2 p-2.5 bg-surface-container-low rounded-xl">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-secondary">graphic_eq</span>
+<span class="font-spatial-hud text-spatial-hud text-on-surface uppercase tracking-wider">Âm thanh vòm Spatial</span>
+</div>
+<span class="text-primary-container font-spatial-hud text-[10px]">3D HRTF ON</span>
+</div>
+<div class="flex items-center justify-between text-body-sm text-[12px] bg-surface-container-lowest p-2 rounded-lg">
+<div class="flex items-center gap-1.5 truncate">
+<span class="material-symbols-outlined text-[16px] text-primary-container">music_note</span>
+<span class="font-label-md text-label-md truncate">lab_crowd_reverb_8k.mp3</span>
+</div>
+<button class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined text-[16px]">folder_open</span></button>
+</div>
+<div class="flex flex-col gap-1">
+<div class="flex justify-between items-center text-[11px]">
+<span class="text-on-surface-variant">Bán kính nghe rõ (Radius)</span>
+<span class="font-spatial-hud font-bold text-on-surface">15 mét</span>
+</div>
+<input class="accent-primary-container w-full h-1.5 bg-surface-container-highest rounded-lg cursor-pointer" max="50" min="1" type="range" value="15"/>
+</div>
+</div>
+<!-- Field 7: Visibility & Target Audiences -->
+<div class="space-y-2">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Phân quyền hiển thị Hotspot</span>
+<div class="space-y-1.5">
+<label class="flex items-center justify-between p-2 rounded-lg bg-surface-container-low cursor-pointer hover:bg-surface-container transition-colors">
+<span class="font-body-sm text-body-sm text-on-surface">Khách tham quan công khai</span>
+<input checked="" class="accent-primary-container w-4 h-4 rounded" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-2 rounded-lg bg-surface-container-low cursor-pointer hover:bg-surface-container transition-colors">
+<span class="font-body-sm text-body-sm text-on-surface">Chế độ Sinh viên nội bộ</span>
+<input checked="" class="accent-primary-container w-4 h-4 rounded" type="checkbox"/>
+</label>
+<label class="flex items-center justify-between p-2 rounded-lg bg-surface-container-low cursor-pointer hover:bg-surface-container transition-colors">
+<span class="font-body-sm text-body-sm text-on-surface">Kính thực tế ảo (VR Headset Mode)</span>
+<input checked="" class="accent-primary-container w-4 h-4 rounded" type="checkbox"/>
+</label>
+</div>
+</div>
+</div>
+<!-- Inspector Footer Action Buttons -->
+<div class="p-space-sm bg-surface-container-low flex items-center gap-2">
+<button class="p-2.5 rounded-xl bg-error-container hover:bg-error/20 text-on-error-container transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+<button class="flex-1 py-2.5 px-3 rounded-xl bg-primary-container hover:bg-primary text-on-primary font-label-md text-label-md flex items-center justify-center gap-1.5 shadow-sm transition-all">
+<span class="material-symbols-outlined text-[18px]">save</span>
+<span>Lưu thuộc tính Hotspot</span>
+</button>
+</div>
+</aside>
+</div>
+<!-- 3. BOTTOM PANEL: TIMELINE & GUIDED TOUR SEQUENCE (Auto-Walkthrough Editor) -->
+<section class="w-full bg-surface-container-lowest shadow-sm z-30 p-space-sm flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-primary">play_arrow</span>
+<span class="font-headline-sm text-headline-sm text-on-surface">Kịch bản Tour Tự Động (Auto-Guided Tour Sequence)</span>
+<span class="px-2 py-0.5 rounded bg-surface-container text-on-surface-variant font-label-sm text-label-sm">Thời lượng dự tính: 04 phút 30 giây</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="flex items-center gap-1.5 bg-surface-container-low px-2 py-1 rounded-lg">
+<span class="material-symbols-outlined text-[16px] text-secondary">record_voice_over</span>
+<span class="font-label-sm text-label-sm text-on-surface">AI Voiceover (Tiếng Việt - Giọng Nữ Miền Nam)</span>
+</div>
+<button class="px-3 py-1 rounded-lg bg-surface-container text-on-surface hover:bg-surface-container-high font-label-sm text-label-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">add_circle</span>
+          Thêm trạm dừng
+        </button>
+</div>
+</div>
+<!-- Timeline Sequence Stops Horizontal Track -->
+<div class="w-full overflow-x-auto pb-1 flex items-center gap-3">
+<!-- Stop 01 -->
+<div class="flex items-center gap-2 shrink-0 bg-surface-container-low hover:bg-surface-container p-2 rounded-xl cursor-pointer transition-all">
+<div class="w-7 h-7 rounded-full bg-secondary text-on-secondary font-spatial-hud text-spatial-hud flex items-center justify-center shrink-0">01</div>
+<div class="flex flex-col text-left">
+<span class="font-label-md text-label-md text-on-surface font-semibold">Cổng Chính Quang Trung</span>
+<div class="flex items-center gap-2 text-on-surface-variant font-body-sm text-[11px]">
+<span>15 giây</span>
+<span>•</span>
+<span class="text-secondary">Audio intro.mp3</span>
+</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant shrink-0 text-[18px]">chevron_right</span>
+<!-- Stop 02 (CURRENT ACTIVE STOP) -->
+<div class="flex items-center gap-2 shrink-0 bg-primary-fixed/30 p-2 rounded-xl shadow-sm cursor-pointer transition-all">
+<div class="w-7 h-7 rounded-full bg-primary-container text-on-primary font-spatial-hud text-spatial-hud flex items-center justify-center shrink-0 shadow">02</div>
+<div class="flex flex-col text-left">
+<div class="flex items-center gap-1.5">
+<span class="font-label-md text-label-md text-primary font-bold">Sảnh Trống Đồng (Tòa T)</span>
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container animate-pulse"></span>
+</div>
+<div class="flex items-center gap-2 text-on-surface-variant font-body-sm text-[11px]">
+<span class="font-semibold text-primary">20 giây (Active)</span>
+<span>•</span>
+<span class="text-secondary">Audio hall_overview.mp3</span>
+</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant shrink-0 text-[18px]">chevron_right</span>
+<!-- Stop 03 -->
+<div class="flex items-center gap-2 shrink-0 bg-surface-container-low hover:bg-surface-container p-2 rounded-xl cursor-pointer transition-all">
+<div class="w-7 h-7 rounded-full bg-surface-container-high text-on-surface font-spatial-hud text-spatial-hud flex items-center justify-center shrink-0">03</div>
+<div class="flex flex-col text-left">
+<span class="font-label-md text-label-md text-on-surface font-semibold">Lab AI &amp; Data (T301)</span>
+<div class="flex items-center gap-2 text-on-surface-variant font-body-sm text-[11px]">
+<span>25 giây</span>
+<span>•</span>
+<span class="text-secondary">Audio ai_intro.mp3</span>
+</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant shrink-0 text-[18px]">chevron_right</span>
+<!-- Stop 04 -->
+<div class="flex items-center gap-2 shrink-0 bg-surface-container-low hover:bg-surface-container p-2 rounded-xl cursor-pointer transition-all">
+<div class="w-7 h-7 rounded-full bg-surface-container-high text-on-surface font-spatial-hud text-spatial-hud flex items-center justify-center shrink-0">04</div>
+<div class="flex flex-col text-left">
+<span class="font-label-md text-label-md text-on-surface font-semibold">Studio Đồ Họa (Tòa P)</span>
+<div class="flex items-center gap-2 text-on-surface-variant font-body-sm text-[11px]">
+<span>15 giây</span>
+<span>•</span>
+<span class="text-secondary">Audio design_hub.mp3</span>
+</div>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant shrink-0 text-[18px]">chevron_right</span>
+<!-- Stop 05 -->
+<div class="flex items-center gap-2 shrink-0 bg-surface-container-low hover:bg-surface-container p-2 rounded-xl cursor-pointer transition-all">
+<div class="w-7 h-7 rounded-full bg-surface-container-high text-on-surface font-spatial-hud text-spatial-hud flex items-center justify-center shrink-0">05</div>
+<div class="flex flex-col text-left">
+<span class="font-label-md text-label-md text-on-surface font-semibold">Sân Thể Thao Đa Năng</span>
+<div class="flex items-center gap-2 text-on-surface-variant font-body-sm text-[11px]">
+<span>20 giây</span>
+<span>•</span>
+<span class="text-secondary">Audio sports_field.mp3</span>
+</div>
+</div>
+</div>
+<!-- Add Sequence Stop Node Button -->
+<div class="shrink-0">
+<button class="w-10 h-10 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface-variant flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+</div>
+</div>
+</section>
+</div></main></div></body></html>

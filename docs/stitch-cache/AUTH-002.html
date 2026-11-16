@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đổi Mật Khẩu Lần Đầu | FPT Polytechnic Virtual Campus 360°</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { orange: '#F26F21', 'orange-dark': '#D9580F', navy: '#0D47A1', 'navy-dark': '#0A2540', slate: '#0F172A' }
+          },
+          fontFamily: {
+            heading: ['"Plus Jakarta Sans"', 'sans-serif'],
+            sans: ['Inter', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden font-sans">
+  <!-- Tech Grid Background -->
+  <div class="absolute inset-0 bg-gradient-to-tr from-slate-950 via-[#0A2540] to-slate-900"></div>
+  <div class="absolute -top-32 -left-32 w-96 h-96 bg-[#F26F21]/15 rounded-full blur-3xl"></div>
+  <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-blue-600/15 rounded-full blur-3xl"></div>
+
+  <div class="relative z-10 w-full max-w-md bg-white rounded-3xl p-8 sm:p-10 shadow-2xl border border-slate-100">
+    <div class="text-center mb-8">
+      <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#D9580F] to-[#F26F21] text-white flex items-center justify-center font-heading font-black text-2xl mx-auto shadow-lg shadow-orange-500/25 mb-4">
+        P
+      </div>
+      <span class="px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-bold border border-amber-200">Bảo mật tài khoản bắt buộc</span>
+      <h1 class="text-2xl font-bold font-heading text-slate-900 mt-2">Cập Nhật Mật Khẩu Mới</h1>
+      <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+        Tài khoản sinh viên/cán bộ đăng nhập lần đầu tiên hoặc có yêu cầu đặt lại mật khẩu từ quản trị viên.
+      </p>
+    </div>
+
+    <!-- User Mini Badge -->
+    <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-3 mb-6">
+      <div class="w-10 h-10 rounded-full bg-[#0D47A1] text-white font-bold text-xs flex items-center justify-center shrink-0">
+        PS
+      </div>
+      <div class="min-w-0">
+        <span class="font-bold text-xs text-slate-900 block truncate">nguyenvanan.ps24859@fpt.edu.vn</span>
+        <span class="text-[11px] text-slate-500">Mã sinh viên: PS24859 (K19.3)</span>
+      </div>
+    </div>
+
+    <form class="space-y-4" onsubmit="return false;">
+      <div>
+        <label class="block text-xs font-bold text-slate-700 mb-1.5">Mật khẩu tạm thời hiện tại</label>
+        <div class="relative">
+          <input type="password" value="FptPoly@2026Temp" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-[#F26F21] outline-none">
+          <span class="material-symbols-outlined absolute right-3 top-3 text-slate-400 text-xl cursor-pointer">visibility</span>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-700 mb-1.5">Mật khẩu mới</label>
+        <div class="relative">
+          <input type="password" placeholder="Tối thiểu 8 ký tự, có chữ hoa, số & ký tự đặc biệt" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-[#F26F21] outline-none">
+          <span class="material-symbols-outlined absolute right-3 top-3 text-slate-400 text-xl cursor-pointer">visibility</span>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-bold text-slate-700 mb-1.5">Xác nhận lại mật khẩu mới</label>
+        <div class="relative">
+          <input type="password" placeholder="Nhập lại chính xác mật khẩu mới" class="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-[#F26F21] outline-none">
+          <span class="material-symbols-outlined absolute right-3 top-3 text-slate-400 text-xl cursor-pointer">visibility</span>
+        </div>
+      </div>
+
+      <!-- Password Strength Checklist -->
+      <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-[11px] space-y-1.5 text-slate-600">
+        <div class="flex items-center gap-2 text-emerald-600 font-semibold">
+          <span class="material-symbols-outlined text-sm">check_circle</span> Ít nhất 8 ký tự
+        </div>
+        <div class="flex items-center gap-2 text-emerald-600 font-semibold">
+          <span class="material-symbols-outlined text-sm">check_circle</span> Có ít nhất 1 chữ hoa và 1 chữ thường
+        </div>
+        <div class="flex items-center gap-2 text-slate-400">
+          <span class="material-symbols-outlined text-sm">radio_button_unchecked</span> Có ít nhất 1 chữ số và 1 ký tự đặc biệt (!@#$)
+        </div>
+      </div>
+
+      <button type="submit" class="w-full py-3.5 rounded-xl bg-[#F26F21] text-white font-heading font-bold text-sm shadow-lg shadow-orange-500/25 hover:bg-[#D9580F] transition mt-2">
+        Xác Nhận & Truy Cập Virtual Campus
+      </button>
+    </form>
+
+    <div class="text-center mt-6 pt-4 border-t border-slate-100">
+      <a href="/login" class="text-xs font-semibold text-slate-500 hover:text-[#F26F21]">← Quay lại trang đăng nhập</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,7 +1,33 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "@playwright/test";
+import {
+  cleanupPortalTestFixtures,
+  ensurePortalTestFixtures,
+  type PortalFixtures,
+} from "./portal-fixtures";
 
 const WEB_BASE = "http://localhost:3000";
-const ADMIN_PASSWORD = process.env.ADMIN_BOOTSTRAP_PASSWORD || "Admin@123456";
+const API_BASE = "http://localhost:4000/api/v1";
+
+// Task 4 (B4): Strict environment check — Zero hardcoded fallback credentials
+const ADMIN_PASSWORD = process.env.ADMIN_BOOTSTRAP_PASSWORD;
+if (!ADMIN_PASSWORD) {
+  throw new Error(
+    "ADMIN_BOOTSTRAP_PASSWORD environment variable is required to run E2E tests.",
+  );
+}
+
+async function getAuthToken(username: string, pass: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier: username, password: pass }),
+  });
+  const body = (await res.json()) as { data?: { accessToken?: string } };
+  if (!body.data?.accessToken) {
+    throw new Error(`Failed to authenticate ${username}: ${JSON.stringify(body)}`);
+  }
+  return body.data.accessToken;
+}
 
 function attachErrorCollector(page: Page) {
   const pageErrors: string[] = [];
@@ -18,141 +44,227 @@ function attachErrorCollector(page: Page) {
   return { pageErrors, hydrationErrors };
 }
 
-test.describe.serial("Milestone M4: Student & Parent Portal End-to-End Test Suite", () => {
-  let page: Page;
+test.describe.serial("Milestone M4: Student & Parent Portal Authorization & Blocker Remediation Suite", () => {
+  let fixtures: PortalFixtures;
+  let browserInstance: Browser;
 
   test.beforeAll(async ({ browser }) => {
-    page = await browser.newPage();
-    // Authenticate once as Super Admin (avoids hitting 5 req/60s rate limit on login endpoint)
-    await page.goto(`${WEB_BASE}/login?next=%2Fportal`);
-    await page.locator("#login-identifier").fill("admin");
-    await page.locator("#login-password").fill(ADMIN_PASSWORD);
-    await page.getByRole("button", { name: /Đăng nhập/i }).click();
-    await page.waitForURL(/\/portal/, { timeout: 15_000 });
+    browserInstance = browser;
+    // Provision isolated test fixtures with distinct roles
+    fixtures = await ensurePortalTestFixtures();
   });
 
   test.afterAll(async () => {
-    await page.close();
+    // Teardown test fixtures
+    await cleanupPortalTestFixtures();
   });
 
-  test("1. Student Portal Overview (/portal) renders tabs and greeting", async () => {
+  // --------------------------------------------------------------------------
+  // 1. Student A View & Profile Management
+  // --------------------------------------------------------------------------
+  test("1. Student A logs in, views own profile and updates bio successfully", async () => {
+    const page = await browserInstance.newPage();
     const errors = attachErrorCollector(page);
 
-    await page.goto(`${WEB_BASE}/portal`, { waitUntil: "networkidle" });
-    await expect(page.locator("h1")).toContainText(/Xin chào/i);
+    try {
+      await page.goto(`${WEB_BASE}/login?next=%2Fportal`);
+      await page.locator("#login-identifier").fill(fixtures.studentA.username);
+      await page.locator("#login-password").fill(fixtures.studentA.password);
+      await page.getByRole("button", { name: /Đăng nhập/i }).click();
+      await page.waitForURL(/\/portal/, { timeout: 15_000 });
 
-    // Verify navigation tabs
-    const nav = page.locator("nav[aria-label='Điều hướng cổng thông tin']");
-    await expect(nav).toBeVisible();
-    await expect(nav.getByRole("link", { name: /Hồ sơ cá nhân/i })).toBeVisible();
-    await expect(nav.getByRole("link", { name: /Vé Open Day của tôi/i })).toBeVisible();
-    await expect(nav.getByRole("link", { name: /Lịch trình sự kiện/i })).toBeVisible();
-    await expect(nav.getByRole("link", { name: /Tiến trình & Quà/i })).toBeVisible();
-    await expect(nav.getByRole("link", { name: /Cổng Phụ huynh/i })).toBeVisible();
+      // Verify Student greeting and nav tabs
+      await expect(page.locator("h1")).toContainText(/Xin chào,? Sinh Vien A Test/i);
+      const nav = page.locator("nav[aria-label='Điều hướng cổng thông tin']");
+      await expect(nav).toBeVisible();
+      await expect(nav.getByRole("link", { name: /Hồ sơ cá nhân/i })).toBeVisible();
 
-    expect(errors.pageErrors).toEqual([]);
-    expect(errors.hydrationErrors).toEqual([]);
+      // Go to profile edit
+      await page.goto(`${WEB_BASE}/portal/profile`, { waitUntil: "networkidle" });
+      await expect(page.getByTestId("student-profile-page")).toBeVisible();
+
+      const editBtn = page.getByRole("button", { name: /Chỉnh sửa hồ sơ/i });
+      await editBtn.click();
+
+      const bioInput = page.getByPlaceholder(/Đôi nét về sở thích/i);
+      await bioInput.fill("Sinh viên đam mê CNTT tại FPT Polytechnic QTSC.");
+
+      const saveBtn = page.getByTestId("save-profile-btn");
+      await saveBtn.click();
+
+      await expect(page.getByText(/lưu thành công vào cơ sở dữ liệu/i)).toBeVisible();
+
+      expect(errors.pageErrors).toEqual([]);
+      expect(errors.hydrationErrors).toEqual([]);
+    } finally {
+      await page.close();
+    }
   });
 
-  test("2. Student Profile (/portal/profile) displays info and updates profile successfully", async () => {
+  // --------------------------------------------------------------------------
+  // 2. Student A Tickets & Gamification Full History Aggregation (B2 & B5)
+  // --------------------------------------------------------------------------
+  test("2. Student A views tickets & full XP aggregation (120 XP, no leakage)", async () => {
+    const page = await browserInstance.newPage();
     const errors = attachErrorCollector(page);
 
-    await page.goto(`${WEB_BASE}/portal/profile`, { waitUntil: "networkidle" });
-    await expect(page.getByTestId("student-profile-page")).toBeVisible();
+    try {
+      await page.goto(`${WEB_BASE}/login?next=%2Fportal%2Ftickets`);
+      await page.locator("#login-identifier").fill(fixtures.studentA.username);
+      await page.locator("#login-password").fill(fixtures.studentA.password);
+      await page.getByRole("button", { name: /Đăng nhập/i }).click();
+      await page.waitForURL(/\/portal\/tickets/, { timeout: 15_000 });
 
-    // Click edit button
-    const editBtn = page.getByRole("button", { name: /Chỉnh sửa hồ sơ/i });
-    await expect(editBtn).toBeVisible();
-    await editBtn.click();
+      // Verify Student A sees ticket OD26-TEST-STUA
+      await expect(page.getByTestId("student-tickets-page")).toBeVisible();
+      await expect(page.getByText("OD26-TEST-STUA")).toBeVisible();
+      // Must NOT see Student B's ticket
+      await expect(page.getByText("OD26-TEST-STUB")).not.toBeVisible();
 
-    // Form inputs should appear
-    const bioInput = page.getByPlaceholder(/Đôi nét về sở thích/i);
-    await expect(bioInput).toBeVisible();
-    await bioInput.fill("Sinh viên đam mê Công nghệ Thông tin tại FPT Polytechnic.");
+      // Verify Gamification Progress
+      await page.goto(`${WEB_BASE}/portal/progress`, { waitUntil: "networkidle" });
+      await expect(page.getByTestId("student-progress-page")).toBeVisible();
 
-    // Save changes
-    const saveBtn = page.getByTestId("save-profile-btn");
-    await saveBtn.click();
+      // Full database aggregation: 3 records * 40 XP = 120 XP (Level 2)
+      await expect(page.getByText("120")).toBeVisible();
+      await expect(page.getByText("Cấp 2")).toBeVisible();
 
-    // Verify success toast
-    await expect(page.getByText(/lưu thành công vào cơ sở dữ liệu/i)).toBeVisible();
-
-    expect(errors.pageErrors).toEqual([]);
-    expect(errors.hydrationErrors).toEqual([]);
+      expect(errors.pageErrors).toEqual([]);
+      expect(errors.hydrationErrors).toEqual([]);
+    } finally {
+      await page.close();
+    }
   });
 
-  test("3. My Tickets (/portal/tickets) renders tickets view and QR modal trigger", async () => {
+  // --------------------------------------------------------------------------
+  // 3. Parent B (APPROVED) views Student A details; Cannot view Student B (B1)
+  // --------------------------------------------------------------------------
+  test("3. Parent B (APPROVED) views Student A; Blocked from viewing Student B", async () => {
+    const page = await browserInstance.newPage();
     const errors = attachErrorCollector(page);
 
-    await page.goto(`${WEB_BASE}/portal/tickets`, { waitUntil: "networkidle" });
-    await expect(page.getByTestId("student-tickets-page")).toBeVisible();
-    await expect(page.locator("h1")).toContainText(/Vé Open Day của tôi/i);
+    try {
+      await page.goto(`${WEB_BASE}/login?next=%2Fparent`);
+      await page.locator("#login-identifier").fill(fixtures.parentB.username);
+      await page.locator("#login-password").fill(fixtures.parentB.password);
+      await page.getByRole("button", { name: /Đăng nhập/i }).click();
+      await page.waitForURL(/\/parent/, { timeout: 15_000 });
 
-    expect(errors.pageErrors).toEqual([]);
-    expect(errors.hydrationErrors).toEqual([]);
+      await expect(page.getByTestId("parent-portal-page")).toBeVisible();
+      // Should see Student A with APPROVED badge
+      await expect(page.getByText("Sinh Vien A Test")).toBeVisible();
+      await expect(page.getByText(/Đã kết nối|APPROVED/i)).toBeVisible();
+
+      const parentBToken = await getAuthToken(fixtures.parentB.username, fixtures.parentB.password);
+
+      // Direct API check: Parent B accessing Student A detail -> 200 OK
+      const detailRes = await page.request.get(`${API_BASE}/parent/students/${fixtures.studentA.id}`, {
+        headers: { Authorization: `Bearer ${parentBToken}` },
+      });
+      expect(detailRes.status()).toBe(200);
+      const detailBody = await detailRes.json();
+      expect(detailBody.data.student.id).toBe(fixtures.studentA.id);
+
+      // Direct API check: Parent B accessing Student B detail -> 403 Forbidden
+      const unauthRes = await page.request.get(`${API_BASE}/parent/students/${fixtures.studentB.id}`, {
+        headers: { Authorization: `Bearer ${parentBToken}` },
+      });
+      expect(unauthRes.status()).toBe(403);
+      const unauthBody = (await unauthRes.json()) as { error?: { code: string; message: string }; message?: string; code?: string };
+      const errStr = unauthBody.error?.code || unauthBody.error?.message || unauthBody.message || unauthBody.code || "";
+      expect(errStr).toMatch(/UNAUTHORIZED_STUDENT_ACCESS|không có liên kết/i);
+
+      expect(errors.pageErrors).toEqual([]);
+      expect(errors.hydrationErrors).toEqual([]);
+    } finally {
+      await page.close();
+    }
   });
 
-  test("4. Schedule (/portal/schedule) displays sessions and filters by period", async () => {
-    const errors = attachErrorCollector(page);
+  // --------------------------------------------------------------------------
+  // 4. Parent A (Unlinked) and Parent C (PENDING) Authorization Isolation (B1)
+  // --------------------------------------------------------------------------
+  test("4. Parent A (unlinked) and Parent C (PENDING) are blocked from student details", async () => {
+    const parentAToken = await getAuthToken(fixtures.parentA.username, fixtures.parentA.password);
+    const parentCToken = await getAuthToken(fixtures.parentC.username, fixtures.parentC.password);
 
-    await page.goto(`${WEB_BASE}/portal/schedule`, { waitUntil: "networkidle" });
-    await expect(page.getByTestId("student-schedule-page")).toBeVisible();
-    await expect(page.locator("h1")).toContainText(/Lịch trình sự kiện/i);
+    // Parent A calling Student A detail -> 403
+    const paRes = await fetch(`${API_BASE}/parent/students/${fixtures.studentA.id}`, {
+      headers: { Authorization: `Bearer ${parentAToken}` },
+    });
+    expect(paRes.status).toBe(403);
 
-    // Verify filter buttons
-    const filterAll = page.getByRole("button", { name: "Tất cả", exact: true });
-    const filterMorning = page.getByRole("button", { name: "Buổi sáng" });
-    const filterAfternoon = page.getByRole("button", { name: "Buổi chiều" });
-
-    await expect(filterAll).toBeVisible();
-    await expect(filterMorning).toBeVisible();
-    await expect(filterAfternoon).toBeVisible();
-
-    // Click morning filter
-    await filterMorning.click();
-
-    expect(errors.pageErrors).toEqual([]);
-    expect(errors.hydrationErrors).toEqual([]);
+    // Parent C calling Student A detail -> 403
+    const pcRes = await fetch(`${API_BASE}/parent/students/${fixtures.studentA.id}`, {
+      headers: { Authorization: `Bearer ${parentCToken}` },
+    });
+    expect(pcRes.status).toBe(403);
   });
 
-  test("5. Gamification Progress (/portal/progress) renders level, XP, and badges", async () => {
-    const errors = attachErrorCollector(page);
+  // --------------------------------------------------------------------------
+  // 5. Student Link Resolution & Anti-Tampering (B1)
+  // --------------------------------------------------------------------------
+  test("5. Student A approves link; Student B cannot tamper; Duplicate resolution rejected", async () => {
+    const studentBToken = await getAuthToken(fixtures.studentB.username, fixtures.studentB.password);
+    const studentAToken = await getAuthToken(fixtures.studentA.username, fixtures.studentA.password);
 
-    await page.goto(`${WEB_BASE}/portal/progress`, { waitUntil: "networkidle" });
-    await expect(page.getByTestId("student-progress-page")).toBeVisible();
-    await expect(page.locator("h1")).toContainText(/Tiến trình & Quà/i);
+    // Student B attempts to APPROVE Parent C's link intended for Student A -> 404
+    const tamperRes = await fetch(`${API_BASE}/portal/link-requests/${fixtures.pendingLinkId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${studentBToken}`,
+      },
+      body: JSON.stringify({ action: "APPROVE" }),
+    });
+    expect(tamperRes.status).toBe(404);
 
-    // Verify summary stat cards exist
-    await expect(page.getByText(/Tổng điểm kinh nghiệm/i)).toBeVisible();
-    await expect(page.getByText(/Cấp bậc hiện tại/i)).toBeVisible();
-    await expect(page.getByText(/Lượt quay còn lại/i)).toBeVisible();
+    // Student A approves the link -> 200 OK
+    const approveRes = await fetch(`${API_BASE}/portal/link-requests/${fixtures.pendingLinkId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${studentAToken}`,
+      },
+      body: JSON.stringify({ action: "APPROVE" }),
+    });
+    expect(approveRes.status).toBe(200);
 
-    expect(errors.pageErrors).toEqual([]);
-    expect(errors.hydrationErrors).toEqual([]);
+    // Student A attempts to change already resolved link -> 400 Bad Request
+    const replayRes = await fetch(`${API_BASE}/portal/link-requests/${fixtures.pendingLinkId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${studentAToken}`,
+      },
+      body: JSON.stringify({ action: "REJECT" }),
+    });
+    expect(replayRes.status).toBe(400);
+    const replayBody = (await replayRes.json()) as { error?: { code: string }; code?: string };
+    expect(replayBody.error?.code || replayBody.code).toBe("LINK_ALREADY_RESOLVED");
   });
 
-  test("6. Parent Portal (/parent) renders dashboard and student link modal", async () => {
-    const errors = attachErrorCollector(page);
+  // --------------------------------------------------------------------------
+  // 6. Cross-Role Server-Side Enforcement (B1)
+  // --------------------------------------------------------------------------
+  test("6. Server rejects cross-role access (Parent accessing Student API, Student accessing Parent API)", async () => {
+    const parentBToken = await getAuthToken(fixtures.parentB.username, fixtures.parentB.password);
+    const studentAToken = await getAuthToken(fixtures.studentA.username, fixtures.studentA.password);
 
-    await page.goto(`${WEB_BASE}/parent`, { waitUntil: "networkidle" });
-    await expect(page.getByTestId("parent-portal-page")).toBeVisible();
-    await expect(page.locator("h1")).toContainText(/Cổng thông tin Phụ huynh & Gia đình/i);
+    // Parent B calls Student Portal endpoint directly -> 403 FORBIDDEN_STUDENT_ONLY
+    const parentToStudentRes = await fetch(`${API_BASE}/portal/profile`, {
+      headers: { Authorization: `Bearer ${parentBToken}` },
+    });
+    expect(parentToStudentRes.status).toBe(403);
+    const parentErr = (await parentToStudentRes.json()) as { error?: { code: string }; code?: string };
+    expect(parentErr.error?.code || parentErr.code).toBe("FORBIDDEN_STUDENT_ONLY");
 
-    // Verify Link student button
-    const linkBtn = page.getByTestId("add-student-link-btn");
-    await expect(linkBtn).toBeVisible();
-    await linkBtn.click();
-
-    // Modal should be visible
-    await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(page.getByRole("heading", { name: /Liên kết sinh viên/i })).toBeVisible();
-
-    // Close modal
-    const cancelBtn = page.getByRole("button", { name: /Hủy/i });
-    await cancelBtn.click();
-    await expect(page.getByRole("dialog")).not.toBeVisible();
-
-    expect(errors.pageErrors).toEqual([]);
-    expect(errors.hydrationErrors).toEqual([]);
+    // Student A calls Parent Portal endpoint directly -> 403 FORBIDDEN_PARENT_ONLY
+    const studentToParentRes = await fetch(`${API_BASE}/parent/students`, {
+      headers: { Authorization: `Bearer ${studentAToken}` },
+    });
+    expect(studentToParentRes.status).toBe(403);
+    const studentErr = (await studentToParentRes.json()) as { error?: { code: string }; code?: string };
+    expect(studentErr.error?.code || studentErr.code).toBe("FORBIDDEN_PARENT_ONLY");
   });
 });

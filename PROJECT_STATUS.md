@@ -1,24 +1,23 @@
 # PROJECT_STATUS — FPT Polytechnic Virtual Campus 360°
 
 > [!IMPORTANT]
-> **Nguồn sự thật đương đại (Đã kiểm toán & nghiệm thu M4 tại commit `935d27b`, cập nhật `2026-11-14` — Sẵn sàng Redesign Toàn diện UI/UX):**
-> - **Branch & Authoritative HEAD:** `fix/m4-acceptance-blockers` @ `935d27b`
-> - **Bộ Kiểm toán Redesign Toàn diện:** Đầy đủ 19 tài liệu báo cáo tại [`docs/project-redesign-audit/`](docs/project-redesign-audit/00-executive-summary.md) kèm 50 ảnh chụp giao diện thực tế tại [`docs/project-redesign-audit/screenshots/`](docs/project-redesign-audit/screenshots/).
-> - **Chất lượng kiểm chứng:** 100% Typecheck pass (0 lỗi), 41/41 Unit tests pass (10 Web, 31 Backend), Turbopack build 29/29 routes pass.
-> - **Milestones Đã Nghiệm Thu Đầy Đủ:** Phase 2A-1, 2A-2, 2A-3, Phase 2B, M1, M2, M3A, M3B, M3C, M3D, M4 (Đã siết chặt IDOR phân quyền Phụ huynh - Học sinh & sổ cái XP 120).
-> - **Trạng thái:** **READY FOR REDESIGN** (Sẵn sàng 100% triển khai tạo ảnh UI và code giao diện mới, bảo toàn nguyên vẹn 32 Prisma Models, 19 Enums và 10 NestJS Modules).
+> **Nguồn sự thật đương đại (Đã nghiệm thu FULL PASS toàn bộ M6 & M7.1–M7.5 tại commit `b23a5ce`, cập nhật `2026-11-16` trên nhánh `main`):**
+> - **Branch & Authoritative HEAD:** `main` @ `b23a5ce`
+> - **Chất lượng kiểm chứng:** 100% Typecheck pass (0 lỗi), 14/14 Unit tests pass, 91/91 PostgreSQL integration tests pass (0 regression), Turbopack build 28/28 routes pass.
+> - **Milestones Đã Nghiệm Thu Đầy Đủ:** M1, M2, M3A–D, M4 (GIS & Phân quyền), M5 (News CMS), M6 (Ngân hàng câu hỏi), M7.1 (Quiz Config & Snapshot), M7.2 (Quiz Delivery & Shuffle), M7.3 (Quiz Attempt Engine), M7.4 (Quiz Scoring & One-Time XP), M7.5 (Quiz Results & Admin Dashboard).
+> - **Trạng thái:** **READY FOR MILESTONE M8 (Open Day Event & QR Check-in)** (Bảo toàn 39 Prisma Models, 21 Enums và 13 NestJS Modules).
 
 ---
 
-## 1A. Hiện Trạng Đương Đại Chi Tiết (Cập nhật 2026-11-14)
+## 1A. Hiện Trạng Đương Đại Chi Tiết (Cập nhật 2026-11-16 trên nhánh `main`)
 
 | Lĩnh vực | Trạng thái Thực tế | Chi tiết Kiểm chứng Kỹ thuật |
 |---|---|---|
-| **Cơ sở dữ liệu (Prisma + PostgreSQL 16)** | **ACCEPTED (S6 - Production Ready)** | 32 Models, 19 Enums, quản lý qua migrations. Seed dữ liệu mẫu chuẩn, idempotent. |
-| **Backend Core & Business API (`apps/api`)** | **ACCEPTED (S6 - Production Ready)** | 10 NestJS Modules: `auth`, `users-rbac`, `public`, `open-day`, `gamification`, `portal`, `media`, `storage`, `audit-log`, `health`. Chuẩn Envelope RESTful `/api/v1`. |
-| **Bảo mật & Phân quyền (Auth & RBAC)** | **ACCEPTED (S6 - Production Ready)** | Băm Argon2id, JWT in-memory + Cookie HttpOnly rotation, RBAC 6 vai trò, chống IDOR tuyệt đối trên Server-Side. |
-| **Giao diện Web (`apps/web`)** | **READY FOR REDESIGN** | 27 unique route templates (25 trang chức năng + 2 hệ thống). Đã chụp 50 ảnh screenshot đối soát. Chuẩn bị bước vào 10 Pha Redesign. |
-| **Bộ kiểm thử tự động (Unit & E2E)** | **VERIFIED (41/41 Unit, 6/6 E2E)** | 10 unit test web (Node test runner), 31 unit test backend (Jest in-band), Playwright E2E suite kiểm tra luồng thực tế. |
+| **Cơ sở dữ liệu (Prisma + PostgreSQL 16)** | **ACCEPTED (S6 - Production Ready)** | 39 Models, 21 Enums, quản lý qua 12 migrations. Đã tích hợp đầy đủ `EventParticipation`, `XpLedger`, `QuizConfiguration`, `QuizConfigAttempt`, `QuizXpClaim`, `ParentStudentLink`. |
+| **Backend Core & Business API (`apps/api`)** | **ACCEPTED (S6 - Production Ready)** | 13 NestJS Modules: `auth`, `users-rbac`, `public`, `open-day`, `gamification`, `portal`, `media`, `storage`, `audit-log`, `health`, `news`, `questions`, `quiz-config`. Chuẩn Envelope RESTful `/api/v1`. |
+| **Bảo mật & Phân quyền (Auth & RBAC)** | **ACCEPTED (S6 - Production Ready)** | Băm Argon2id, JWT Cookie HttpOnly rotation, RBAC 6 vai trò, chống IDOR tuyệt đối trên Server-Side. |
+| **Giao diện Web (`apps/web`)** | **ACCEPTED (28/28 Routes)** | Next.js 16.4.6 App Router, Tailwind CSS, 28 routes chức năng (Portal thi trắc nghiệm, Admin kết quả, Tour 360, GIS Map). |
+| **Bộ kiểm thử tự động (Unit & Integration)** | **VERIFIED (14/14 Unit, 91/91 PostgreSQL)** | 14 unit test web (Node test runner), 91 integration test backend chạy trên PostgreSQL thực tế (0 mock). |
 
 ---
 

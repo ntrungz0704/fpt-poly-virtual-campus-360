@@ -33,6 +33,7 @@ export default function StudentQuizPage() {
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const latestSequenceRef = useRef(0);
   const questionLatestSeqRef = useRef<Record<string, number>>({});
+  const lastSaveErrorRef = useRef<Error | null>(null);
 
   // Submission & Scoring state (M7.4)
   const [submissionResult, setSubmissionResult] = useState<SubmitQuizAttemptResponseDto | null>(null);
@@ -139,6 +140,17 @@ export default function StudentQuizPage() {
     setSubmitting(true);
     setSubmitError(null);
     try {
+      // 1. Flush autosave queue: chờ toàn bộ các request lưu đáp án trước đó hoàn tất (B02)
+      await saveQueueRef.current;
+
+      // 2. Kiểm tra nếu autosave gần nhất bị lỗi: không được nuốt lỗi mà phải hủy submit
+      if (lastSaveErrorRef.current) {
+        throw new Error(
+          `Không thể nộp bài vì lưu câu trả lời chưa thành công: ${lastSaveErrorRef.current.message}. Vui lòng thử lại.`,
+        );
+      }
+
+      // 3. Toàn bộ đáp án đã được đồng bộ an toàn lên PostgreSQL -> Gửi submit
       const res = await portalApi.submitQuizAttempt(activeAttempt.id);
       setSubmissionResult(res);
       setActiveAttempt((prev) => (prev ? { ...prev, status: "SUBMITTED" } : null));
@@ -199,16 +211,19 @@ export default function StudentQuizPage() {
         if (seq === latestSequenceRef.current) {
           setSaveStatus("saved");
           setLastSavedTime(new Date().toLocaleTimeString("vi-VN"));
+          lastSaveErrorRef.current = null;
         }
         if (res.isExpired) {
           setActiveAttempt((prev) => (prev ? { ...prev, status: "EXPIRED" } : null));
         }
       })
       .catch((err) => {
+        const errObj = err instanceof Error ? err : new Error(String(err));
+        lastSaveErrorRef.current = errObj;
         if (seq === latestSequenceRef.current) {
           setSaveStatus("error");
           setSaveError(
-            err instanceof Error ? err.message : "Lỗi lưu câu trả lời vào máy chủ.",
+            errObj.message || "Lỗi lưu câu trả lời vào máy chủ.",
           );
         }
       });

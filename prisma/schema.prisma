@@ -516,6 +516,7 @@ model User {
   createdQuizConfigs      QuizConfiguration[]          @relation("QuizConfigCreatedBy")
   updatedQuizConfigs      QuizConfiguration[]          @relation("QuizConfigUpdatedBy")
   quizConfigAttempts      QuizConfigAttempt[]          @relation("UserQuizConfigAttempts")
+  quizXpClaims            QuizXpClaim[]                @relation("UserQuizXpClaims")
 
   @@map("users")
 }
@@ -995,6 +996,7 @@ model QuizConfiguration {
   updatedBy User?                @relation("QuizConfigUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   questions QuizConfigQuestion[]
   attempts  QuizConfigAttempt[]
+  xpClaims  QuizXpClaim[]
 
   @@index([status], map: "idx_quiz_configs_status")
   @@index([eventId], map: "idx_quiz_configs_event_id")
@@ -1059,6 +1061,7 @@ model QuizConfigAttempt {
   user       User                      @relation("UserQuizConfigAttempts", fields: [userId], references: [id], onDelete: Cascade)
   quizConfig QuizConfiguration         @relation(fields: [quizConfigId], references: [id], onDelete: Cascade)
   answers    QuizConfigAttemptAnswer[]
+  xpClaims   QuizXpClaim[]
 
   @@unique([userId, quizConfigId, attemptNumber], map: "uq_quiz_config_attempt_user_quiz_number")
   @@index([userId], map: "idx_quiz_config_attempts_user_id")
@@ -1086,6 +1089,25 @@ model QuizConfigAttemptAnswer {
   @@index([attemptId, displayedOrder], map: "idx_quiz_config_attempt_answers_order")
   @@map("quiz_config_attempt_answers")
 }
+
+model QuizXpClaim {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  quizConfigId String   @map("quiz_config_id") @db.Uuid
+  attemptId    String   @map("attempt_id") @db.Uuid
+  awardedXp    Int      @default(0) @map("awarded_xp")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user       User              @relation("UserQuizXpClaims", fields: [userId], references: [id], onDelete: Cascade)
+  quizConfig QuizConfiguration @relation(fields: [quizConfigId], references: [id], onDelete: Cascade)
+  attempt    QuizConfigAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, quizConfigId], map: "uq_quiz_xp_claims_user_quiz")
+  @@index([userId], map: "idx_quiz_xp_claims_user_id")
+  @@index([attemptId], map: "idx_quiz_xp_claims_attempt_id")
+  @@map("quiz_xp_claims")
+}
+
 
 
 

@@ -628,48 +628,71 @@ export class PortalQuizService {
         totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
       const passed = scorePercent >= attempt.quizConfig.passingScore;
 
-      // 6. Tính toán điểm XP và Chính sách cấp XP 1 lần duy nhất
+      // 6. Tính toán điểm XP và Chính sách cấp XP 1 lần duy nhất (B01 Fix)
       const baseXp = correctCount * 10;
       const bonusXp = passed ? 20 : 0;
       const calculatedXp = baseXp + bonusXp;
 
-      const idempotencyKey = `quiz:first-submit:${userId}:${attempt.quizConfigId}`;
-
-      const existingXpLedger = await tx.xpLedger.findUnique({
-        where: { idempotencyKey },
+      // Kiểm tra xem sinh viên đã tiêu thụ quyền nhận XP của Quiz Configuration này chưa
+      const existingClaim = await tx.quizXpClaim.findUnique({
+        where: {
+          userId_quizConfigId: {
+            userId,
+            quizConfigId: attempt.quizConfigId,
+          },
+        },
       });
 
       let awardedXp = 0;
       let isXpAwarded = false;
       let xpReason = "ALREADY_AWARDED_OR_RETAKE";
 
-      if (!existingXpLedger && calculatedXp > 0) {
-        awardedXp = calculatedXp;
-        isXpAwarded = true;
-        xpReason = "FIRST_QUIZ_SUBMISSION";
+      if (!existingClaim) {
+        // LẦN ĐẦU TIÊN: Quyền nhận XP được sử dụng tại lần submit này
+        if (calculatedXp > 0) {
+          awardedXp = calculatedXp;
+          isXpAwarded = true;
+          xpReason = "FIRST_QUIZ_SUBMISSION";
 
-        await tx.xpLedger.create({
+          const idempotencyKey = `quiz:first-submit:${userId}:${attempt.quizConfigId}`;
+          await tx.xpLedger.create({
+            data: {
+              userId,
+              ticketCode: null,
+              attendeeName:
+                attempt.user.fullName || attempt.user.username || "Sinh viên",
+              amountXp: awardedXp,
+              source: "QUIZ_CONFIG_FIRST_SUBMIT",
+              referenceId: attempt.quizConfigId,
+              idempotencyKey,
+              metadataJson: {
+                attemptId: attempt.id,
+                quizConfigId: attempt.quizConfigId,
+                attemptNumber: attempt.attemptNumber,
+                totalQuestions,
+                correctCount,
+                scorePercent,
+                passed,
+                baseXp,
+                bonusXp,
+                awardedXp,
+              },
+            },
+          });
+        } else {
+          // Lần đầu đạt 0 điểm -> 0 XP nhưng quyền đã tiêu thụ
+          awardedXp = 0;
+          isXpAwarded = false;
+          xpReason = "FIRST_SUBMIT_ZERO_XP";
+        }
+
+        // Đánh dấu quyền nhận XP đã tiêu thụ vĩnh viễn cho user + quiz này bằng Unique Constraint ở PostgreSQL
+        await tx.quizXpClaim.create({
           data: {
             userId,
-            ticketCode: null,
-            attendeeName:
-              attempt.user.fullName || attempt.user.username || "Sinh viên",
-            amountXp: awardedXp,
-            source: "QUIZ_CONFIG_FIRST_SUBMIT",
-            referenceId: attempt.quizConfigId,
-            idempotencyKey,
-            metadataJson: {
-              attemptId: attempt.id,
-              quizConfigId: attempt.quizConfigId,
-              attemptNumber: attempt.attemptNumber,
-              totalQuestions,
-              correctCount,
-              scorePercent,
-              passed,
-              baseXp,
-              bonusXp,
-              awardedXp,
-            },
+            quizConfigId: attempt.quizConfigId,
+            attemptId: attempt.id,
+            awardedXp,
           },
         });
       }

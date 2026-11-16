@@ -380,15 +380,15 @@ describe("Quiz Submission, Scoring & XP Integration Suite (M7.4)", () => {
   });
 
   // ============================================================================
-  // Test 5: Zero Score & Omitted Questions
+  // Test 5: B01 Remediation - Zero Score First Submit Consumes Claim; Retake Gets 0 XP
   // ============================================================================
-  it("Test 5 [Zero Score & Omitted]: Omitted questions count as incorrect, score is 0, bonus is 0, 0 XP awarded", async () => {
-    // Create new student for isolated test
+  it("Test 5 [B01 Zero-XP Claim & Retake]: First attempt with 0 points consumes claim with 0 XP; Retake with 100% still receives 0 XP", async () => {
+    // 1. Create student for isolated B01 test
     const sZero = await prisma.user.create({
       data: {
-        username: "student_zero_m74",
-        fullName: "Sinh Viên 0 Điểm",
-        email: "student_zero@poly.edu.vn",
+        username: "student_zero_b01_m74",
+        fullName: "Sinh Viên Zero XP B01",
+        email: "student_zero_b01@poly.edu.vn",
         userType: "STUDENT",
         accountStatus: "ACTIVE",
         activationStatus: "ACTIVATED",
@@ -401,40 +401,103 @@ describe("Quiz Submission, Scoring & XP Integration Suite (M7.4)", () => {
       username: sZero.username,
       roles: ["STUDENT"],
       pwdRequired: false,
-      jti: "test-jti-zero",
+      jti: "test-jti-zero-b01",
     });
 
-    const startRes = await request(server)
+    // 2. Start attempt 1
+    const startRes1 = await request(server)
       .post(`/api/v1/portal/quiz/${generalPublishedQuizId}/attempts`)
       .set("Authorization", `Bearer ${zeroToken}`)
       .expect(201);
 
-    const attemptId = startRes.body.data.id;
+    const attempt1Id = startRes1.body.data.id;
 
-    // Do NOT answer any question (omitted)
-    const submitRes = await request(server)
-      .post(`/api/v1/portal/quiz/attempts/${attemptId}/submit`)
+    // Submit attempt 1 with 0 questions answered (omitted)
+    const submitRes1 = await request(server)
+      .post(`/api/v1/portal/quiz/attempts/${attempt1Id}/submit`)
       .set("Authorization", `Bearer ${zeroToken}`)
       .expect(201);
 
-    const body: SubmitQuizAttemptResponseDto = submitRes.body.data;
-    expect(body.status).toBe("SUBMITTED");
-    expect(body.summary.totalQuestions).toBe(2);
-    expect(body.summary.answeredCount).toBe(0);
-    expect(body.summary.correctCount).toBe(0);
-    expect(body.summary.scorePercent).toBe(0);
-    expect(body.summary.passed).toBe(false);
+    const body1: SubmitQuizAttemptResponseDto = submitRes1.body.data;
+    expect(body1.status).toBe("SUBMITTED");
+    expect(body1.summary.scorePercent).toBe(0);
+    expect(body1.summary.passed).toBe(false);
+    expect(body1.xp.awardedXp).toBe(0);
+    expect(body1.xp.isXpAwarded).toBe(false);
+    expect(body1.xp.reason).toBe("FIRST_SUBMIT_ZERO_XP");
 
-    expect(body.xp.baseXp).toBe(0);
-    expect(body.xp.bonusXp).toBe(0);
-    expect(body.xp.awardedXp).toBe(0);
-    expect(body.xp.isXpAwarded).toBe(false);
-
-    // No ledger created because 0 XP
-    const ledger = await prisma.xpLedger.findUnique({
-      where: { idempotencyKey: `quiz:first-submit:${sZero.id}:${generalPublishedQuizId}` },
+    // B01 Check: No positive XpLedger record created
+    const ledgerCount = await prisma.xpLedger.count({
+      where: { userId: sZero.id, referenceId: generalPublishedQuizId },
     });
-    expect(ledger).toBeNull();
+    expect(ledgerCount).toBe(0);
+
+    // B01 Check: Exactly 1 QuizXpClaim created in PostgreSQL with awardedXp = 0
+    const claim1 = await prisma.quizXpClaim.findUnique({
+      where: {
+        userId_quizConfigId: {
+          userId: sZero.id,
+          quizConfigId: generalPublishedQuizId,
+        },
+      },
+    });
+    expect(claim1).not.toBeNull();
+    expect(claim1?.awardedXp).toBe(0);
+    expect(claim1?.attemptId).toBe(attempt1Id);
+
+    // 3. Student creates attempt 2 (Retake)
+    const startRes2 = await request(server)
+      .post(`/api/v1/portal/quiz/${generalPublishedQuizId}/attempts`)
+      .set("Authorization", `Bearer ${zeroToken}`)
+      .expect(201);
+
+    const attempt2Id = startRes2.body.data.id;
+    expect(startRes2.body.data.attemptNumber).toBe(2);
+
+    // In Attempt 2, student answers BOTH questions 100% correctly!
+    const questions = await prisma.quizConfigQuestion.findMany({
+      where: { quizConfigId: generalPublishedQuizId },
+      orderBy: { sortOrder: "asc" },
+    });
+
+    await request(server)
+      .put(`/api/v1/portal/quiz/attempts/${attempt2Id}/progress`)
+      .set("Authorization", `Bearer ${zeroToken}`)
+      .send({
+        answers: [
+          { quizConfigQuestionId: questions[0].id, selectedOptionIndex: 0 },
+          { quizConfigQuestionId: questions[1].id, selectedOptionIndex: 1 },
+        ],
+      })
+      .expect(200);
+
+    // Submit attempt 2
+    const submitRes2 = await request(server)
+      .post(`/api/v1/portal/quiz/attempts/${attempt2Id}/submit`)
+      .set("Authorization", `Bearer ${zeroToken}`)
+      .expect(201);
+
+    const body2: SubmitQuizAttemptResponseDto = submitRes2.body.data;
+    expect(body2.status).toBe("SUBMITTED");
+    expect(body2.summary.scorePercent).toBe(100);
+    expect(body2.summary.passed).toBe(true);
+
+    // B01 CRITICAL: Even with 100% score on retake, awardedXp MUST be 0!
+    expect(body2.xp.awardedXp).toBe(0);
+    expect(body2.xp.isXpAwarded).toBe(false);
+    expect(body2.xp.reason).toBe("ALREADY_AWARDED_OR_RETAKE");
+
+    // XpLedger still has 0 rows for this user
+    const finalLedgerCount = await prisma.xpLedger.count({
+      where: { userId: sZero.id, referenceId: generalPublishedQuizId },
+    });
+    expect(finalLedgerCount).toBe(0);
+
+    // Exactly ONE QuizXpClaim remains in PostgreSQL for this user + quiz
+    const totalClaims = await prisma.quizXpClaim.count({
+      where: { userId: sZero.id, quizConfigId: generalPublishedQuizId },
+    });
+    expect(totalClaims).toBe(1);
   });
 
   // ============================================================================
@@ -953,5 +1016,185 @@ describe("Quiz Submission, Scoring & XP Integration Suite (M7.4)", () => {
     expect(submitBody.summary.correctCount).toBe(0);
     expect(submitBody.summary.passed).toBe(false);
     expect(submitBody.xp.awardedXp).toBe(0);
+  });
+
+  // ============================================================================
+  // Test 14: B03 Remediation - PostgreSQL Atomic Rollback on XP Step Failure
+  // ============================================================================
+  it("Test 14 [B03 Atomic Rollback]: Database failure during XP claim creation rolls back entire transaction; attempt remains IN_PROGRESS with zero partial writes", async () => {
+    const sRollback = await prisma.user.create({
+      data: {
+        username: "student_rollback_m74",
+        fullName: "Sinh Viên Rollback B03",
+        email: "student_rollback@poly.edu.vn",
+        userType: "STUDENT",
+        accountStatus: "ACTIVE",
+        activationStatus: "ACTIVATED",
+        provisioningMethod: "BOOTSTRAP",
+      },
+    });
+    const jwtService = ctx.app.get(JwtService);
+    const rollbackToken = jwtService.sign({
+      sub: sRollback.id,
+      username: sRollback.username,
+      roles: ["STUDENT"],
+      pwdRequired: false,
+      jti: "test-jti-rollback",
+    });
+
+    const startRes = await request(server)
+      .post(`/api/v1/portal/quiz/${generalPublishedQuizId}/attempts`)
+      .set("Authorization", `Bearer ${rollbackToken}`)
+      .expect(201);
+
+    const attemptId = startRes.body.data.id;
+
+    // Answer questions
+    const questions = await prisma.quizConfigQuestion.findMany({
+      where: { quizConfigId: generalPublishedQuizId },
+      orderBy: { sortOrder: "asc" },
+    });
+
+    await request(server)
+      .put(`/api/v1/portal/quiz/attempts/${attemptId}/progress`)
+      .set("Authorization", `Bearer ${rollbackToken}`)
+      .send({
+        answers: [
+          { quizConfigQuestionId: questions[0].id, selectedOptionIndex: 0 },
+          { quizConfigQuestionId: questions[1].id, selectedOptionIndex: 1 },
+        ],
+      })
+      .expect(200);
+
+    // Fault Injection: Create temporary PostgreSQL trigger that aborts INSERT into quiz_xp_claims
+    await prisma.$executeRawUnsafe(`
+      CREATE OR REPLACE FUNCTION fail_test_claim_insert() RETURNS trigger AS $$
+      BEGIN
+        RAISE EXCEPTION 'Simulated database disk failure on quiz_xp_claims';
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await prisma.$executeRawUnsafe(`DROP TRIGGER IF EXISTS trg_test_fail_claim ON quiz_xp_claims;`);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TRIGGER trg_test_fail_claim
+      BEFORE INSERT ON quiz_xp_claims
+      FOR EACH ROW EXECUTE FUNCTION fail_test_claim_insert();
+    `);
+
+    try {
+      // Submit attempt: must fail with HTTP 500 because the transaction failed at XP step
+      await request(server)
+        .post(`/api/v1/portal/quiz/attempts/${attemptId}/submit`)
+        .set("Authorization", `Bearer ${rollbackToken}`)
+        .expect(500);
+
+      // Verify PostgreSQL Atomic Rollback:
+      // 1. Attempt status MUST remain IN_PROGRESS
+      const checkAttempt = await prisma.quizConfigAttempt.findUniqueOrThrow({
+        where: { id: attemptId },
+      });
+      expect(checkAttempt.status).toBe("IN_PROGRESS");
+      expect(checkAttempt.submittedAt).toBeNull();
+      expect(checkAttempt.scorePercent).toBeNull();
+      expect(checkAttempt.awardedXp).toBeNull();
+
+      // 2. Zero rows in quiz_xp_claims
+      const claimCount = await prisma.quizXpClaim.count({
+        where: { userId: sRollback.id, quizConfigId: generalPublishedQuizId },
+      });
+      expect(claimCount).toBe(0);
+
+      // 3. Zero rows in xp_ledgers
+      const ledgerCount = await prisma.xpLedger.count({
+        where: { userId: sRollback.id, referenceId: generalPublishedQuizId },
+      });
+      expect(ledgerCount).toBe(0);
+    } finally {
+      // Remove fault injection trigger
+      await prisma.$executeRawUnsafe(`DROP TRIGGER IF EXISTS trg_test_fail_claim ON quiz_xp_claims;`).catch(() => {});
+      await prisma.$executeRawUnsafe(`DROP FUNCTION IF EXISTS fail_test_claim_insert();`).catch(() => {});
+    }
+  });
+
+  // ============================================================================
+  // Test 15: B04 Remediation - Submit / Autosave Race & Post-submit Immutability
+  // ============================================================================
+  it("Test 15 [B04 Submit/Autosave Race]: Late autosave after SUBMITTED is rejected (400) and answers remain immutable in PostgreSQL", async () => {
+    const sRace = await prisma.user.create({
+      data: {
+        username: "student_race_m74",
+        fullName: "Sinh Viên Race B04",
+        email: "student_race@poly.edu.vn",
+        userType: "STUDENT",
+        accountStatus: "ACTIVE",
+        activationStatus: "ACTIVATED",
+        provisioningMethod: "BOOTSTRAP",
+      },
+    });
+    const jwtService = ctx.app.get(JwtService);
+    const raceToken = jwtService.sign({
+      sub: sRace.id,
+      username: sRace.username,
+      roles: ["STUDENT"],
+      pwdRequired: false,
+      jti: "test-jti-race",
+    });
+
+    const startRes = await request(server)
+      .post(`/api/v1/portal/quiz/${generalPublishedQuizId}/attempts`)
+      .set("Authorization", `Bearer ${raceToken}`)
+      .expect(201);
+
+    const attemptId = startRes.body.data.id;
+    const questions = await prisma.quizConfigQuestion.findMany({
+      where: { quizConfigId: generalPublishedQuizId },
+      orderBy: { sortOrder: "asc" },
+    });
+
+    // 1. Initial answer: Option 0 for Q1 (correct)
+    await request(server)
+      .put(`/api/v1/portal/quiz/attempts/${attemptId}/progress`)
+      .set("Authorization", `Bearer ${raceToken}`)
+      .send({
+        answers: [{ quizConfigQuestionId: questions[0].id, selectedOptionIndex: 0 }],
+      })
+      .expect(200);
+
+    // 2. Submit the attempt
+    const submitRes = await request(server)
+      .post(`/api/v1/portal/quiz/attempts/${attemptId}/submit`)
+      .set("Authorization", `Bearer ${raceToken}`)
+      .expect(201);
+
+    expect(submitRes.body.data.status).toBe("SUBMITTED");
+
+    // 3. Late autosave attempt AFTER submission
+    const lateAutosaveRes = await request(server)
+      .put(`/api/v1/portal/quiz/attempts/${attemptId}/progress`)
+      .set("Authorization", `Bearer ${raceToken}`)
+      .send({
+        answers: [
+          // Malicious / late update trying to change answers after submit
+          { quizConfigQuestionId: questions[0].id, selectedOptionIndex: 3 },
+          { quizConfigQuestionId: questions[1].id, selectedOptionIndex: 3 },
+        ],
+      })
+      .expect(400);
+
+    const errorMsg = lateAutosaveRes.body.error?.message || lateAutosaveRes.body.message || "";
+    expect(errorMsg).toMatch(/Lượt thi đã (kết thúc|hết thời gian|không còn hiệu lực)/);
+
+    // 4. Verify PostgreSQL Immutability: Question 1's answer in database was NOT overwritten
+    const ansInDb = await prisma.quizConfigAttemptAnswer.findUniqueOrThrow({
+      where: {
+        attemptId_quizConfigQuestionId: {
+          attemptId,
+          quizConfigQuestionId: questions[0].id,
+        },
+      },
+    });
+    expect(ansInDb.selectedOptionIndex).toBe(0); // Kept original correct answer!
   });
 });

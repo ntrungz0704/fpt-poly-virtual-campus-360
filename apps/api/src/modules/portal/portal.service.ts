@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { Prisma, PublishStatus } from "@prisma/client";
 import type {
   LinkStatus,
   ParentStudentDetailDto,
@@ -158,46 +158,63 @@ export class PortalService {
     await this.claimUnassignedTickets(userId);
 
     const participations = await this.prisma.eventParticipation.findMany({
-      where: { userId },
+      where: {
+        userId,
+        event: { deletedAt: null },
+      },
       include: {
         event: true,
       },
       orderBy: { createdAt: "desc" },
     });
 
-    const results: PortalTicketDto[] = [];
-    for (const p of participations) {
+    const allSessionIds = new Set<string>();
+    const ticketSessionIds = participations.map((p) => {
       const meta = (p.metadataJson ?? {}) as Record<string, unknown>;
       const sessionIds = Array.isArray(meta.sessionIds)
-        ? (meta.sessionIds as string[])
+        ? meta.sessionIds.filter((id): id is string => typeof id === "string")
         : [];
+      for (const sid of sessionIds) allSessionIds.add(sid);
+      return sessionIds;
+    });
 
-      let sessionsList: Array<{
-        id: string;
-        title: string;
-        timeRange: string;
-        location: string;
-      }> = [];
+    const sessionsById = new Map<
+      string,
+      { id: string; title: string; timeRange: string; location: string }
+    >();
 
-      if (sessionIds.length > 0) {
-        const dbSessions = await this.prisma.openDaySession.findMany({
-          where: { id: { in: sessionIds }, deletedAt: null },
-          select: {
-            id: true,
-            title: true,
-            timeRangeLabel: true,
-            customLocationLabel: true,
-          },
-        });
-        sessionsList = dbSessions.map((s) => ({
+    if (allSessionIds.size > 0) {
+      const dbSessions = await this.prisma.openDaySession.findMany({
+        where: {
+          id: { in: Array.from(allSessionIds) },
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          title: true,
+          timeRangeLabel: true,
+          customLocationLabel: true,
+        },
+      });
+      for (const s of dbSessions) {
+        sessionsById.set(s.id, {
           id: s.id,
           title: s.title,
           timeRange: s.timeRangeLabel,
           location: s.customLocationLabel,
-        }));
+        });
       }
+    }
 
-      results.push({
+    return participations.map((p, index) => {
+      const sessionsList = ticketSessionIds[index]
+        .map((sid) => sessionsById.get(sid))
+        .filter(
+          (item): item is { id: string; title: string; timeRange: string; location: string } =>
+            Boolean(item),
+        );
+
+      return {
         id: p.id,
         ticketCode: p.ticketCode,
         eventId: p.eventId,
@@ -212,10 +229,8 @@ export class PortalService {
         checkedInAt: p.checkedInAt ? p.checkedInAt.toISOString() : null,
         qrPayload: `TICKET:${p.ticketCode}`,
         sessions: sessionsList,
-      });
-    }
-
-    return results;
+      };
+    });
   }
 
   async getSchedule(
@@ -226,12 +241,24 @@ export class PortalService {
 
     const [allSessions, userTickets] = await Promise.all([
       this.prisma.openDaySession.findMany({
-        where: { deletedAt: null, isPublic: true },
+        where: {
+          deletedAt: null,
+          isPublic: true,
+          status: PublishStatus.PUBLISHED,
+          event: {
+            deletedAt: null,
+            status: PublishStatus.PUBLISHED,
+          },
+        },
         include: { event: true },
         orderBy: [{ sortOrder: "asc" }, { startTimeLabel: "asc" }],
       }),
       this.prisma.eventParticipation.findMany({
-        where: { userId },
+        where: {
+          userId,
+          participationStatus: { not: "CANCELLED" },
+          event: { deletedAt: null },
+        },
         select: { metadataJson: true },
       }),
     ]);
@@ -362,11 +389,12 @@ export class PortalService {
 
     const availableSpins = Math.max(0, earnedSpins - totalSpinsUsed);
     const level = Math.floor(Math.max(0, totalXp) / 100) + 1;
+    const rank = totalXp > 0 ? await this.computeRealParticipantRank(userId, totalXp) : null;
 
     return {
       totalXp,
       level,
-      rank: 1,
+      rank,
       availableSpins,
       quizAttemptsCount,
       recentXpLedgers: recentXpLedgers.map((l) => ({
@@ -383,6 +411,39 @@ export class PortalService {
         createdAt: s.createdAt.toISOString(),
       })),
     };
+  }
+
+  private async computeRealParticipantRank(
+    userId: string,
+    userTotalXp: number,
+  ): Promise<number> {
+    const ledgerBuckets = await this.prisma.xpLedger.groupBy({
+      by: ["userId", "ticketCode", "attendeeName"],
+      _sum: { amountXp: true },
+    });
+
+    const totalsByIdentity = new Map<string, number>();
+    for (const row of ledgerBuckets) {
+      const key = row.userId
+        ? `u:${row.userId}`
+        : row.ticketCode
+          ? `t:${row.ticketCode.trim().toUpperCase()}`
+          : `g:${row.attendeeName.trim().toLowerCase()}`;
+      totalsByIdentity.set(
+        key,
+        (totalsByIdentity.get(key) ?? 0) + (row._sum.amountXp ?? 0),
+      );
+    }
+
+    const selfKey = `u:${userId}`;
+    let higherCount = 0;
+    for (const [key, xp] of totalsByIdentity.entries()) {
+      if (key !== selfKey && xp > userTotalXp) {
+        higherCount += 1;
+      }
+    }
+
+    return higherCount + 1;
   }
 
   // ==========================================================================
@@ -482,28 +543,46 @@ export class PortalService {
       orderBy: { createdAt: "desc" },
     });
 
-    const results: ParentStudentSummaryDto[] = [];
-    for (const l of links) {
-      // B1 Requirement: Parent only views detailed XP and ticket counts of APPROVED students
-      const isApproved = l.status === "APPROVED";
-      let totalXp = 0;
-      let ticketCount = 0;
+    const approvedStudentIds = Array.from(
+      new Set(
+        links
+          .filter((l) => l.status === "APPROVED")
+          .map((l) => l.student.id),
+      ),
+    );
 
-      if (isApproved) {
-        const [xpAgg, count] = await Promise.all([
-          this.prisma.xpLedger.aggregate({
-            where: { userId: l.student.id },
-            _sum: { amountXp: true },
-          }),
-          this.prisma.eventParticipation.count({
-            where: { userId: l.student.id },
-          }),
-        ]);
-        totalXp = xpAgg._sum.amountXp ?? 0;
-        ticketCount = count;
+    const xpByStudentId = new Map<string, number>();
+    const ticketCountByStudentId = new Map<string, number>();
+
+    if (approvedStudentIds.length > 0) {
+      const [xpGroups, ticketGroups] = await Promise.all([
+        this.prisma.xpLedger.groupBy({
+          by: ["userId"],
+          where: { userId: { in: approvedStudentIds } },
+          _sum: { amountXp: true },
+        }),
+        this.prisma.eventParticipation.groupBy({
+          by: ["userId"],
+          where: {
+            userId: { in: approvedStudentIds },
+            participationStatus: { not: "CANCELLED" },
+            event: { deletedAt: null },
+          },
+          _count: { id: true },
+        }),
+      ]);
+
+      for (const g of xpGroups) {
+        if (g.userId) xpByStudentId.set(g.userId, g._sum.amountXp ?? 0);
       }
+      for (const g of ticketGroups) {
+        if (g.userId) ticketCountByStudentId.set(g.userId, g._count.id);
+      }
+    }
 
-      results.push({
+    return links.map((l) => {
+      const isApproved = l.status === "APPROVED";
+      return {
         linkId: l.id,
         studentId: l.student.id,
         studentName: l.student.fullName,
@@ -512,13 +591,16 @@ export class PortalService {
         major: l.student.major,
         status: l.status as LinkStatus,
         relationship: l.relationship,
-        totalXp,
-        ticketsCount: ticketCount,
-        lastActive: isApproved && l.student.lastLoginAt ? l.student.lastLoginAt.toISOString() : null,
-      });
-    }
-
-    return results;
+        totalXp: isApproved ? (xpByStudentId.get(l.student.id) ?? 0) : 0,
+        ticketsCount: isApproved
+          ? (ticketCountByStudentId.get(l.student.id) ?? 0)
+          : 0,
+        lastActive:
+          isApproved && l.student.lastLoginAt
+            ? l.student.lastLoginAt.toISOString()
+            : null,
+      };
+    });
   }
 
   async getLinkedStudentDetail(

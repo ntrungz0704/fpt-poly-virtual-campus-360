@@ -7,6 +7,7 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
+import { isAiPlaceholderCameraMetadata } from "@fpt-campus/shared";
 import sharp from "sharp";
 import { PrismaService } from "../../common/adapters/prisma.service";
 import { STORAGE_ADAPTER } from "../storage/storage.adapter";
@@ -646,7 +647,7 @@ export class MediaService {
       category,
       sha256Checksum: asset.sha256Checksum,
       cameraMetadata: metadata,
-      isAiPlaceholder: false,
+      isAiPlaceholder: isAiPlaceholderCameraMetadata(metadata),
       uploadedBy: asset.uploadedBy,
       createdAt: asset.createdAt.toISOString(),
       updatedAt: asset.updatedAt.toISOString(),

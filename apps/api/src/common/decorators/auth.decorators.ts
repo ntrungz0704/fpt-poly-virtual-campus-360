@@ -10,6 +10,7 @@ import type {
 import type { Request } from "express";
 
 export const IS_PUBLIC_KEY = "isPublic";
+export const IS_OPTIONAL_AUTH_KEY = "isOptionalAuth";
 export const ALLOW_MUST_CHANGE_PASSWORD_KEY = "allowMustChangePassword";
 export const REQUIRED_PERMISSIONS_KEY = "requiredPermissions";
 export const REQUIRED_ANY_PERMISSION_KEY = "requiredAnyPermission";
@@ -35,6 +36,13 @@ export interface RequestWithAuth extends Request {
 }
 
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
+
+/**
+ * Use alongside `@Public()` when an endpoint serves both anonymous guests and
+ * authenticated users, populating `@CurrentUser()` if a valid active Bearer JWT
+ * is supplied without rejecting missing/expired tokens.
+ */
+export const OptionalAuth = () => SetMetadata(IS_OPTIONAL_AUTH_KEY, true);
 
 export const AllowMustChangePassword = () =>
   SetMetadata(ALLOW_MUST_CHANGE_PASSWORD_KEY, true);

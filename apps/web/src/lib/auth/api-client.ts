@@ -220,8 +220,13 @@ export interface ApiRequestOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   headers?: Record<string, string>;
-  /** Set `false` for `@Public()` endpoints that do not require Bearer JWT. */
-  auth?: boolean;
+  /**
+   * - `true` (default): Requires authenticated session; attempts refresh on 401.
+   * - `false`: Anonymous public request; never attaches Bearer token.
+   * - `"optional"`: Attaches Bearer token if an active session exists without
+   *   forcing login/refresh failure on anonymous visitors.
+   */
+  auth?: boolean | "optional";
   credentials?: RequestCredentials;
   skipRefreshRetry?: boolean;
 }
@@ -239,11 +244,21 @@ export async function apiRequest<T>(
     skipRefreshRetry = false,
   } = options;
 
+  const isRequiredAuth = auth === true;
+  const isOptionalAuth = auth === "optional";
+
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const url = `${getApiBaseUrl()}${normalizedPath}`;
 
-  if (auth && !inMemoryAccessToken && !skipRefreshRetry) {
+  if (isRequiredAuth && !inMemoryAccessToken && !skipRefreshRetry) {
     await refreshSessionSingleFlight();
+  } else if (
+    isOptionalAuth &&
+    !inMemoryAccessToken &&
+    !skipRefreshRetry &&
+    hasSessionHintCookie()
+  ) {
+    await refreshSessionSingleFlight().catch(() => null);
   }
 
   const runFetch = async (bearerToken: string | null): Promise<Response> => {
@@ -254,7 +269,7 @@ export async function apiRequest<T>(
     if (body !== undefined && !requestHeaders["Content-Type"]) {
       requestHeaders["Content-Type"] = "application/json";
     }
-    if (auth && bearerToken) {
+    if ((isRequiredAuth || isOptionalAuth) && bearerToken) {
       requestHeaders["Authorization"] = `Bearer ${bearerToken}`;
     }
 
@@ -277,7 +292,7 @@ export async function apiRequest<T>(
 
   let response = await runFetch(inMemoryAccessToken);
 
-  if (response.status === 401 && auth && !skipRefreshRetry) {
+  if (response.status === 401 && isRequiredAuth && !skipRefreshRetry) {
     try {
       const refreshed = await refreshSessionSingleFlight();
       response = await runFetch(refreshed.accessToken);
@@ -290,7 +305,7 @@ export async function apiRequest<T>(
     return await parseApiResponse<T>(response);
   } catch (error) {
     if (error instanceof ApiClientError) {
-      if (error.status === 401 && auth) {
+      if (error.status === 401 && isRequiredAuth) {
         clearClientSessionState();
         lifecycleHandlers.onSessionInvalidated?.();
       } else if (error.status === 403 && error.code === "PASSWORD_CHANGE_REQUIRED") {

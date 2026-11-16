@@ -2,7 +2,13 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from "@nestjs/common";
+import {
+  AI_PLACEHOLDER_BLOCKED_ERROR_CODE,
+  evaluateAiPlaceholderGoLiveStatus,
+  type ApiErrorDetail,
+} from "@fpt-campus/shared";
 import { PrismaService } from "../../common/adapters/prisma.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import type { AuthenticatedUser } from "../../common/decorators/auth.decorators";
@@ -13,6 +19,44 @@ import type {
   UpdateTourNodeDto,
 } from "./dto/tour-admin.dto";
 import { HotspotType, Prisma, PublishStatus } from "@prisma/client";
+
+const TOUR_PANORAMA_SAFE_SELECT = {
+  id: true,
+  assetKind: true,
+  originalFilename: true,
+  originalObjectKey: true,
+  optimizedDesktopKey: true,
+  optimizedMobileKey: true,
+  thumbnailKey: true,
+  isValid2To1: true,
+  isPreviewApproved: true,
+  processingStatus: true,
+  cameraMetadata: true,
+} satisfies Prisma.MediaAssetSelect;
+
+interface PublishCandidateNode {
+  id: string;
+  slug: string;
+  title: string;
+  panoramaAsset: {
+    id: string;
+    deletedAt: Date | null;
+    processingStatus: string;
+    isValid2To1: boolean;
+    isPreviewApproved: boolean;
+    cameraMetadata: Prisma.JsonValue;
+  } | null;
+  location: {
+    id: string;
+    deletedAt: Date | null;
+    status: PublishStatus;
+    building: {
+      id: string;
+      deletedAt: Date | null;
+      status: PublishStatus;
+    } | null;
+  } | null;
+}
 
 @Injectable()
 export class TourAdminService {
@@ -64,7 +108,9 @@ export class TourAdminService {
         ? { id: idOrSlug, deletedAt: null }
         : { slug: idOrSlug, deletedAt: null },
       include: {
-        panoramaAsset: true,
+        panoramaAsset: {
+          select: TOUR_PANORAMA_SAFE_SELECT,
+        },
         location: { include: { building: true } },
         hotspots: {
           include: {
@@ -88,105 +134,266 @@ export class TourAdminService {
   }
 
   /**
+   * Enforces D-02 / DEC-M1-A Go-Live gates before any TourNode can transition to PUBLISHED.
+   */
+  private assertNodesReadyForPublish(nodes: PublishCandidateNode[]): void {
+    if (nodes.length === 0) {
+      throw new BadRequestException({
+        code: "VALIDATION_ERROR",
+        message: "Không có cảnh 360° hợp lệ để xuất bản.",
+      });
+    }
+
+    const aiPlaceholderDetails: ApiErrorDetail[] = [];
+    const readinessDetails: ApiErrorDetail[] = [];
+
+    for (const node of nodes) {
+      const metadata =
+        typeof node.panoramaAsset?.cameraMetadata === "object" &&
+        node.panoramaAsset?.cameraMetadata !== null &&
+        !Array.isArray(node.panoramaAsset.cameraMetadata)
+          ? (node.panoramaAsset.cameraMetadata as Record<string, unknown>)
+          : null;
+
+      const aiEval = evaluateAiPlaceholderGoLiveStatus({
+        nodeId: node.id,
+        nodeSlug: node.slug,
+        cameraMetadata: metadata,
+      });
+
+      if (aiEval.isGoLiveBlocked && aiEval.validationIssue) {
+        aiPlaceholderDetails.push({
+          field: node.slug,
+          message: aiEval.validationIssue.message,
+        });
+        continue;
+      }
+
+      if (
+        !node.panoramaAsset ||
+        node.panoramaAsset.deletedAt !== null ||
+        node.panoramaAsset.processingStatus !== "READY" ||
+        !node.panoramaAsset.isValid2To1 ||
+        !node.panoramaAsset.isPreviewApproved
+      ) {
+        readinessDetails.push({
+          field: node.slug,
+          message: `Cảnh "${node.title}" có ảnh panorama chưa sẵn sàng (cần processingStatus=READY, tỷ lệ 2:1 hợp lệ và isPreviewApproved=true).`,
+        });
+      }
+
+      if (
+        !node.location ||
+        node.location.deletedAt !== null ||
+        node.location.status !== PublishStatus.PUBLISHED
+      ) {
+        readinessDetails.push({
+          field: node.slug,
+          message: `Cảnh "${node.title}" gắn với địa điểm chưa ở trạng thái PUBLISHED.`,
+        });
+      }
+
+      if (
+        !node.location?.building ||
+        node.location.building.deletedAt !== null ||
+        node.location.building.status !== PublishStatus.PUBLISHED
+      ) {
+        readinessDetails.push({
+          field: node.slug,
+          message: `Cảnh "${node.title}" thuộc tòa nhà chưa ở trạng thái PUBLISHED.`,
+        });
+      }
+    }
+
+    if (aiPlaceholderDetails.length > 0) {
+      throw new UnprocessableEntityException({
+        code: AI_PLACEHOLDER_BLOCKED_ERROR_CODE,
+        message:
+          "Không thể xuất bản Tour 360° vì có cảnh đang sử dụng ảnh AI synthetic placeholder. Bắt buộc thay thế bằng ảnh 360° QTSC thật trước khi Go-Live.",
+        details: aiPlaceholderDetails,
+      });
+    }
+
+    if (readinessDetails.length > 0) {
+      throw new UnprocessableEntityException({
+        code: "UNPROCESSABLE_ENTITY",
+        message:
+          "Không thể xuất bản Tour 360° vì một số cảnh chưa đáp ứng điều kiện media/địa điểm công khai.",
+        details: readinessDetails,
+      });
+    }
+  }
+
+  /**
    * Create a new tour node / scene.
    */
   async createNode(user: AuthenticatedUser, dto: CreateTourNodeDto) {
-    // Check slug uniqueness
     const existing = await this.prisma.tourNode.findFirst({
       where: { slug: dto.slug, deletedAt: null },
     });
     if (existing) {
-      throw new BadRequestException(`Slug '${dto.slug}' already exists.`);
+      throw new BadRequestException({
+        code: "VALIDATION_ERROR",
+        message: `Slug '${dto.slug}' already exists.`,
+      });
     }
 
-    // Default location fallback if not provided
+    const asset = await this.prisma.mediaAsset.findFirst({
+      where: { id: dto.panoramaAssetId, deletedAt: null },
+    });
+    if (!asset) {
+      throw new NotFoundException({
+        code: "NOT_FOUND",
+        message: `Không tìm thấy MediaAsset panorama '${dto.panoramaAssetId}'.`,
+      });
+    }
+    if (asset.assetKind !== "PANORAMA_2_1") {
+      throw new BadRequestException({
+        code: "VALIDATION_ERROR",
+        message: "MediaAsset của TourNode phải thuộc loại PANORAMA_2_1.",
+      });
+    }
+
     let locationId = dto.locationId;
-    if (!locationId) {
+    if (locationId) {
+      const targetLocation = await this.prisma.location.findFirst({
+        where: { id: locationId, deletedAt: null },
+      });
+      if (!targetLocation) {
+        throw new NotFoundException({
+          code: "NOT_FOUND",
+          message: `Không tìm thấy địa điểm '${locationId}'.`,
+        });
+      }
+    } else {
       const defaultLoc = await this.prisma.location.findFirst({
         where: { deletedAt: null },
       });
       if (!defaultLoc) {
-        throw new BadRequestException(
-          "No location found in database. Please create a location first.",
-        );
+        throw new BadRequestException({
+          code: "VALIDATION_ERROR",
+          message: "No location found in database. Please create a location first.",
+        });
       }
       locationId = defaultLoc.id;
     }
 
-    const created = await this.prisma.tourNode.create({
-      data: {
-        title: dto.title,
-        slug: dto.slug,
-        intro: dto.intro,
-        category: dto.category ?? "study",
-        locationId,
-        panoramaAssetId: dto.panoramaAssetId,
-        initialYaw: dto.initialYaw ?? 0,
-        initialPitch: dto.initialPitch ?? 0,
-        initialFov: dto.initialFov ?? 75,
-        status: PublishStatus.DRAFT,
-      },
-      include: {
-        panoramaAsset: true,
-        location: true,
-        hotspots: true,
-      },
-    });
+    return this.prisma.$transaction(async (tx) => {
+      const created = await tx.tourNode.create({
+        data: {
+          title: dto.title,
+          slug: dto.slug,
+          intro: dto.intro,
+          category: dto.category ?? "study",
+          locationId: locationId!,
+          panoramaAssetId: dto.panoramaAssetId,
+          initialYaw: dto.initialYaw ?? 0,
+          initialPitch: dto.initialPitch ?? 0,
+          initialFov: dto.initialFov ?? 75,
+          status: PublishStatus.DRAFT,
+        },
+        include: {
+          panoramaAsset: {
+            select: TOUR_PANORAMA_SAFE_SELECT,
+          },
+          location: true,
+          hotspots: true,
+        },
+      });
 
-    await this.auditLog.record({
-      action: "TOUR_NODE_CREATE",
-      actorUserId: user.id,
-      actorUsername: user.username ?? user.fullName,
-      resourceType: "TourNode",
-      resourceId: created.id,
-      diffJson: { title: dto.title, slug: dto.slug },
-    });
+      await this.auditLog.record({
+        action: "TOUR_NODE_CREATE",
+        actorUserId: user.id,
+        actorUsername: user.username ?? user.fullName,
+        resourceType: "TourNode",
+        resourceId: created.id,
+        diffJson: { title: dto.title, slug: dto.slug },
+        tx,
+      });
 
-    return created;
+      return created;
+    });
   }
 
   /**
    * Update tour node parameters (angles, FOV, titles, status).
    */
   async updateNode(user: AuthenticatedUser, id: string, dto: UpdateTourNodeDto) {
-    const existing = await this.prisma.tourNode.findUnique({ where: { id } });
+    const existing = await this.prisma.tourNode.findUnique({
+      where: { id },
+      include: {
+        panoramaAsset: {
+          select: {
+            id: true,
+            deletedAt: true,
+            processingStatus: true,
+            isValid2To1: true,
+            isPreviewApproved: true,
+            cameraMetadata: true,
+          },
+        },
+        location: {
+          select: {
+            id: true,
+            deletedAt: true,
+            status: true,
+            building: {
+              select: {
+                id: true,
+                deletedAt: true,
+                status: true,
+              },
+            },
+          },
+        },
+      },
+    });
     if (!existing || existing.deletedAt) {
       throw new NotFoundException(`Tour node with ID ${id} not found.`);
     }
 
-    const updated = await this.prisma.tourNode.update({
-      where: { id },
-      data: {
-        ...(dto.title !== undefined ? { title: dto.title } : {}),
-        ...(dto.intro !== undefined ? { intro: dto.intro } : {}),
-        ...(dto.category !== undefined ? { category: dto.category } : {}),
-        ...(dto.initialYaw !== undefined ? { initialYaw: dto.initialYaw } : {}),
-        ...(dto.initialPitch !== undefined
-          ? { initialPitch: dto.initialPitch }
-          : {}),
-        ...(dto.initialFov !== undefined ? { initialFov: dto.initialFov } : {}),
-        ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
-        ...(dto.status !== undefined
-          ? { status: dto.status as PublishStatus }
-          : {}),
-      },
-      include: {
-        panoramaAsset: true,
-        location: true,
-        hotspots: true,
-      },
-    });
+    if (dto.status === PublishStatus.PUBLISHED) {
+      this.assertNodesReadyForPublish([existing]);
+    }
 
-    await this.auditLog.record({
-      action: "TOUR_NODE_UPDATE",
-      actorUserId: user.id,
-      actorUsername: user.username ?? user.fullName,
-      resourceType: "TourNode",
-      resourceId: id,
-      diffJson: dto as Record<string, unknown>,
-    });
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.tourNode.update({
+        where: { id },
+        data: {
+          ...(dto.title !== undefined ? { title: dto.title } : {}),
+          ...(dto.intro !== undefined ? { intro: dto.intro } : {}),
+          ...(dto.category !== undefined ? { category: dto.category } : {}),
+          ...(dto.initialYaw !== undefined ? { initialYaw: dto.initialYaw } : {}),
+          ...(dto.initialPitch !== undefined
+            ? { initialPitch: dto.initialPitch }
+            : {}),
+          ...(dto.initialFov !== undefined ? { initialFov: dto.initialFov } : {}),
+          ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
+          ...(dto.status !== undefined
+            ? { status: dto.status as PublishStatus }
+            : {}),
+        },
+        include: {
+          panoramaAsset: {
+            select: TOUR_PANORAMA_SAFE_SELECT,
+          },
+          location: true,
+          hotspots: true,
+        },
+      });
 
-    return updated;
+      await this.auditLog.record({
+        action: "TOUR_NODE_UPDATE",
+        actorUserId: user.id,
+        actorUsername: user.username ?? user.fullName,
+        resourceType: "TourNode",
+        resourceId: id,
+        diffJson: dto as Record<string, unknown>,
+        tx,
+      });
+
+      return updated;
+    });
   }
 
   /**
@@ -204,41 +411,54 @@ export class TourAdminService {
       throw new NotFoundException(`Tour node ${nodeId} not found.`);
     }
 
-    let hotspot;
-    if (dto.id) {
-      hotspot = await this.prisma.hotspot.update({
-        where: { id: dto.id },
-        data: {
-          yaw: dto.yaw,
-          pitch: dto.pitch,
-          title: dto.title,
-          body: dto.body ?? null,
-          hotspotType: dto.hotspotType as HotspotType,
-        },
-      });
-    } else {
-      hotspot = await this.prisma.hotspot.create({
-        data: {
-          nodeId,
-          yaw: dto.yaw,
-          pitch: dto.pitch,
-          title: dto.title,
-          body: dto.body ?? null,
-          hotspotType: dto.hotspotType as HotspotType,
-        },
-      });
-    }
+    return this.prisma.$transaction(async (tx) => {
+      let hotspot;
+      if (dto.id) {
+        const ownedHotspot = await tx.hotspot.findFirst({
+          where: { id: dto.id, nodeId },
+        });
+        if (!ownedHotspot) {
+          throw new NotFoundException({
+            code: "NOT_FOUND",
+            message: `Hotspot ${dto.id} not found on node ${nodeId}.`,
+          });
+        }
 
-    await this.auditLog.record({
-      action: dto.id ? "HOTSPOT_UPDATE" : "HOTSPOT_CREATE",
-      actorUserId: user.id,
-      actorUsername: user.username ?? user.fullName,
-      resourceType: "Hotspot",
-      resourceId: hotspot.id,
-      diffJson: { nodeId, yaw: dto.yaw, pitch: dto.pitch, title: dto.title },
+        hotspot = await tx.hotspot.update({
+          where: { id: dto.id },
+          data: {
+            yaw: dto.yaw,
+            pitch: dto.pitch,
+            title: dto.title,
+            body: dto.body ?? null,
+            hotspotType: dto.hotspotType as HotspotType,
+          },
+        });
+      } else {
+        hotspot = await tx.hotspot.create({
+          data: {
+            nodeId,
+            yaw: dto.yaw,
+            pitch: dto.pitch,
+            title: dto.title,
+            body: dto.body ?? null,
+            hotspotType: dto.hotspotType as HotspotType,
+          },
+        });
+      }
+
+      await this.auditLog.record({
+        action: dto.id ? "HOTSPOT_UPDATE" : "HOTSPOT_CREATE",
+        actorUserId: user.id,
+        actorUsername: user.username ?? user.fullName,
+        resourceType: "Hotspot",
+        resourceId: hotspot.id,
+        diffJson: { nodeId, yaw: dto.yaw, pitch: dto.pitch, title: dto.title },
+        tx,
+      });
+
+      return hotspot;
     });
-
-    return hotspot;
   }
 
   /**
@@ -357,26 +577,73 @@ export class TourAdminService {
   }
 
   /**
-   * Publish tour node (or all nodes).
+   * Publish tour node (or all nodes) after enforcing Go-Live media & hierarchy guards.
    */
   async publishTour(user: AuthenticatedUser, nodeIds?: string[]) {
-    const whereClause =
-      nodeIds && nodeIds.length > 0
-        ? { id: { in: nodeIds }, deletedAt: null }
-        : { deletedAt: null };
+    const uniqueNodeIds =
+      nodeIds && nodeIds.length > 0 ? Array.from(new Set(nodeIds)) : undefined;
 
-    const result = await this.prisma.tourNode.updateMany({
+    const whereClause = uniqueNodeIds
+      ? { id: { in: uniqueNodeIds }, deletedAt: null }
+      : { deletedAt: null };
+
+    const candidateNodes = await this.prisma.tourNode.findMany({
       where: whereClause,
-      data: { status: PublishStatus.PUBLISHED },
+      include: {
+        panoramaAsset: {
+          select: {
+            id: true,
+            deletedAt: true,
+            processingStatus: true,
+            isValid2To1: true,
+            isPreviewApproved: true,
+            cameraMetadata: true,
+          },
+        },
+        location: {
+          select: {
+            id: true,
+            deletedAt: true,
+            status: true,
+            building: {
+              select: {
+                id: true,
+                deletedAt: true,
+                status: true,
+              },
+            },
+          },
+        },
+      },
     });
 
-    await this.auditLog.record({
-      action: "TOUR_PUBLISH",
-      actorUserId: user.id,
-      actorUsername: user.username ?? user.fullName,
-      resourceType: "TourNode",
-      resourceId: null,
-      diffJson: { publishedCount: result.count },
+    if (uniqueNodeIds && candidateNodes.length !== uniqueNodeIds.length) {
+      throw new NotFoundException({
+        code: "NOT_FOUND",
+        message: "Một hoặc nhiều cảnh 360° được chọn không tồn tại hoặc đã bị xóa.",
+      });
+    }
+
+    this.assertNodesReadyForPublish(candidateNodes);
+
+    const targetIds = candidateNodes.map((n) => n.id);
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.tourNode.updateMany({
+        where: { id: { in: targetIds }, deletedAt: null },
+        data: { status: PublishStatus.PUBLISHED },
+      });
+
+      await this.auditLog.record({
+        action: "TOUR_PUBLISH",
+        actorUserId: user.id,
+        actorUsername: user.username ?? user.fullName,
+        resourceType: "TourNode",
+        resourceId: targetIds.length === 1 ? targetIds[0] : null,
+        diffJson: { publishedCount: updated.count, nodeIds: targetIds },
+        tx,
+      });
+
+      return updated;
     });
 
     return {

@@ -6,6 +6,33 @@ import { Badge, Button, ErrorState, Input, LoadingState } from "@/components/ui"
 import { getUserInitials, getUserTypeLabel } from "@/lib/auth/auth-routing";
 import { portalApi } from "@/lib/portal/portal-api";
 
+function hasControlChars(str: string): boolean {
+  for (let i = 0; i < str.length; i += 1) {
+    const code = str.charCodeAt(i);
+    if (code < 32 || code === 127) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function sanitizeSafeImageUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed || hasControlChars(trimmed) || trimmed.includes("\\")) return null;
+  if (trimmed.startsWith("/")) {
+    return trimmed.startsWith("//") ? null : trimmed;
+  }
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+      ? parsed.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function StudentProfilePage() {
   const [profile, setProfile] = useState<StudentProfileDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,9 +120,9 @@ export default function StudentProfilePage() {
       <section className="ui-card p-6 sm:p-8 space-y-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
           <div className="flex items-center gap-4">
-            {profile.avatarUrl ? (
+            {sanitizeSafeImageUrl(profile.avatarUrl) ? (
               <img
-                src={profile.avatarUrl}
+                src={sanitizeSafeImageUrl(profile.avatarUrl)!}
                 alt={profile.fullName}
                 className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-primary/20 shadow-sm shrink-0"
               />

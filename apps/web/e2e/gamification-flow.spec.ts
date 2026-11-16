@@ -163,20 +163,18 @@ test.describe.serial("Milestone M3D: Gamification User Flow (Quiz, XP, Spin Whee
     expect(quizJson.data.message).toContain("Bạn đã nhận XP cho bài thi này trước đó");
   });
 
-  test("5. Leaderboard displays real aggregated rankings with verified XP", async ({
+  test("5. Leaderboard displays real aggregated rankings from PostgreSQL with verified XP", async ({
     page,
   }) => {
     const errors = attachErrorCollector(page);
 
     await page.goto(`${WEB_BASE}/games`, { waitUntil: "networkidle" });
 
-    // Verify leaderboard entries
+    // Verify leaderboard entries (populated by real quiz/spin actions in Tests 2-3; no fake baselines)
     const leaderboardCard = page.locator("div.ui-card").filter({ hasText: "Bảng Xếp Hạng XP QTSC" });
     await expect(leaderboardCard).toBeVisible();
-
-    // Check top ambassador
-    await expect(page.getByText("Đặng Quốc Hưng (K19 CNTT)")).toBeVisible();
-    await expect(page.getByText("480 XP")).toBeVisible();
+    await expect(leaderboardCard.getByText(testAttendeeName)).toBeVisible();
+    await expect(leaderboardCard.getByText(/Đặng Quốc Hưng/i)).toHaveCount(0);
 
     expect(errors.pageErrors).toEqual([]);
     expect(errors.hydrationErrors).toEqual([]);

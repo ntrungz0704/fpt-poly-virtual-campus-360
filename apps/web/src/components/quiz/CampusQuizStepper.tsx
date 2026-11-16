@@ -26,7 +26,7 @@ interface CampusQuizStepperProps {
 }
 
 export function CampusQuizStepper({
-  eventId = "4173b76b-8e00-4276-9309-98ac372eb928",
+  eventId,
   questions,
   attendeeName = "Khách tham quan",
   ticketCode,
@@ -41,8 +41,8 @@ export function CampusQuizStepper({
   const [submissionResult, setSubmissionResult] = useState<QuizSubmissionResultDto | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // If questions empty, render fallback
-  if (!questions || questions.length === 0) {
+  // If questions empty or no active published event is loaded, render unavailable/loading state
+  if (!eventId || !questions || questions.length === 0) {
     return (
       <div className="ui-card p-6 sm:p-8 text-center space-y-4">
         <span className="material-symbols-outlined text-[36px] text-secondary">

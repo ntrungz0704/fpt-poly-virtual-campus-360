@@ -35,7 +35,7 @@ export async function fetchGamificationProfile(
   const qs = params.toString();
   return apiRequest<GamificationProfileDto>(
     `/public/gamification/profile${qs ? `?${qs}` : ""}`,
-    { auth: false },
+    { auth: "optional" },
   );
 }
 
@@ -56,7 +56,7 @@ export async function fetchLeaderboard(
   const qs = params.toString();
   return apiRequest<LeaderboardResponseDto>(
     `/public/gamification/leaderboard${qs ? `?${qs}` : ""}`,
-    { auth: false },
+    { auth: "optional" },
   );
 }
 
@@ -72,7 +72,7 @@ export async function submitQuizAnswers(
     {
       method: "POST",
       body: input,
-      auth: false,
+      auth: "optional",
     },
   );
 }
@@ -87,6 +87,6 @@ export async function executeSpinWheel(
   return apiRequest<SpinWheelResultDto>("/public/gamification/spin", {
     method: "POST",
     body: input,
-    auth: false,
+    auth: "optional",
   });
 }

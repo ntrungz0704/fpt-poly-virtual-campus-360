@@ -10,6 +10,7 @@ import { JwtService } from "@nestjs/jwt";
 import type { PermissionCode, RoleCode } from "@fpt-campus/shared";
 import { PrismaService } from "../adapters/prisma.service";
 import {
+  IS_OPTIONAL_AUTH_KEY,
   IS_PUBLIC_KEY,
   type AuthenticatedUser,
   type RequestWithAuth,
@@ -40,12 +41,31 @@ export class JwtAuthGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (isPublic) {
-      return true;
-    }
+    const isOptionalAuth = this.reflector.getAllAndOverride<boolean>(
+      IS_OPTIONAL_AUTH_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     const req = context.switchToHttp().getRequest<RequestWithAuth>();
     const authHeader = req.headers.authorization;
+
+    if (isPublic && !isOptionalAuth) {
+      return true;
+    }
+
+    if (isPublic && isOptionalAuth) {
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        const token = authHeader.slice(7).trim();
+        if (token) {
+          const optionalUser = await this.resolveUserFromToken(token, false);
+          if (optionalUser) {
+            req.user = optionalUser;
+          }
+        }
+      }
+      return true;
+    }
+
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       throw new UnauthorizedException({
         code: "UNAUTHORIZED",
@@ -61,12 +81,21 @@ export class JwtAuthGuard implements CanActivate {
       });
     }
 
+    req.user = (await this.resolveUserFromToken(token, true))!;
+    return true;
+  }
+
+  private async resolveUserFromToken(
+    token: string,
+    strict: boolean,
+  ): Promise<AuthenticatedUser | undefined> {
     let payload: JwtAccessPayload;
     try {
       payload = await this.jwtService.verifyAsync<JwtAccessPayload>(token, {
         secret: this.configService.get("JWT_SECRET", { infer: true }),
       });
     } catch {
+      if (!strict) return undefined;
       throw new UnauthorizedException({
         code: "UNAUTHORIZED",
         message: "Xác thực không hợp lệ hoặc phiên đã hết hạn.",
@@ -74,6 +103,7 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     if (!payload.sub) {
+      if (!strict) return undefined;
       throw new UnauthorizedException({
         code: "UNAUTHORIZED",
         message: "Xác thực không hợp lệ hoặc phiên đã hết hạn.",
@@ -107,6 +137,7 @@ export class JwtAuthGuard implements CanActivate {
       user.accountStatus !== "ACTIVE" ||
       user.activationStatus !== "ACTIVATED"
     ) {
+      if (!strict) return undefined;
       throw new UnauthorizedException({
         code: "UNAUTHORIZED",
         message: "Tài khoản không khả dụng hoặc phiên đã bị thu hồi.",
@@ -122,7 +153,7 @@ export class JwtAuthGuard implements CanActivate {
       }
     }
 
-    const authUser: AuthenticatedUser = {
+    return {
       id: user.id,
       username: user.username,
       fullName: user.fullName,
@@ -136,8 +167,5 @@ export class JwtAuthGuard implements CanActivate {
       roles: Array.from(rolesSet),
       permissions: Array.from(permissionsSet),
     };
-
-    req.user = authUser;
-    return true;
   }
 }

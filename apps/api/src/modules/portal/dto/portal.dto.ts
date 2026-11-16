@@ -11,8 +11,53 @@ import {
   Max,
   MaxLength,
   Min,
+  Validate,
+  ValidatorConstraint,
+  type ValidatorConstraintInterface,
 } from "class-validator";
 import type { QuizAttemptStatus } from "@fpt-campus/shared";
+
+function hasControlChars(str: string): boolean {
+  for (let i = 0; i < str.length; i += 1) {
+    const code = str.charCodeAt(i);
+    if (code < 32 || code === 127) {
+      return true;
+    }
+  }
+  return false;
+}
+
+@ValidatorConstraint({ name: "isSafeAvatarUrl", async: false })
+export class IsSafeAvatarUrlConstraint implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    if (value === null || value === undefined || value === "") {
+      return true;
+    }
+    if (typeof value !== "string") {
+      return false;
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return true;
+    }
+    if (hasControlChars(trimmed) || trimmed.includes("\\")) {
+      return false;
+    }
+    if (trimmed.startsWith("/")) {
+      return !trimmed.startsWith("//");
+    }
+    try {
+      const parsed = new URL(trimmed);
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
+
+  defaultMessage(): string {
+    return "avatarUrl chỉ chấp nhận đường dẫn http(s):// hoặc đường dẫn nội bộ bắt đầu bằng '/'.";
+  }
+}
 
 export class UpdateProfileDto {
   @IsOptional()
@@ -28,6 +73,7 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   @MaxLength(512)
+  @Validate(IsSafeAvatarUrlConstraint)
   avatarUrl?: string | null;
 
   @IsOptional()

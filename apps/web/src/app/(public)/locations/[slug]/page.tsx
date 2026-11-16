@@ -12,6 +12,7 @@ import {
   fetchPublicLocations,
   mapPublicLocationToItem,
 } from "@/lib/public/public-api";
+import { ApiClientError } from "@/lib/auth/api-client";
 import { Badge, NotFoundState } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -33,9 +34,15 @@ export default async function LocationDetailPage({
     if (detailDto) {
       location = mapPublicLocationToItem(detailDto);
     }
-  } catch {
-    // Graceful fallback to local registry if API server is temporarily unreachable
-    location = CAMPUS_LOCATIONS.find((item) => item.slug === slug) ?? null;
+  } catch (err) {
+    if (err instanceof ApiClientError && err.status === 404) {
+      location = null;
+    } else if (!(err instanceof ApiClientError) || err.status === 0) {
+      // Graceful fallback to local registry ONLY when API server is unreachable
+      location = CAMPUS_LOCATIONS.find((item) => item.slug === slug) ?? null;
+    } else {
+      location = null;
+    }
   }
 
   if (!location) {

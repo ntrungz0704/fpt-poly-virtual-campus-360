@@ -249,48 +249,10 @@ export async function fetchPublicCampus(): Promise<PublicCampusResponseDto> {
 export async function fetchPublicBuilding(
   slug: string,
 ): Promise<PublicBuildingDetailDto> {
-  try {
-    return await apiRequest<PublicBuildingDetailDto>(
-      `/public/buildings/${encodeURIComponent(slug)}`,
-      { auth: false },
-    );
-  } catch {
-    // API offline -> fall back
-  }
-  const building =
-    CAMPUS_BUILDINGS.find(
-      (b) =>
-        b.code.toLowerCase() === slug.toLowerCase() ||
-        b.code === slug.toUpperCase(),
-    ) ?? CAMPUS_BUILDINGS[0];
-  return {
-    building: {
-      id: `bld-${building.code}`,
-      code: building.code,
-      slug: building.code.toLowerCase(),
-      name: building.name,
-      shortName: building.shortName,
-      category: building.category,
-      categoryLabel: building.categoryLabel,
-      floorsLabel: building.floorsLabel,
-      summary: building.summary,
-      description: building.summary,
-      highlights: building.highlights,
-      coverUrl: building.imageUrl,
-      defaultNodeSlug: building.defaultSceneId,
-      lat: building.lat,
-      lng: building.lng,
-      addressNote: building.addressNote,
-      statusNote: building.statusNote,
-      mapIconKey: building.mapIconKey,
-      routeWaypoints: building.routeWaypoints,
-      gisX: building.gisX,
-      gisY: building.gisY,
-      floorCount: 4,
-      publishedNodeCount: 2,
-    },
-    floors: [],
-  };
+  return apiRequest<PublicBuildingDetailDto>(
+    `/public/buildings/${encodeURIComponent(slug)}`,
+    { auth: false },
+  );
 }
 
 /**
@@ -386,58 +348,10 @@ export async function fetchPublicLocations(
 export async function fetchPublicLocationBySlug(
   slug: string,
 ): Promise<PublicLocationDetailDto> {
-  try {
-    return await apiRequest<PublicLocationDetailDto>(
-      `/public/locations/${encodeURIComponent(slug)}`,
-      { auth: false },
-    );
-  } catch {
-    // API offline -> fall back
-  }
-  const loc =
-    CAMPUS_LOCATIONS.find((l) => l.slug === slug) ?? CAMPUS_LOCATIONS[0];
-  return {
-    id: loc.id,
-    slug: loc.slug,
-    code: loc.code,
-    name: loc.name,
-    buildingCode: loc.buildingCode,
-    buildingName: loc.buildingName,
-    floorLabel: loc.floor,
-    typeCode:
-      loc.category === "lab"
-        ? "LAB"
-        : loc.category === "studio"
-          ? "STUDIO"
-          : "LOBBY",
-    category: loc.category,
-    categoryLabel: loc.categoryLabel,
-    shortDesc: loc.shortDesc,
-    description: loc.description,
-    highlights: loc.highlights,
-    imageUrl: loc.imageUrl,
-    primaryNodeSlug: loc.sceneId,
-    isPublicAccessible: true,
-    restrictionNote: null,
-    status: "PUBLISHED" as const,
-    gallery: [
-      {
-        id: `gal-${loc.id}-1`,
-        url: loc.imageUrl,
-        thumbUrl: loc.imageUrl,
-        isCover: true,
-        caption: loc.name,
-      },
-    ],
-    tourNodes: [
-      {
-        id: `node-${loc.sceneId ?? "default"}`,
-        slug: loc.sceneId ?? "cong-chao-qtsc",
-        title: loc.name,
-        thumbUrl: loc.imageUrl,
-      },
-    ],
-  };
+  return apiRequest<PublicLocationDetailDto>(
+    `/public/locations/${encodeURIComponent(slug)}`,
+    { auth: false },
+  );
 }
 
 /**
@@ -545,13 +459,7 @@ export async function fetchPublicTourNodeBySlug(
  * GET /api/v1/public/events
  */
 export async function fetchPublicEvents(): Promise<PublicEventsResponseDto> {
-  try {
-    const res = await apiRequest<PublicEventsResponseDto>("/public/events", { auth: false });
-    if (res && res.event) return res;
-  } catch {
-    // API offline -> fall back
-  }
-  return FALLBACK_OPEN_DAY_EVENTS;
+  return apiRequest<PublicEventsResponseDto>("/public/events", { auth: false });
 }
 
 /**
@@ -561,27 +469,11 @@ export async function fetchPublicEvents(): Promise<PublicEventsResponseDto> {
 export async function verifyPublicQuiz(
   dto: QuizVerifyRequest,
 ): Promise<QuizVerifyResponse> {
-  try {
-    return await apiRequest<QuizVerifyResponse>("/public/quiz/verify", {
-      method: "POST",
-      body: dto,
-      auth: false,
-    });
-  } catch {
-    // API offline -> compute locally
-    return {
-      results: (dto.items || []).map((item) => ({
-        questionId: item.questionId,
-        selectedIndex: item.selectedIndex,
-        isCorrect: true,
-        correctIndex: item.selectedIndex,
-        explanation:
-          "Chính xác! Bạn đã hoàn thành câu hỏi tìm hiểu về FPT Polytechnic CVPM Quang Trung.",
-      })),
-      correctCount: (dto.items || []).length,
-      total: (dto.items || []).length,
-    };
-  }
+  return apiRequest<QuizVerifyResponse>("/public/quiz/verify", {
+    method: "POST",
+    body: dto,
+    auth: false,
+  });
 }
 
 /**
@@ -591,31 +483,11 @@ export async function verifyPublicQuiz(
 export async function registerPublicOpenDay(
   input: RegisterOpenDayInput,
 ): Promise<OpenDayTicketDto> {
-  try {
-    return await apiRequest<OpenDayTicketDto>("/public/events/register", {
-      method: "POST",
-      body: input,
-      auth: false,
-    });
-  } catch {
-    // API offline -> issue local verified ticket so the attendee can still receive and present their QR ticket
-    const code = `OD26-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    return {
-      id: `ticket-${code}`,
-      ticketCode: code,
-      eventId: input.eventId,
-      eventTitle: "FPT Polytechnic Open Day 2026",
-      eventDateLabel: "Chủ Nhật, 24/05/2026",
-      eventTimeLabel: "08:00 – 16:30",
-      attendeeName: input.fullName,
-      attendeeEmail: input.email,
-      attendeePhone: input.phone,
-      participationStatus: "CONFIRMED",
-      checkedInAt: null,
-      createdAt: new Date().toISOString(),
-      qrPayload: `FPT-OPENDAY-2026:${code}:${input.fullName}`,
-    };
-  }
+  return apiRequest<OpenDayTicketDto>("/public/events/register", {
+    method: "POST",
+    body: input,
+    auth: false,
+  });
 }
 
 /**
@@ -625,29 +497,10 @@ export async function registerPublicOpenDay(
 export async function fetchPublicTicketByCode(
   ticketCode: string,
 ): Promise<OpenDayTicketDto> {
-  try {
-    return await apiRequest<OpenDayTicketDto>(
-      `/public/events/tickets/${encodeURIComponent(ticketCode.trim().toUpperCase())}`,
-      { auth: false },
-    );
-  } catch {
-    const code = ticketCode.toUpperCase();
-    return {
-      id: `ticket-${code}`,
-      ticketCode: code,
-      eventId: "ev-openday-2026",
-      eventTitle: "FPT Polytechnic Open Day 2026",
-      eventDateLabel: "Chủ Nhật, 24/05/2026",
-      eventTimeLabel: "08:00 – 16:30",
-      attendeeName: "Khách tham quan FPT Poly",
-      attendeeEmail: "visitor@fpt.edu.vn",
-      attendeePhone: "0900000000",
-      participationStatus: "CONFIRMED",
-      checkedInAt: null,
-      createdAt: new Date().toISOString(),
-      qrPayload: `FPT-OPENDAY-2026:${code}`,
-    };
-  }
+  return apiRequest<OpenDayTicketDto>(
+    `/public/events/tickets/${encodeURIComponent(ticketCode.trim().toUpperCase())}`,
+    { auth: false },
+  );
 }
 
 // ============================================================================

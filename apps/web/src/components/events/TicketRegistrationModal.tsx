@@ -48,8 +48,15 @@ export function TicketRegistrationModal({
               setTicket(fresh);
               localStorage.setItem(LOCAL_STORAGE_TICKET_KEY, JSON.stringify(fresh));
             })
-            .catch(() => {
-              setTicket(saved);
+            .catch((err) => {
+              if (err instanceof ApiClientError && err.status === 404) {
+                localStorage.removeItem(LOCAL_STORAGE_TICKET_KEY);
+                setTicket(null);
+              } else if (!(err instanceof ApiClientError) || err.status === 0) {
+                setTicket(saved);
+              } else {
+                setTicket(null);
+              }
             });
         }
       }

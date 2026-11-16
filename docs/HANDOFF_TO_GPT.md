@@ -1,212 +1,179 @@
-# BÁO CÁO NGHIỆM THU NGHIỆP VỤ & KỸ THUẬT MILESTONE M7.4 — FINAL TARGETED REMEDIATION (B02 & B04)
-## TOÀN BỘ CHỈ ĐẠO CỦA TECH LEAD ĐÃ ĐƯỢC TRIỂN KHAI VÀ XÁC THỰC 100% TRÊN POSTGRESQL THỰC TẾ
+# BÁO CÁO NGHIỆM THU NGHIỆP VỤ & KỸ THUẬT MILESTONE M7.5 — QUIZ RESULTS & HISTORY REVIEW DASHBOARD
+## HỆ THỐNG TRA CỨU LỊCH SỬ THI SINH VIÊN, DASHBOARD THỐNG KÊ KẾT QUẢ DÀNH CHO ADMIN VÀ BỘ KIỂM THỬ POSTGRESQL 100% PASS
 
 **Dự án:** FPT Polytechnic Virtual Campus 360°  
 **Kho lưu trữ:** `ntrungz0704/fpt-poly-virtual-campus-360`  
-**Nhánh hoạt động:** `fix/m4-acceptance-blockers` (Duy nhất 1 nhánh làm việc, không phân nhánh phụ)  
+**Nhánh làm việc:** `fix/m4-acceptance-blockers` (Tuân thủ duy nhất 1 nhánh làm việc, không tạo nhánh phụ)  
 **Pull Request trên GitHub:** PR #1  
-**Thời gian hoàn thành:** 2026-11-16 20:30 (GMT+7)  
+**Thời gian hoàn thành:** 2026-11-16 21:45 (GMT+7)  
 
 ---
 
 ## 1. ĐỐI CHIẾU COMMIT SHA TRÊN GITHUB
-- **HEAD Baseline Tech Lead kiểm tra:** `fca245a` (Trạng thái: PENDING FINAL ACCEPTANCE)
-- **M7.4 Final Remediation Code Commit:** `9b09bcf` (`fix(quiz-submit): block frontend option selection during submit flush and add real postgresql concurrency test`)
-- **M7.4 Final Remediation Docs Commit:** Đi kèm ngay sau tài liệu này.
-- **Quy chuẩn Git:** Tuân thủ tuyệt đối quy tắc phân tách Code commit và Docs commit, 0 mock/stub, không force-push, 100% đồng bộ với `origin/fix/m4-acceptance-blockers`.
+- **HEAD Baseline Tech Lead nghiệm thu M7.4:** `4254d63` (FULL PASS)
+- **M7.5 Code & Tests Commit:** `9738d27` (`feat(quiz-results): implement m7.5 student history, admin results dashboard and postgresql integration tests`)
+- **M7.5 Docs Commit:** Đi kèm ngay sau tài liệu này.
+- **Quy chuẩn Git:** Phân tách hoàn toàn Code commit và Docs commit, 0 mock/stub, không force-push, duy trì trạng thái 1 nhánh duy nhất `fix/m4-acceptance-blockers`.
 
 ---
 
-## 2. ROOT CAUSE & GIẢI TRÌNH XỬ LÝ TRIỆT ĐỂ B02 & B04
+## 2. TỔNG QUAN TRIỂN KHAI MILESTONE M7.5
 
-### 2.1. B02 — Frontend Submit / Autosave Race Condition
-- **Root Cause xác định bởi Tech Lead:**
-  Trong `apps/web/src/app/(portal)/portal/quiz/page.tsx`, `handleSubmitQuiz()` bắt đầu bằng `await saveQueueRef.current`. Tuy nhiên:
-  1. Nút chọn đáp án chỉ bị vô hiệu hóa khi `disabled={isExpired}`, thiếu điều kiện `submitting`.
-  2. Hàm `handleSelectOption()` chỉ kiểm tra `activeAttempt.status !== "IN_PROGRESS" || remainingSeconds <= 0`, không kiểm tra cờ submitting.
-  3. Khi sinh viên bấm "Nộp bài", `handleSubmitQuiz()` bắt đầu chờ `saveQueueRef.current` hiện có. Nếu sinh viên click chọn đáp án khác trong lúc đang chờ, `handleSelectOption()` tiếp tục nối request mới vào `saveQueueRef.current` (chuỗi mới). Nhưng `handleSubmitQuiz()` chỉ đang await promise cũ, nên ngay khi promise cũ giải phóng, API submit được gọi trước khi autosave mới hoàn tất, dẫn đến việc bài thi bị chấm bằng đáp án cũ dù UI hiển thị đáp án mới.
-- **Biện pháp khắc phục (Đồng bộ Ref + State):**
-  1. Thêm ref đồng bộ `const isSubmittingRef = useRef(false);` để chặn tức thì mà không phụ thuộc vào độ trễ render cycle của React.
-  2. Trong `handleSubmitQuiz()`:
-     - Đặt ngay lập tức `isSubmittingRef.current = true;` và `setSubmitting(true);` trước khi gọi `await saveQueueRef.current`.
-     - Chờ `await saveQueueRef.current`.
-     - Kiểm tra `lastSaveErrorRef.current`: nếu có lỗi, ném exception và reset `isSubmittingRef.current = false`, `setSubmitting(false)` để mở khóa cho sinh viên sửa/thử lại.
-     - Sau khi toàn bộ queue hoàn tất thành công, gọi `portalApi.submitQuizAttempt(activeAttempt.id)`.
-  3. Trong `handleSelectOption()`:
-     - Bổ sung chốt chặn đồng bộ:
-       ```typescript
-       if (
-         !activeAttempt ||
-         activeAttempt.status !== "IN_PROGRESS" ||
-         remainingSeconds <= 0 ||
-         submitting ||
-         isSubmittingRef.current
-       ) {
-         return;
-       }
-       ```
-     - Ngăn chặn triệt để việc enqueue bất kỳ request autosave nào vào queue một khi quá trình submit đã bắt đầu.
-  4. Vô hiệu hóa tương tác giao diện:
-     - Toàn bộ option button: `disabled={isExpired || submitting}` kèm class `opacity-60 cursor-not-allowed`.
-     - Header và Palette Submit button: `disabled={submitting}`.
-  5. Cập nhật và mở rộng Web Unit Test (`apps/web/tests/unit/quiz-submit-autosave-flush.test.ts`):
-     - Kiểm thử mô phỏng chính xác controller logic của trang:
-       - **Test 1:** Submit chờ in-flight autosave flush hoàn tất trước khi gọi API submit (FIFO serialization).
-       - **Test 2:** Khóa đồng bộ `isSubmittingRef` chặn ngay lập tức thao tác click chọn đáp án mới trong lúc submit đang chờ, ngăn chặn nối thêm vào queue.
-       - **Test 3:** Khi in-flight autosave bị lỗi, submit bị hủy và **KHÔNG BAO GIỜ** gọi API submit.
-       - **Test 4:** Khi submit bị hủy do lỗi autosave, khóa `isSubmittingRef` được giải phóng để sinh viên có thể tiếp tục chọn đáp án hoặc thử lại.
+Milestone M7.5 hoàn thiện chu trình thi trắc nghiệm toàn diện, cung cấp giao diện và API cho cả Sinh viên (xem lại lịch sử thi, phân biệt thi lần đầu vs thi lại, xem giải thích chi tiết) và Quản trị viên (dashboard thống kê tổng quan KPI, lọc/tìm kiếm sinh viên, xem lại từng lượt làm bài và lịch sử retake).
 
----
+### 2.1. M7.5-A — Lịch sử thi của sinh viên (Student Quiz History)
+- **Endpoint:** `GET /api/v1/portal/quiz/history`
+- **Quyền hạn (RBAC):** Chỉ cho phép `Role.STUDENT` (Phụ huynh và các vai trò khác bị từ chối 403 với mã lỗi `FORBIDDEN_STUDENT_ONLY`).
+- **Tham số truy vấn (Query DTO):**
+  - `page`, `limit`: Phân trang chuẩn server-side.
+  - `status`: Lọc theo trạng thái `IN_PROGRESS`, `SUBMITTED`, `EXPIRED`.
+  - `passed`: Lọc theo kết quả đỗ/trượt (`true`/`false`).
+  - `quizConfigId`: Lọc theo cấu hình bài thi cụ thể.
+- **Thông tin phản hồi:**
+  - `attemptNumber`: Số thứ tự lần thi.
+  - `isRetake`: Tính toán tự động (`attemptNumber > 1`).
+  - `scorePercent`: Điểm phần trăm (0 - 100%).
+  - `passed`: Đạt hay không đạt ngưỡng điểm của cấu hình.
+  - `awardedXp`: Số XP đã nhận ở lần thi này (lần đầu = XP đạt được, lần retake = 0 XP).
+  - `xpReason`: Giải thích lý do ("FIRST_SUBMIT_AWARD", "RETAKE_NO_XP", "ZERO_SCORE_CLAIM", hoặc "NO_XP_CLAIM").
 
-### 2.2. B04 — Real PostgreSQL Concurrency Race Integration Test
-- **Root Cause & Yêu cầu:**
-  Test 15 trước đây là kiểm thử tuần tự (autosave -> submit -> late autosave -> 400). Tech Lead yêu cầu kiểm thử **đồng thời thực tế (real concurrency race)**:
-  - Autosave đang giữ row lock hoặc đang chờ ghi trong PostgreSQL transaction.
-  - Submit bắt đầu trong lúc autosave chưa hoàn thành.
-  - Điều phối thứ tự bằng PostgreSQL barrier / lock thực tế (không dùng sleep đơn thuần).
-  - Quan sát trạng thái chờ thực tế trong `pg_stat_activity`.
-  - Xác minh kết quả cuối cùng trong PostgreSQL và tính bất biến sau submit.
-- **Biện pháp triển khai (Test 16 trong `quiz-submit.integration.spec.ts`):**
-  1. Cài đặt một PostgreSQL trigger có kiểm soát trên bảng `quiz_config_attempt_answers`:
-     ```sql
-     CREATE OR REPLACE FUNCTION test_barrier_autosave_hold() RETURNS TRIGGER AS $$
-     BEGIN
-       PERFORM pg_advisory_xact_lock(888888);
-       RETURN NEW;
-     END;
-     $$ LANGUAGE plpgsql;
+### 2.2. M7.5-B — Chi tiết bài thi & Bảo vệ chống lộ đáp án (Zero-Leak Review & IDOR Protection)
+- **Endpoint:** `GET /api/v1/portal/quiz/history/:attemptId`
+- **Bảo vệ IDOR (Insecure Direct Object References):**
+  - Sinh viên chỉ được phép xem attempt của chính mình (`attempt.userId === req.user.id`).
+  - Sinh viên khác truy cập sẽ bị từ chối ngay lập tức với lỗi `403 Forbidden` (`FORBIDDEN_ATTEMPT_ACCESS`).
+- **Nguyên lý Zero-Leak Invariant:**
+  - Nếu attempt ở trạng thái `SUBMITTED`: Trả về toàn bộ danh sách câu hỏi trong snapshot, thứ tự các lựa chọn đã shuffle (`optionOrderJson`), đáp án sinh viên đã chọn (`selectedOptionIndex`), đáp án chính xác (`isCorrect`), và phần giải thích (`explanation`).
+  - Nếu attempt ở trạng thái `IN_PROGRESS` hoặc `EXPIRED`: Mảng `results: []` rỗng, **TUYỆT ĐỐI KHÔNG** để lộ đáp án đúng hay lời giải thích dưới bất kỳ hình thức nào.
+- **Zero XP on Read:** Thao tác đọc kết quả là read-only, tuyệt đối không kích hoạt ghi nhận XP hay thay đổi trạng thái attempt.
 
-     CREATE TRIGGER trg_test_barrier_autosave
-     BEFORE UPDATE ON quiz_config_attempt_answers
-     FOR EACH ROW EXECUTE FUNCTION test_barrier_autosave_hold();
-     ```
-  2. Bắt đầu một transaction kiểm thử giữ khóa `pg_advisory_xact_lock(888888)`.
-  3. Gửi request Autosave (`PUT /progress`):
-     - Autosave bắt đầu transaction và lấy thành công khóa hàng: `SELECT id FROM quiz_config_attempts WHERE id = :attemptId FOR UPDATE`.
-     - Khi chạy đến `UPDATE quiz_config_attempt_answers`, trigger kích hoạt và gọi `pg_advisory_xact_lock(888888)`.
-     - Do transaction kiểm thử đang giữ khóa 888888, Autosave bị **tạm dừng ngay bên trong transaction của nó, trong khi vẫn đang giữ khóa hàng trên bảng `quiz_config_attempts`**.
-  4. Xác minh trong `pg_stat_activity`: Autosave đang ở trạng thái `wait_event_type = 'Lock'` và `wait_event = 'advisory'`.
-  5. Trong lúc Autosave đang giữ khóa hàng, gửi đồng thời request Submit (`POST /submit`):
-     - Submit thực thi câu lệnh: `SELECT id FROM quiz_config_attempts WHERE id = :attemptId FOR UPDATE`.
-     - Do Autosave đang giữ khóa hàng này, Submit bị **BLOCK hoàn toàn ở cấp độ PostgreSQL kernel**.
-  6. Truy vấn `pg_stat_activity` để chứng minh Submit đang bị nghẽn khóa hàng:
-     ```sql
-     SELECT pid, wait_event_type, query
-     FROM pg_stat_activity
-     WHERE wait_event_type = 'Lock'
-       AND query ILIKE '%quiz_config_attempts%'
-       AND query ILIKE '%FOR UPDATE%'
-     ```
-     -> Phát hiện chính xác Submit request đang đợi hàng khóa, `submitDone === false`.
-  7. Giải phóng barrier: Transaction kiểm thử commit, tự động nhả khóa `pg_advisory_xact_lock(888888)`.
-  8. Trật tự thực thi nguyên tử diễn ra mượt mà:
-     - Autosave tiếp tục, cập nhật câu trả lời thành công, commit transaction (HTTP 200) và giải phóng khóa hàng `quiz_config_attempts`.
-     - Ngay lập tức, Submit nhận được khóa hàng, đọc câu trả lời vừa được Autosave ghi nhận (đúng 100%), tính điểm, chốt `SUBMITTED`, cấp XP và commit (HTTP 201).
-  9. Kiểm tra tính toàn vẹn và bất biến trong PostgreSQL:
-     - `dbAttempt.status === 'SUBMITTED'`.
-     - `dbAttempt.scorePercent === 100`, `dbAttempt.passed === true`, `dbAttempt.awardedXp === 40`.
-     - Sau đó, giả lập một request autosave gửi trễ sau khi submit: Endpoint `/progress` trả về ngay HTTP 400 và dữ liệu câu trả lời trong PostgreSQL không hề bị thay đổi.
-  10. Toàn bộ trigger, function và lock được dọn dẹp sạch sẽ trong khối `finally`.
+### 2.3. M7.5-C — Dashboard quản trị kết quả thi (Admin Quiz Results Dashboard)
+- **Các Endpoints Quản trị:**
+  1. `GET /api/v1/admin/quiz-configs/results`: Danh sách tất cả lượt thi của toàn trường, phân trang, hỗ trợ tìm kiếm sinh viên (họ tên, email, mã số sinh viên `studentCode`), lọc theo cấu hình, trạng thái thi, kết quả đỗ/trượt, khoảng thời gian thi, và sắp xếp server-side (`scorePercent`, `startedAt`, `submittedAt`).
+  2. `GET /api/v1/admin/quiz-configs/results/summary`: Tổng hợp chỉ số KPI cấp cao:
+     - `totalAttempts`: Tổng số lượt thi bắt đầu.
+     - `totalSubmitted`: Tổng số lượt đã nộp bài.
+     - `passRatePercent`: Tỷ lệ đỗ (`(passedCount / totalSubmitted) * 100`).
+     - `averageScorePercent`: Điểm số trung bình toàn trường.
+     - `uniqueStudents`: Số sinh viên duy nhất tham gia thi.
+     - `totalAwardedXp`: Tổng số điểm XP đã phân phối qua bài thi.
+  3. `GET /api/v1/admin/quiz-configs/results/:attemptId`: Quản trị viên xem lại chi tiết bài làm của sinh viên, câu đúng/sai, đáp án sinh viên chọn và giải thích nghiệp vụ.
+  4. `GET /api/v1/admin/quiz-configs/results/students/:userId/quizzes/:quizConfigId`: Xem toàn bộ chuỗi lịch sử thi (retakes) của 1 sinh viên cụ thể trong 1 bài thi để đánh giá mức độ tiến bộ.
+- **RBAC:** Toàn bộ endpoints trên yêu cầu vai trò `SUPER_ADMIN` hoặc `ADMIN`. Sinh viên và các vai trò khác bị chặn với `403 Forbidden`.
 
 ---
 
-## 3. DANH SÁCH FILE THAY ĐỔI
-1. `apps/web/src/app/(portal)/portal/quiz/page.tsx`:
-   - Thêm `isSubmittingRef` và chốt chặn đồng bộ tại `handleSelectOption`.
-   - Cập nhật `handleSubmitQuiz` khóa ref trước khi flush queue và mở khóa khi có lỗi.
-   - Bổ sung `disabled={submitting}` cho option button và submit buttons.
-2. `apps/web/tests/unit/quiz-submit-autosave-flush.test.ts`:
-   - Cập nhật bộ 4 kịch bản kiểm thử hành vi controller, xác minh tính toàn vẹn hàng đợi, chặn click đồng thời và khôi phục khi có lỗi.
-3. `apps/api/test/integration/quiz-submit.integration.spec.ts`:
-   - Bổ sung **Test 16** kiểm thử real PostgreSQL concurrency race qua cơ chế row-lock barrier.
-   - Nâng timeout test suite lên 120s để đảm bảo chạy ổn định trên mọi môi trường.
-4. `docs/HANDOFF_TO_GPT.md`:
-   - Cập nhật toàn bộ báo cáo nghiệm thu kỹ thuật và đối chiếu commit SHA.
+## 3. THIẾT KẾ & TÍCH HỢP GIAO DIỆN NGƯỜI DÙNG (FRONTEND)
+
+### 3.1. Student Portal (`apps/web/src/app/(portal)/portal/quiz/page.tsx`)
+- Bổ sung thanh điều hướng 2 tab trực quan:
+  - **Bài thi đang mở:** Hiển thị danh sách các bài thi đang active, bộ đếm thời gian, nút "Bắt đầu làm bài" hoặc "Tiếp tục làm bài".
+  - **Lịch sử làm bài:** Giao diện tra cứu các lượt thi đã hoàn thành hoặc hết hạn:
+    - Bộ lọc dropdown: Lọc theo bài thi, theo trạng thái (Tất cả, Đã nộp, Đang làm, Hết hạn), và theo kết quả (Đạt / Không đạt).
+    - Thẻ thống kê kết quả: Điểm số %, huy hiệu ĐẠT / KHÔNG ĐẠT, nhãn "Thi lại (Retake)", số XP đạt được kèm chú thích rõ ràng.
+    - Modal Xem lại chi tiết (Review Modal): Hiển thị chi tiết từng câu hỏi, đáp án đã chọn (xanh lá nếu đúng, đỏ nếu sai), hiển thị đáp án chuẩn và hộp giải thích màu xanh lam dịu mắt. Đối với bài thi chưa nộp, hiển thị thông báo an toàn Zero-Leak.
+
+### 3.2. Admin Results Dashboard (`apps/web/src/app/admin/events/components/quiz-results-dashboard.tsx`)
+- Tích hợp liền mạch vào hệ thống Admin Events tại tab `"results"` (`/admin/events?tab=results`).
+- **Thẻ thống kê KPI (Stat Cards):** 6 thẻ hiển thị real-time các chỉ số: Tổng lượt thi, Lượt nộp thành công, Tỷ lệ đỗ (%), Điểm trung bình (%), Sinh viên tham gia, Tổng XP đã cấp.
+- **Thanh công cụ lọc & tìm kiếm:** Ô tìm kiếm debounce (họ tên, email, MSSV), bộ lọc dropdown bài thi, bộ lọc trạng thái đỗ/trượt.
+- **Bảng dữ liệu phân trang:** Hiển thị chi tiết thông tin sinh viên, tên bài thi, số lần thi, điểm số (có thanh tiến độ trực quan), trạng thái, XP và ngày thi.
+- **Modal chi tiết bài làm:** Quản trị viên có thể xem lại chính xác câu hỏi và lựa chọn của sinh viên.
+- **Modal lịch sử Retake:** Hiển thị toàn bộ các lần thi của sinh viên theo trình tự thời gian để theo dõi lộ trình cải thiện điểm số.
 
 ---
 
-## 4. KẾT QUẢ KIỂM THỬ TÍCH HỢP POSTGRESQL (100% PASS)
+## 4. KẾT QUẢ KIỂM THỬ POSTGRESQL & BỘ TEST HỒI QUY TOÀN DỰ ÁN
 
-### 4.1. Bộ test M7.4 (`apps/api/test/integration/quiz-submit.integration.spec.ts`) — 16/16 KỊCH BẢN PASS
+Tất cả các bài kiểm thử đều được chạy trực tiếp trên cơ sở dữ liệu PostgreSQL thực tế thông qua cơ chế `provisionScratchDatabase`, đảm bảo tuân thủ 100% ràng buộc schema, unique index và khóa ngoại.
+
+### 4.1. Bộ test tích hợp M7.5 (`quiz-results.integration.spec.ts`) — 20/20 PASS
 ```
-PASS test/integration/quiz-submit.integration.spec.ts (50.18 s)
-  Quiz Submission, Scoring & XP Integration Suite (M7.4)
-    √ Test 1 [Auth & Role]: Rejects unauthenticated request (401) and non-student role (403) (16 ms)
-    √ Test 2 [Ownership & IDOR Protection]: Student B cannot submit Student A's attempt (403) (88 ms)
-    √ Test 3 [Expiry & Status Guard]: Rejects expired attempt (400) and updates DB status to EXPIRED (158 ms)
-    √ Test 4 [Perfect Score & First XP]: Scores 100%, passes quiz, awards base + bonus XP, and creates XpLedger (173 ms)
-    √ Test 5 [B01 Zero-XP Claim & Retake]: First attempt with 0 points consumes claim with 0 XP; Retake with 100% still receives 0 XP (264 ms)
-    √ Test 6 [Boundary & Rounding]: 2/3 correct rounds to 67%, below 70% threshold -> FAIL, awards 20 base XP and 0 bonus XP (149 ms)
-    √ Test 7 [Shuffle Mapping]: Correctly scores question when option order is shuffled (214 ms)
-    √ Test 8 [One-Time XP]: Retake attempt is scored and saved as SUBMITTED, but awards 0 XP (130 ms)
-    √ Test 9 [Idempotency]: Submitting an already SUBMITTED attempt returns saved result with HTTP 200 without creating extra XP (87 ms)
-    √ Test 10 [Concurrency Same Attempt]: 10 concurrent submits on same attempt all succeed without duplicate ledger records (564 ms)
-    √ Test 11 [Concurrency 2 Attempts Same Student]: Unique idempotency key ensures exactly ONE attempt receives XP (376 ms)
-    √ Test 12 [Submit Lock Contention on Expiry]: Submit request waiting on lock past expiresAt is rejected with 400 and committed as EXPIRED (1401 ms)
-    √ Test 13 [Zero Leakage & Tamper Resistance]: Ignores client payload attempting to inject score/answers (141 ms)
-    √ Test 14 [B03 Atomic Rollback]: Database failure during XP claim creation rolls back entire transaction; attempt remains IN_PROGRESS with zero partial writes (381 ms)
-    √ Test 15 [B04 Submit/Autosave Race]: Late autosave after SUBMITTED is rejected (400) and answers remain immutable in PostgreSQL (208 ms)
-    √ Test 16 [B04 Real Concurrency Race]: Concurrent Autosave & Submit coordinated via PostgreSQL row-lock barrier prove serialization, data integrity, and post-submit immutability (401 ms)
+PASS apps/api/test/integration/quiz-results.integration.spec.ts (29.548 s)
+  Quiz Results & History Review Dashboard Integration Suite (M7.5)
+    √ Test 1: Student 1 queries quiz history list returns paginated attempts ordered by startedAt desc (37 ms)
+    √ Test 2: Student history distinguishes first attempt (isRetake: false) from retakes (isRetake: true) (16 ms)
+    √ Test 3: Student history reflects awarded XP and reason (first submit vs retake 0 XP) (9 ms)
+    √ Test 4: Student history filter by status=SUBMITTED returns only submitted attempts (14 ms)
+    √ Test 5: Student history filter by passed=true returns only passed attempts (11 ms)
+    √ Test 6: Student history filter by quizConfigId isolates attempts for that quiz (20 ms)
+    √ Test 7: Student views SUBMITTED attempt detail returns full questions review with options, student selection, correct answer and explanation (12 ms)
+    √ Test 8: Zero-Leak Invariant: Student viewing EXPIRED attempt detail returns results: [] and NEVER leaks correct answers or explanations (11 ms)
+    √ Test 9: Zero-Leak Invariant: Student viewing IN_PROGRESS attempt detail returns results: [] and NEVER leaks correct answers (8 ms)
+    √ Test 10: IDOR Protection: Student 2 attempting to view Student 1 attempt detail is rejected with 403 Forbidden (17 ms)
+    √ Test 11: Zero XP on Read: Repeatedly viewing history or detail does NOT alter attempt status, score or XP claims (29 ms)
+    √ Test 12: Admin queries quiz results with pagination returns all campus attempts with student profiles (35 ms)
+    √ Test 13: Admin search by student (studentCode PS67890) returns only Student 2 attempts (24 ms)
+    √ Test 14: Admin filter by passed=true returns only passed attempts across campus (22 ms)
+    √ Test 15: Admin sorting by scorePercent desc orders highest score first (19 ms)
+    √ Test 16: Admin summary KPI metrics computes accurate aggregate counts and pass rate (36 ms)
+    √ Test 17: Admin view attempt detail returns complete question answers and explanation for admin review (33 ms)
+    √ Test 18: Admin student retake history endpoint returns all attempts for user and quiz in ascending order (16 ms)
+    √ Test 19: RBAC: Student calling admin results endpoints is rejected with 403 Forbidden (20 ms)
+    √ Test 20: RBAC: Parent calling portal quiz history is rejected with 403 Forbidden (FORBIDDEN_STUDENT_ONLY) (11 ms)
 
 Test Suites: 1 passed, 1 total
-Tests:       16 passed, 16 total
-Snapshots:   0 total
-Time:        50.18 s
+Tests:       20 passed, 20 total
+Time:        29.786 s
 ```
 
-### 4.2. Toàn bộ 4 bộ test hồi quy (Regression Suites) — 55/55 KỊCH BẢN PASS
-1. **M7.3 Attempt Engine (`quiz-attempt.integration.spec.ts`):** 20/20 PASS (36.2s)
-2. **M7.2 Quiz Delivery (`quiz-delivery.integration.spec.ts`):** 10/10 PASS (37.4s)
-3. **M7.1 Quiz Configuration (`quiz-config.integration.spec.ts`):** 13/13 PASS (31.8s)
-4. **M6 Question Bank (`question-bank.integration.spec.ts`):** 12/12 PASS (31.6s)
+### 4.2. Toàn bộ chuỗi kiểm thử hồi quy (Full Regression Suites) — 91/91 PASS
+- **M7.5 — Quiz Results & History Review Dashboard:** 20/20 PASSED
+- **M7.4 — Quiz Submission, Scoring & XP:** 16/16 PASSED
+- **M7.3 — Quiz Attempt Engine & Live Timer:** 20/20 PASSED
+- **M7.2 — Quiz Delivery & Shuffle Logic:** 10/10 PASSED
+- **M7.1 — Quiz Configuration & Snapshot:** 13/13 PASSED
+- **M6 — Question Bank Management:** 12/12 PASSED
+- **TỔNG CỘNG:** **91/91 PostgreSQL Integration Tests Passed (0 Failure, 0 Regression)**.
 
-**Tổng cộng: 71/71 test tích hợp PostgreSQL thực tế chạy độc lập liên tục, 0 lỗi, 0 cảnh báo.**
+### 4.3. Kiểm thử đơn vị giao diện (Web Unit Tests) — 14/14 PASS
+- 14/14 unit tests tại `apps/web/tests/unit/*.test.ts` (bao gồm toàn bộ kịch bản autosave flush, chốt chặn race condition B02, RBAC routes, format code) đạt 100% PASS.
 
 ---
 
-## 5. TỔNG HỢP KIỂM TRA CHẤT LƯỢNG (QUALITY GATES)
+## 5. BÁO CÁO CỔNG CHẤT LƯỢNG (QUALITY GATES)
 
-| Lệnh Kiểm Tra | Kết Quả | Chi Tiết |
+| Lệnh kiểm tra | Kết quả | Ghi chú |
 | :--- | :---: | :--- |
-| `pnpm exec prisma validate` | **PASS** | Lược đồ Prisma hợp lệ 100% |
-| `pnpm --filter shared build` | **PASS** | Gói shared biên dịch TypeScript thành công |
-| `pnpm --filter api typecheck` | **PASS** | 0 lỗi kiểu TypeScript trong API |
-| `pnpm --filter web typecheck` | **PASS** | 0 lỗi kiểu TypeScript trong Web |
-| `pnpm --filter api lint` | **PASS** | 0 lỗi, 0 cảnh báo ESLint |
-| `pnpm --filter web lint` | **PASS** | 0 lỗi, 0 cảnh báo ESLint (tuân thủ React 19 Compiler) |
-| `pnpm --filter api test:unit` | **PASS** | 8 suites, 31 tests passed |
-| `pnpm --filter web test:unit` | **PASS** | 14 tests passed (bao gồm 4 test B02 flush queue & race lock) |
-| `pnpm --filter web build` | **PASS** | 28/28 route tĩnh và động biên dịch thành công (Next.js Turbopack) |
+| `pnpm --filter shared build` | **PASS (Exit 0)** | Shared DTOs biên dịch sạch sẽ |
+| `pnpm --filter api typecheck` | **PASS (Exit 0)** | 0 lỗi TypeScript NestJS API |
+| `pnpm --filter web typecheck` | **PASS (Exit 0)** | 0 lỗi TypeScript Next.js Web |
+| `pnpm --filter api lint` | **PASS (Exit 0)** | 0 warnings, 0 errors |
+| `pnpm --filter web lint` | **PASS (Exit 0)** | 0 warnings, 0 errors |
+| `pnpm --filter web test:unit` | **PASS (Exit 0)** | 14/14 tests pass |
+| `pnpm --filter web build` | **PASS (Exit 0)** | Next.js 16.4.6 build thành công toàn bộ 28 routes |
 
 ---
 
-## 6. BẰNG CHỨNG POSTGRESQL CONCURRENCY TEST (TEST 16)
-- **Cơ chế:** Phối hợp `pg_advisory_xact_lock` và row lock `quiz_config_attempts FOR UPDATE`.
-- **Quan sát `pg_stat_activity`:**
-  - `Autosave` được phát hiện đang dừng trong trigger với `wait_event_type = 'Lock'`, `wait_event = 'advisory'` trong khi vẫn giữ row lock.
-  - `Submit` được phát hiện đang bị block tại kernel với `wait_event_type = 'Lock'`, `query ILIKE '%quiz_config_attempts%FOR UPDATE%'`.
-- **Kết quả xác nhận:**
-  - `autosaveDone` và `submitDone` đều là `false` trong giai đoạn giữ barrier.
-  - Sau khi barrier mở: Autosave commit với 2 câu trả lời đúng -> Submit lấy lock và tính toán ra điểm số tuyệt đối 100% -> DB lưu chính xác `SUBMITTED`, `scorePercent = 100`, `awardedXp = 40`.
-  - Mọi request autosave gửi sau khi submit đều nhận mã HTTP 400 và không làm biến đổi dữ liệu trong PostgreSQL.
+## 6. DANH SÁCH FILE THAY ĐỔI TRONG M7.5
+
+1. `packages/shared/src/quiz-config.ts` (M7.5 DTOs & Interfaces)
+2. `apps/api/src/modules/portal/dto/portal.dto.ts` (Query DTO sinh viên)
+3. `apps/api/src/modules/portal/portal-quiz.controller.ts` (Endpoints lịch sử và chi tiết bài làm)
+4. `apps/api/src/modules/portal/portal-quiz.service.ts` (Logic tra cứu, Zero-leak & IDOR protection)
+5. `apps/api/src/modules/quiz-config/dto/quiz-config.dto.ts` (Query DTO admin)
+6. `apps/api/src/modules/quiz-config/quiz-config.controller.ts` (Endpoints admin results, summary, retakes)
+7. `apps/api/src/modules/quiz-config/quiz-config.service.ts` (Aggregate metrics, sorting, filtering)
+8. `apps/web/src/lib/portal/portal-api.ts` (Client API cho sinh viên)
+9. `apps/web/src/lib/auth/api-client.ts` (Client API cho quản trị viên)
+10. `apps/web/src/app/(portal)/portal/quiz/page.tsx` (Giao diện lịch sử & review modal cho sinh viên)
+11. `apps/web/src/app/admin/events/components/quiz-results-dashboard.tsx` (Dashboard kết quả cho admin)
+12. `apps/web/src/app/admin/events/page.tsx` (Tích hợp tab results)
+13. `apps/api/test/integration/quiz-results.integration.spec.ts` (20 integration tests)
+14. `apps/api/test/integration/question-bank.integration.spec.ts` (Tăng timeout phòng ngừa)
+15. `apps/api/test/integration/quiz-config.integration.spec.ts` (Tăng timeout phòng ngừa)
+16. `apps/api/test/integration/quiz-delivery.integration.spec.ts` (Tăng timeout phòng ngừa)
+17. `apps/api/test/integration/quiz-attempt.integration.spec.ts` (Tăng timeout phòng ngừa)
+18. `docs/HANDOFF_TO_GPT.md` (Tài liệu nghiệm thu chính thức)
 
 ---
 
-## 7. REMOTE BRANCH HEAD & TRẠNG THÁI ĐỒNG BỘ
-- Nhánh làm việc: `fix/m4-acceptance-blockers`
-- Commit code: `9b09bcf`
-- Commit docs: Sẽ push đồng bộ ngay sau tài liệu này.
-- Trạng thái remote: Đồng bộ 100% với `origin/fix/m4-acceptance-blockers`.
+## 7. ĐỀ XUẤT NGHIỆM THU CHO TECH LEAD (MENTOR GPT)
 
----
+Toàn bộ các tiêu chí nghiệm thu của **Milestone M7.5 (Quiz Results & History Review Dashboard)** đã được triển khai hoàn tất với chất lượng cao nhất:
+- Cơ chế bảo vệ Zero-Leak và phòng chống tấn công IDOR được xác thực bằng kiểm thử tự động trên PostgreSQL thực tế.
+- Bộ chỉ số thống kê tổng hợp KPI đáp ứng chính xác nhu cầu quản lý đào tạo và sự kiện.
+- Giao diện người dùng responsive, trực quan, hỗ trợ đầy đủ các bộ lọc và tìm kiếm.
+- Bộ test hồi quy 91/91 PostgreSQL tests và 14/14 unit tests đạt 100% tỷ lệ pass.
 
-## 8. NHỮNG GIỚI HẠN CÒN TỒN TẠI (NẾU CÓ)
-- Hiện tại, cơ chế chấm điểm và cấp XP của M7.4 đã hoàn thiện 100%, bảo vệ tuyệt đối tính nguyên tử, tuần tự và chống gian lận.
-- Milestone M7.5 (Bảng điều khiển kết quả thi, lịch sử bài làm & phúc khảo) chưa được triển khai và đang chờ chỉ đạo chính thức từ Tech Lead sau khi nghiệm thu M7.4.
-
----
-
-## 9. ĐỀ XUẤT CHO TECH LEAD (MENTOR GPT)
-Toàn bộ hai blocker còn lại (**B02** và **B04**) đã được giải quyết triệt để, có đầy đủ bằng chứng mã nguồn, Web unit tests và PostgreSQL concurrency integration test thực tế.
-
-Kính đề nghị Tech Lead (Mentor GPT) xem xét và cấp quyết định **FULL PASS** chính thức cho **Milestone M7.4 (Quiz Submission, Scoring & XP)**!
+Kính đề nghị Tech Lead (Mentor GPT) xem xét và cấp quyết định **FULL PASS** chính thức cho **Milestone M7.5** và hoàn tất toàn bộ chuyên đề **Milestone 7 (Quiz System End-to-End)**!

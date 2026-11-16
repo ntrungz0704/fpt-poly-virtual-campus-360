@@ -34,6 +34,7 @@ export default function StudentQuizPage() {
   const latestSequenceRef = useRef(0);
   const questionLatestSeqRef = useRef<Record<string, number>>({});
   const lastSaveErrorRef = useRef<Error | null>(null);
+  const isSubmittingRef = useRef(false);
 
   // Submission & Scoring state (M7.4)
   const [submissionResult, setSubmissionResult] = useState<SubmitQuizAttemptResponseDto | null>(null);
@@ -124,6 +125,7 @@ export default function StudentQuizPage() {
 
   // Exit exam room back to quiz list
   const handleBackToList = () => {
+    isSubmittingRef.current = false;
     setActiveAttempt(null);
     setSubmissionResult(null);
     setAttemptError(null);
@@ -136,11 +138,13 @@ export default function StudentQuizPage() {
 
   // Submit attempt for grading & XP award (M7.4)
   const handleSubmitQuiz = async () => {
-    if (!activeAttempt || submitting) return;
+    if (!activeAttempt || submitting || isSubmittingRef.current) return;
+    // B02: Khóa ngay lập tức mọi thao tác chọn đáp án và enqueue mới ở cấp độ ref đồng bộ lẫn state
+    isSubmittingRef.current = true;
     setSubmitting(true);
     setSubmitError(null);
     try {
-      // 1. Flush autosave queue: chờ toàn bộ các request lưu đáp án trước đó hoàn tất (B02)
+      // 1. Flush autosave queue: chờ toàn bộ các request lưu đáp án trước thời điểm này hoàn tất (B02)
       await saveQueueRef.current;
 
       // 2. Kiểm tra nếu autosave gần nhất bị lỗi: không được nuốt lỗi mà phải hủy submit
@@ -156,6 +160,8 @@ export default function StudentQuizPage() {
       setActiveAttempt((prev) => (prev ? { ...prev, status: "SUBMITTED" } : null));
       setShowConfirmModal(false);
     } catch (err) {
+      // B02: Mở khóa nếu submit thất bại để sinh viên có thể tiếp tục làm bài hoặc thử lại
+      isSubmittingRef.current = false;
       setSubmitError(
         err instanceof Error
           ? err.message
@@ -163,12 +169,20 @@ export default function StudentQuizPage() {
       );
     } finally {
       setSubmitting(false);
+      // Nếu đã submit thành công thì không reset ref để giữ trạng thái chốt bài
     }
   };
 
   // Select an option and auto-save directly to PostgreSQL with strict serial ordering (B02)
   const handleSelectOption = (questionId: string, optionIndex: number) => {
-    if (!activeAttempt || activeAttempt.status !== "IN_PROGRESS" || remainingSeconds <= 0) {
+    // B02: Chặn ngay lập tức cả đồng bộ ref lẫn state nếu đang submit hoặc đã kết thúc
+    if (
+      !activeAttempt ||
+      activeAttempt.status !== "IN_PROGRESS" ||
+      remainingSeconds <= 0 ||
+      submitting ||
+      isSubmittingRef.current
+    ) {
       return;
     }
 
@@ -570,6 +584,7 @@ export default function StudentQuizPage() {
                   <Button
                     variant="primary"
                     size="sm"
+                    disabled={submitting}
                     onClick={() => setShowConfirmModal(true)}
                     className="text-xs h-8 px-3 flex items-center gap-1.5"
                     data-testid="header-submit-quiz-btn"
@@ -711,15 +726,16 @@ export default function StudentQuizPage() {
                 const isSelected = currentQ.selectedOptionIndex === optIdx;
                 const optionLetters = ["A", "B", "C", "D", "E", "F"];
                 const letter = optionLetters[optIdx] || `${optIdx + 1}`;
+                const isOptionDisabled = isExpired || submitting;
 
                 return (
                   <button
                     key={optIdx}
                     type="button"
-                    disabled={isExpired}
+                    disabled={isOptionDisabled}
                     onClick={() => handleSelectOption(currentQ.id, optIdx)}
                     className={`w-full text-left p-4 rounded-xl border transition-all flex items-center gap-3.5 ${
-                      isExpired ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+                      isOptionDisabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
                     } ${
                       isSelected
                         ? "border-primary bg-primary/10 text-primary shadow-xs font-medium"
@@ -827,6 +843,7 @@ export default function StudentQuizPage() {
               <Button
                 variant="primary"
                 size="sm"
+                disabled={submitting}
                 onClick={() => setShowConfirmModal(true)}
                 className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4"
                 data-testid="palette-submit-quiz-btn"

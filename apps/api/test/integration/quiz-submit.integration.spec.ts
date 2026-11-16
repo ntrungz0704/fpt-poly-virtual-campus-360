@@ -11,7 +11,7 @@ import {
 } from "./test-db.helper";
 
 describe("Quiz Submission, Scoring & XP Integration Suite (M7.4)", () => {
-  jest.setTimeout(60_000);
+  jest.setTimeout(120_000);
   let dbHandle: ScratchDbHandle;
   let ctx: ApiTestContext;
   let prisma: PrismaService;
@@ -1196,5 +1196,225 @@ describe("Quiz Submission, Scoring & XP Integration Suite (M7.4)", () => {
       },
     });
     expect(ansInDb.selectedOptionIndex).toBe(0); // Kept original correct answer!
+  });
+
+  // ============================================================================
+  // Test 16: B04 Remediation - Real PostgreSQL Concurrency Race via Lock Barrier
+  // ============================================================================
+  it("Test 16 [B04 Real Concurrency Race]: Concurrent Autosave & Submit coordinated via PostgreSQL row-lock barrier prove serialization, data integrity, and post-submit immutability", async () => {
+    // 1. Create student and start fresh attempt
+    const sRaceConc = await prisma.user.create({
+      data: {
+        username: "student_race_conc_b04",
+        fullName: "Sinh Viên Race Concurrency B04",
+        email: "student_race_conc_b04@poly.edu.vn",
+        userType: "STUDENT",
+        accountStatus: "ACTIVE",
+        activationStatus: "ACTIVATED",
+        provisioningMethod: "BOOTSTRAP",
+      },
+    });
+    const jwtService = ctx.app.get(JwtService);
+    const raceToken = jwtService.sign({
+      sub: sRaceConc.id,
+      username: sRaceConc.username,
+      roles: ["STUDENT"],
+      pwdRequired: false,
+      jti: "test-jti-race-conc-b04",
+    });
+
+    const startRes = await request(server)
+      .post(`/api/v1/portal/quiz/${generalPublishedQuizId}/attempts`)
+      .set("Authorization", `Bearer ${raceToken}`)
+      .expect(201);
+
+    const attemptId = startRes.body.data.id;
+    const questions = await prisma.quizConfigQuestion.findMany({
+      where: { quizConfigId: generalPublishedQuizId },
+      orderBy: { sortOrder: "asc" },
+    });
+
+    // 2. Install controlled PostgreSQL barrier trigger on quiz_config_attempt_answers
+    // When Autosave executes UPDATE within its transaction, it blocks waiting on advisory xact lock 888888.
+    // While blocked, Autosave STILL HOLDS the row lock (SELECT ... FOR UPDATE) on quiz_config_attempts!
+    await prisma.$executeRawUnsafe(`DROP TRIGGER IF EXISTS trg_test_barrier_autosave ON quiz_config_attempt_answers;`);
+    await prisma.$executeRawUnsafe(`DROP FUNCTION IF EXISTS test_barrier_autosave_hold();`);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE OR REPLACE FUNCTION test_barrier_autosave_hold() RETURNS TRIGGER AS $$
+      BEGIN
+        PERFORM pg_advisory_xact_lock(888888);
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TRIGGER trg_test_barrier_autosave
+      BEFORE UPDATE ON quiz_config_attempt_answers
+      FOR EACH ROW EXECUTE FUNCTION test_barrier_autosave_hold();
+    `);
+
+    let releaseBarrier: () => void = () => {};
+    const barrierWaitPromise = new Promise<void>((resolve) => {
+      releaseBarrier = resolve;
+    });
+
+    let barrierHeldSignal: () => void = () => {};
+    const barrierHeldPromise = new Promise<void>((resolve) => {
+      barrierHeldSignal = resolve;
+    });
+
+    // 3. Acquire barrier advisory lock in holding transaction
+    const holdingTxPromise = prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(888888)`;
+      barrierHeldSignal();
+      await barrierWaitPromise;
+    });
+
+    try {
+      await barrierHeldPromise;
+
+      // 4. Launch Autosave request (answers Q1 and Q2 correctly)
+      let autosaveDone = false;
+      const autosavePromise = request(server)
+        .put(`/api/v1/portal/quiz/attempts/${attemptId}/progress`)
+        .set("Authorization", `Bearer ${raceToken}`)
+        .send({
+          answers: [
+            { quizConfigQuestionId: questions[0].id, selectedOptionIndex: questions[0].correctIndex },
+            { quizConfigQuestionId: questions[1].id, selectedOptionIndex: questions[1].correctIndex },
+          ],
+        })
+        .then(
+          (res) => {
+            autosaveDone = true;
+            return res;
+          },
+          (err) => {
+            autosaveDone = true;
+            throw err;
+          },
+        );
+
+      // 5. Verify via pg_stat_activity that Autosave is active and paused in trigger waiting on advisory lock
+      let autosavePausedInTrigger = false;
+      const pollStart = Date.now();
+      while (Date.now() - pollStart < 3000) {
+        const waitingRows = await prisma.$queryRaw<
+          Array<{ pid: number; wait_event_type: string | null; wait_event: string | null }>
+        >`
+          SELECT pid, wait_event_type, wait_event
+          FROM pg_stat_activity
+          WHERE wait_event_type = 'Lock'
+            AND wait_event = 'advisory'
+        `;
+        if (waitingRows.length > 0) {
+          autosavePausedInTrigger = true;
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 20));
+      }
+
+      expect(autosavePausedInTrigger).toBe(true);
+      expect(autosaveDone).toBe(false);
+
+      // 6. Now launch Submit request WHILE Autosave is still holding the quiz_config_attempts row lock!
+      let submitDone = false;
+      const submitPromise = request(server)
+        .post(`/api/v1/portal/quiz/attempts/${attemptId}/submit`)
+        .set("Authorization", `Bearer ${raceToken}`)
+        .then(
+          (res) => {
+            submitDone = true;
+            return res;
+          },
+          (err) => {
+            submitDone = true;
+            throw err;
+          },
+        );
+
+      // 7. Verify via pg_stat_activity that Submit is BLOCKED in PostgreSQL kernel on quiz_config_attempts FOR UPDATE
+      let submitBlockedOnRowLock = false;
+      const pollSubmitStart = Date.now();
+      while (Date.now() - pollSubmitStart < 3000) {
+        const waitingRows = await prisma.$queryRaw<
+          Array<{ pid: number; wait_event_type: string | null; query: string | null }>
+        >`
+          SELECT pid, wait_event_type, query
+          FROM pg_stat_activity
+          WHERE wait_event_type = 'Lock'
+            AND query ILIKE '%quiz_config_attempts%'
+            AND query ILIKE '%FOR UPDATE%'
+        `;
+        if (waitingRows.length > 0) {
+          submitBlockedOnRowLock = true;
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 20));
+      }
+
+      expect(submitBlockedOnRowLock).toBe(true);
+      expect(submitDone).toBe(false);
+
+      // 8. Release the barrier lock: allows Autosave to commit first, then Submit acquires lock and scores
+      releaseBarrier();
+      await holdingTxPromise;
+
+      // 9. Await both concurrent requests to finish
+      const [autosaveRes, submitRes] = await Promise.all([autosavePromise, submitPromise]);
+
+      expect(autosaveRes.status).toBe(200);
+      expect(autosaveRes.body.data.savedCount).toBe(2);
+
+      expect(submitRes.status).toBe(201);
+      const submitBody = submitRes.body.data;
+      expect(submitBody.status).toBe("SUBMITTED");
+      // Must reflect the newly saved answers from concurrent autosave: 100% score!
+      expect(submitBody.summary.scorePercent).toBe(100);
+      expect(submitBody.summary.passed).toBe(true);
+      expect(submitBody.xp.awardedXp).toBe(40); // 20 base + 20 bonus
+
+      // 10. Verify final state in PostgreSQL:
+      const attemptInDb = await prisma.quizConfigAttempt.findUniqueOrThrow({
+        where: { id: attemptId },
+      });
+      expect(attemptInDb.status).toBe("SUBMITTED");
+      expect(attemptInDb.scorePercent).toBe(100);
+      expect(attemptInDb.passed).toBe(true);
+      expect(attemptInDb.awardedXp).toBe(40);
+
+      // 11. Immutability verification: Late autosave after submit is rejected (400)
+      const lateAutosaveRes = await request(server)
+        .put(`/api/v1/portal/quiz/attempts/${attemptId}/progress`)
+        .set("Authorization", `Bearer ${raceToken}`)
+        .send({
+          answers: [
+            { quizConfigQuestionId: questions[0].id, selectedOptionIndex: 3 },
+          ],
+        })
+        .expect(400);
+
+      expect(lateAutosaveRes.body.error?.message || lateAutosaveRes.body.message).toMatch(
+        /Lượt thi đã (kết thúc|hết thời gian|không còn hiệu lực)/,
+      );
+
+      // Verify answers in PostgreSQL were NOT mutated by late request
+      const q1Ans = await prisma.quizConfigAttemptAnswer.findUniqueOrThrow({
+        where: {
+          attemptId_quizConfigQuestionId: {
+            attemptId,
+            quizConfigQuestionId: questions[0].id,
+          },
+        },
+      });
+      expect(q1Ans.selectedOptionIndex).toBe(questions[0].correctIndex);
+    } finally {
+      releaseBarrier();
+      await holdingTxPromise.catch(() => {});
+      await prisma.$executeRawUnsafe(`DROP TRIGGER IF EXISTS trg_test_barrier_autosave ON quiz_config_attempt_answers;`).catch(() => {});
+      await prisma.$executeRawUnsafe(`DROP FUNCTION IF EXISTS test_barrier_autosave_hold();`).catch(() => {});
+    }
   });
 });

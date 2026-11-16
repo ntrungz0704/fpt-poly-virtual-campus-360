@@ -20,7 +20,7 @@ import {
 } from "../../common/decorators/auth.decorators";
 import type { RequestWithMeta } from "../../common/middleware/request-id.middleware";
 import { sanitizeIpAddress } from "../../common/utils/ip-sanitizer";
-import { CheckInTicketDto } from "./dto/open-day.dto";
+import { OpenDayScannerCheckInDto } from "./dto/open-day.dto";
 import { OpenDayService } from "./open-day.service";
 
 @Controller("open-day")
@@ -31,7 +31,7 @@ export class OpenDayCheckInController {
   @Post("check-in")
   @HttpCode(HttpStatus.OK)
   checkInTicket(
-    @Body() dto: CheckInTicketDto,
+    @Body() dto: OpenDayScannerCheckInDto,
     @CurrentUser() actor: AuthenticatedUser,
     @Req() req: RequestWithMeta,
   ): Promise<CheckInResultDto> {
@@ -39,6 +39,7 @@ export class OpenDayCheckInController {
       dto,
       actor,
       sanitizeIpAddress(req.ip),
+      { requireEventId: true },
     );
   }
 

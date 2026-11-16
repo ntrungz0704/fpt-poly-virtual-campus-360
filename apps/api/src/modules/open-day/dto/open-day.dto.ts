@@ -532,14 +532,30 @@ export function normalizeTicketCodeInput(value: unknown): unknown {
   return normalized;
 }
 
-export class CheckInTicketDto {
+class BaseCheckInTicketDto {
   @IsString({ message: "ticketCode phải là chuỗi hợp lệ." })
   @IsNotEmpty({ message: "Mã vé QR không được để trống." })
   @MaxLength(128, { message: "Mã vé QR vượt quá độ dài cho phép." })
   @Transform(({ value }) => normalizeTicketCodeInput(value))
   ticketCode!: string;
+}
 
+/**
+ * Legacy M3C check-in DTO (/admin/events/check-in).
+ * Omitting eventId is rejected whenever multiple or zero PUBLISHED events exist.
+ */
+export class CheckInTicketDto extends BaseCheckInTicketDto {
   @IsOptional()
   @IsUUID("4", { message: "eventId phải là UUID hợp lệ." })
   eventId?: string;
+}
+
+/**
+ * M8 scanner check-in DTO (/open-day/check-in).
+ * Always requires target eventId so staff cannot bypass event scope.
+ */
+export class OpenDayScannerCheckInDto extends BaseCheckInTicketDto {
+  @IsUUID("4", { message: "eventId sự kiện check-in phải là UUID hợp lệ." })
+  @IsNotEmpty({ message: "Bắt buộc phải truyền eventId của sự kiện đang check-in." })
+  eventId!: string;
 }

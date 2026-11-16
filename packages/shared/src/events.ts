@@ -48,7 +48,7 @@ export type CheckInStatusCode =
 
 export interface CheckInTicketInput {
   ticketCode: string;
-  eventId?: UUID;
+  eventId: UUID;
 }
 
 export interface CheckInXpRewardDto {

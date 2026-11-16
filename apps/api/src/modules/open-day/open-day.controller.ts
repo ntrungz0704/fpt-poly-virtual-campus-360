@@ -76,6 +76,7 @@ export class OpenDayController {
       dto,
       actor,
       sanitizeIpAddress(req.ip),
+      { requireEventId: false },
     );
   }
 

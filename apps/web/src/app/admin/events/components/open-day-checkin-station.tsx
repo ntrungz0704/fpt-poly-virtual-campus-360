@@ -37,8 +37,6 @@ interface OpenDayCheckInStationProps {
   isCheckingIn: boolean;
   lastOutcome: CheckInOutcomeView | null;
   recentOutcomes: CheckInOutcomeView[];
-  strictEventMatch: boolean;
-  onStrictEventMatchChange: (strict: boolean) => void;
   onClearOutcome: () => void;
   onRefreshStats: () => void;
   onSubmitCheckIn: (rawCode: string, source: "camera" | "manual") => Promise<void>;
@@ -51,8 +49,6 @@ export function OpenDayCheckInStation({
   isCheckingIn,
   lastOutcome,
   recentOutcomes,
-  strictEventMatch,
-  onStrictEventMatchChange,
   onClearOutcome,
   onRefreshStats,
   onSubmitCheckIn,
@@ -757,19 +753,26 @@ export function OpenDayCheckInStation({
               </div>
             </div>
 
-            {selectedEvent && (
-              <label className="flex items-center gap-2.5 p-2.5 rounded-xl bg-surface-container-low border border-surface-container cursor-pointer text-xs">
-                <input
-                  type="checkbox"
-                  checked={strictEventMatch}
-                  onChange={(e) => onStrictEventMatchChange(e.target.checked)}
-                  className="w-4 h-4 accent-primary rounded shrink-0"
-                />
+            {selectedEvent ? (
+              <div
+                data-testid="locked-event-scope-banner"
+                className="flex items-center gap-2.5 p-2.5 rounded-xl bg-surface-container-low border border-surface-container text-xs"
+              >
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined text-primary text-[18px] shrink-0"
+                >
+                  lock
+                </span>
                 <span className="text-on-surface font-medium">
-                  Chỉ nhận vé thuộc sự kiện đang chọn:{" "}
+                  Quầy đang khóa kiểm tra đúng sự kiện:{" "}
                   <strong className="text-primary">{selectedEvent.title}</strong>
                 </span>
-              </label>
+              </div>
+            ) : (
+              <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 font-medium">
+                Chưa chọn sự kiện đích — không thể thực hiện check-in.
+              </div>
             )}
 
             <form onSubmit={(e) => void handleManualSubmit(e)} className="flex flex-col sm:flex-row gap-2.5">
@@ -779,7 +782,7 @@ export function OpenDayCheckInStation({
                 value={quickTicketCode}
                 onChange={(e) => setQuickTicketCode(e.target.value.toUpperCase())}
                 placeholder="Nhập mã vé ví dụ: OD26-A1B2-C3D4..."
-                disabled={isCheckingIn}
+                disabled={isCheckingIn || !selectedEvent}
                 autoComplete="off"
                 aria-label="Mã vé check-in Open Day"
                 className="flex-1 min-h-[46px] px-4 py-2.5 rounded-xl bg-white border border-surface-container font-mono text-sm uppercase placeholder:font-sans placeholder:normal-case focus:outline-hidden focus:ring-2 focus:ring-primary/25 focus:border-primary transition-all"
@@ -790,7 +793,7 @@ export function OpenDayCheckInStation({
                 size="md"
                 icon={isCheckingIn ? "hourglass_empty" : "check"}
                 loading={isCheckingIn}
-                disabled={isCheckingIn || !quickTicketCode.trim()}
+                disabled={isCheckingIn || !selectedEvent || !quickTicketCode.trim()}
                 className="min-h-[46px] shrink-0"
               >
                 {isCheckingIn ? "Đang xác thực..." : "Xác nhận Check-in"}

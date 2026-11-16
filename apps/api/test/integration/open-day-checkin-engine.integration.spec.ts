@@ -218,26 +218,26 @@ describe("M8 Open Day QR Check-in Engine, Concurrency, XP, RBAC, Audit & Attenda
     it("10. Rejects unauthenticated (401), STUDENT (403), PARENT (403), and STAFF without events:write (403); rejects client-spoofed checkedInBy (400)", async () => {
       await request(server)
         .post("/api/v1/open-day/check-in")
-        .send({ ticketCode: "OD26-TEST-0001" })
+        .send({ ticketCode: "OD26-TEST-0001", eventId: primaryEventId })
         .expect(401);
 
       const studentRes = await request(server)
         .post("/api/v1/open-day/check-in")
         .set("Authorization", `Bearer ${studentToken}`)
-        .send({ ticketCode: "OD26-TEST-0001" })
+        .send({ ticketCode: "OD26-TEST-0001", eventId: primaryEventId })
         .expect(403);
       expect(studentRes.body.error.code).toBe("FORBIDDEN");
 
       await request(server)
         .post("/api/v1/open-day/check-in")
         .set("Authorization", `Bearer ${parentToken}`)
-        .send({ ticketCode: "OD26-TEST-0001" })
+        .send({ ticketCode: "OD26-TEST-0001", eventId: primaryEventId })
         .expect(403);
 
       await request(server)
         .post("/api/v1/open-day/check-in")
         .set("Authorization", `Bearer ${tourEditorToken}`)
-        .send({ ticketCode: "OD26-TEST-0001" })
+        .send({ ticketCode: "OD26-TEST-0001", eventId: primaryEventId })
         .expect(403);
 
       // Client tries to spoof checkedInBy
@@ -246,6 +246,7 @@ describe("M8 Open Day QR Check-in Engine, Concurrency, XP, RBAC, Audit & Attenda
         .set("Authorization", `Bearer ${staffOperatorToken}`)
         .send({
           ticketCode: "OD26-TEST-0001",
+          eventId: primaryEventId,
           checkedInBy: studentUserId,
         })
         .expect(400);
@@ -513,7 +514,7 @@ describe("M8 Open Day QR Check-in Engine, Concurrency, XP, RBAC, Audit & Attenda
       expect(dbRow.checkedInAt).toBeNull();
     });
 
-    it("4. Wrong eventId returns 422 EVENT_MISMATCH and DRAFT event returns 422 INVALID_EVENT_STATUS", async () => {
+    it("4. B01 Event Scope: Missing eventId is rejected (400), wrong event returns 422 EVENT_MISMATCH, DRAFT event returns 422 INVALID_EVENT_STATUS, legacy route blocks multi-event bypass, and matching event succeeds", async () => {
       const secCode = "OD26-M8EV-0002";
       await prisma.eventParticipation.create({
         data: {
@@ -527,7 +528,27 @@ describe("M8 Open Day QR Check-in Engine, Concurrency, XP, RBAC, Audit & Attenda
         },
       });
 
-      // Try checking secondary event ticket while booth is locked on primary event
+      // 4a. Missing eventId on M8 scanner route MUST be rejected (400 VALIDATION_ERROR)
+      const missingEventRes = await request(server)
+        .post("/api/v1/open-day/check-in")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({ ticketCode: secCode })
+        .expect(400);
+
+      expect(missingEventRes.body.success).toBe(false);
+      expect(missingEventRes.body.error.code).toBe("VALIDATION_ERROR");
+
+      // 4b. Legacy /admin/events/check-in without eventId MUST also reject when multiple PUBLISHED events exist (no silent bypass)
+      const legacyBypassRes = await request(server)
+        .post("/api/v1/admin/events/check-in")
+        .set("Authorization", `Bearer ${staffOperatorToken}`)
+        .send({ ticketCode: secCode })
+        .expect(400);
+
+      expect(legacyBypassRes.body.success).toBe(false);
+      expect(legacyBypassRes.body.error.code).toBe("VALIDATION_ERROR");
+
+      // 4c. Checking secondary event ticket while locked on primary event returns 422 EVENT_MISMATCH
       const mismatchRes = await request(server)
         .post("/api/v1/open-day/check-in")
         .set("Authorization", `Bearer ${adminToken}`)
@@ -538,12 +559,23 @@ describe("M8 Open Day QR Check-in Engine, Concurrency, XP, RBAC, Audit & Attenda
       expect(mismatchRes.body.error.code).toBe("EVENT_MISMATCH");
 
       // Ticket must remain CONFIRMED
-      const dbSecRow = await prisma.eventParticipation.findUniqueOrThrow({
+      const dbSecRowBeforeSuccess = await prisma.eventParticipation.findUniqueOrThrow({
         where: { ticketCode: secCode },
       });
-      expect(dbSecRow.participationStatus).toBe("CONFIRMED");
+      expect(dbSecRowBeforeSuccess.participationStatus).toBe("CONFIRMED");
 
-      // Draft event ticket cannot check in even without eventId override
+      // 4d. Checking secondary event ticket with the correct matching secondaryEventId succeeds (200)
+      const matchRes = await request(server)
+        .post("/api/v1/open-day/check-in")
+        .set("Authorization", `Bearer ${staffOperatorToken}`)
+        .send({ ticketCode: secCode, eventId: secondaryEventId })
+        .expect(200);
+
+      expect(matchRes.body.success).toBe(true);
+      expect(matchRes.body.data.status).toBe("CHECKED_IN_SUCCESS");
+      expect(matchRes.body.data.ticket.eventId).toBe(secondaryEventId);
+
+      // 4e. Draft event ticket with its draftEventId returns 422 INVALID_EVENT_STATUS
       const draftTicketCode = "OD26-M8DR-0001";
       await prisma.eventParticipation.create({
         data: {
@@ -560,7 +592,7 @@ describe("M8 Open Day QR Check-in Engine, Concurrency, XP, RBAC, Audit & Attenda
       const draftRes = await request(server)
         .post("/api/v1/open-day/check-in")
         .set("Authorization", `Bearer ${adminToken}`)
-        .send({ ticketCode: draftTicketCode })
+        .send({ ticketCode: draftTicketCode, eventId: draftEventId })
         .expect(422);
 
       expect(draftRes.body.success).toBe(false);
@@ -836,25 +868,25 @@ describe("M8 Open Day QR Check-in Engine, Concurrency, XP, RBAC, Audit & Attenda
           {
             eventId: statsEvent.id,
             ticketCode: "OD26-ST-0001",
-            attendeeName: "Guest 1",
+            attendeeName: "FilterMatch Alpha",
             participationStatus: "CONFIRMED",
           },
           {
             eventId: statsEvent.id,
             ticketCode: "OD26-ST-0002",
-            attendeeName: "Guest 2",
+            attendeeName: "Guest Beta Invited",
             participationStatus: "INVITED",
           },
           {
             eventId: statsEvent.id,
             ticketCode: "OD26-ST-0003",
-            attendeeName: "Guest 3",
+            attendeeName: "Guest Gamma",
             participationStatus: "CONFIRMED",
           },
           {
             eventId: statsEvent.id,
             ticketCode: "OD26-ST-0004",
-            attendeeName: "Guest 4",
+            attendeeName: "Guest Delta",
             participationStatus: "INVITED",
           },
           {
@@ -912,7 +944,45 @@ describe("M8 Open Day QR Check-in Engine, Concurrency, XP, RBAC, Audit & Attenda
         .expect(200);
 
       expect(listRes.body.data.stats).toEqual(statsRes.body.data);
+      expect(listRes.body.data.total).toBe(6);
       expect(listRes.body.data.attendanceRate).toBe(50);
+
+      // B02-1: Search filter returns filteredTotal (1) while keeping event-wide stats intact (totalValidTickets = 4, attendanceRate = 50)
+      const searchFilteredRes = await request(server)
+        .get(`/api/v1/admin/events/${statsEvent.id}/participations?search=FilterMatch&page=1&pageSize=10`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(searchFilteredRes.body.data.items).toHaveLength(1);
+      expect(searchFilteredRes.body.data.items[0].attendeeName).toBe("FilterMatch Alpha");
+      expect(searchFilteredRes.body.data.total).toBe(1);
+      expect(searchFilteredRes.body.data.page).toBe(1);
+      expect(searchFilteredRes.body.data.pageSize).toBe(10);
+      expect(searchFilteredRes.body.data.stats).toEqual(statsRes.body.data);
+      expect(searchFilteredRes.body.data.attendanceRate).toBe(50);
+
+      // B02-2: Status filter with pagination returns filteredTotal = 2, items.length = 1 on page 2, and unchanged event-wide stats
+      const statusFilteredRes = await request(server)
+        .get(`/api/v1/admin/events/${statsEvent.id}/participations?status=CANCELLED&page=2&pageSize=1`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(statusFilteredRes.body.data.items).toHaveLength(1);
+      expect(statusFilteredRes.body.data.items[0].participationStatus).toBe("CANCELLED");
+      expect(statusFilteredRes.body.data.total).toBe(2);
+      expect(statusFilteredRes.body.data.page).toBe(2);
+      expect(statusFilteredRes.body.data.pageSize).toBe(1);
+      expect(statusFilteredRes.body.data.stats).toEqual(statsRes.body.data);
+
+      // B02-3: Zero-match search returns total = 0 and empty items, while event-wide stats remain accurate
+      const emptyFilteredRes = await request(server)
+        .get(`/api/v1/admin/events/${statsEvent.id}/participations?search=NonExistentAttendeeXYZ`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(emptyFilteredRes.body.data.items).toHaveLength(0);
+      expect(emptyFilteredRes.body.data.total).toBe(0);
+      expect(emptyFilteredRes.body.data.stats).toEqual(statsRes.body.data);
 
       await request(server)
         .get(`/api/v1/open-day/events/${statsEvent.id}/attendance-stats`)

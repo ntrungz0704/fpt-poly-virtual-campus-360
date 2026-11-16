@@ -57,6 +57,7 @@ export default function AdminEventsPage() {
   const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [totalRoster, setTotalRoster] = useState(0);
   const [totalCheckedIn, setTotalCheckedIn] = useState(0);
+  const [filteredRosterTotal, setFilteredRosterTotal] = useState(0);
   const [isLoadingRoster, setIsLoadingRoster] = useState(true);
   const [rosterQuery, setRosterQuery] = useState("");
   const [rosterStatusFilter, setRosterStatusFilter] = useState<string>("ALL");
@@ -80,7 +81,6 @@ export default function AdminEventsPage() {
 
   // Check-in Engine UI State (M8)
   const [isCheckingIn, setIsCheckingIn] = useState(false);
-  const [strictEventMatch, setStrictEventMatch] = useState(true);
   const [lastOutcome, setLastOutcome] = useState<CheckInOutcomeView | null>(null);
   const [recentOutcomes, setRecentOutcomes] = useState<CheckInOutcomeView[]>([]);
 
@@ -153,6 +153,7 @@ export default function AdminEventsPage() {
       })
         .then((res) => {
           setParticipations(res.items);
+          setFilteredRosterTotal(res.total);
           setTotalRoster(res.totalValidTickets ?? res.total);
           setTotalCheckedIn(res.totalCheckedIn);
           if (res.stats) {
@@ -254,12 +255,21 @@ export default function AdminEventsPage() {
       return;
     }
 
+    if (!selectedEventId) {
+      setToast({
+        open: true,
+        message: "Vui lòng chọn sự kiện đang check-in trước khi quét hoặc nhập mã vé.",
+        type: "error",
+      });
+      return;
+    }
+
     void source;
     setIsCheckingIn(true);
     try {
       const res = await checkInAttendeeTicket({
         ticketCode: code,
-        ...(strictEventMatch && selectedEventId ? { eventId: selectedEventId } : {}),
+        eventId: selectedEventId,
       });
       const outcome = buildSuccessOutcome(res);
       setLastOutcome(outcome);
@@ -709,8 +719,6 @@ export default function AdminEventsPage() {
             isCheckingIn={isCheckingIn}
             lastOutcome={lastOutcome}
             recentOutcomes={recentOutcomes}
-            strictEventMatch={strictEventMatch}
-            onStrictEventMatchChange={setStrictEventMatch}
             onClearOutcome={() => setLastOutcome(null)}
             onRefreshStats={() => {
               if (selectedEventId) {
@@ -754,9 +762,16 @@ export default function AdminEventsPage() {
                       <option value="CANCELLED">Đã hủy</option>
                     </select>
                   </div>
-                  <Badge variant="brand">
-                    Đã có mặt: {totalCheckedIn}/{totalRoster} vé hợp lệ
-                  </Badge>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(rosterQuery.trim() || rosterStatusFilter !== "ALL") && (
+                      <Badge variant="neutral">
+                        Kết quả lọc: {filteredRosterTotal} vé
+                      </Badge>
+                    )}
+                    <Badge variant="brand">
+                      Đã có mặt: {totalCheckedIn}/{totalRoster} vé hợp lệ
+                    </Badge>
+                  </div>
                 </div>
               }
             />

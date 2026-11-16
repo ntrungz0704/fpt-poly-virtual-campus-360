@@ -1356,8 +1356,9 @@ export class OpenDayService {
       ];
     }
 
-    const [stats, rows] = await Promise.all([
+    const [stats, filteredTotal, rows] = await Promise.all([
       this.computeEventAttendanceStats(event.id, event.title),
+      this.prisma.eventParticipation.count({ where }),
       this.prisma.eventParticipation.findMany({
         where,
         orderBy: { createdAt: "desc" },
@@ -1389,7 +1390,7 @@ export class OpenDayService {
 
     return {
       items,
-      total: stats.totalAllTickets,
+      total: filteredTotal,
       totalInvited: stats.totalInvited,
       totalConfirmed: stats.totalConfirmed,
       totalCheckedIn: stats.totalCheckedIn,
@@ -1407,6 +1408,7 @@ export class OpenDayService {
     dto: CheckInTicketDto,
     actor: AuthenticatedUser,
     ipAddress: string | null,
+    options?: { requireEventId?: boolean },
   ): Promise<CheckInResultDto> {
     this.assertCheckInActorAuthorized(actor);
 
@@ -1421,7 +1423,9 @@ export class OpenDayService {
     }
 
     const campusId = await this.resolveAuthorizedCampusId();
+    const requireEventId = options?.requireEventId ?? true;
 
+    let resolvedTargetEventId: string;
     if (dto.eventId) {
       const targetEvent = await this.requireEventInCampus(
         dto.eventId,
@@ -1441,6 +1445,34 @@ export class OpenDayService {
           ],
         });
       }
+      resolvedTargetEventId = targetEvent.id;
+    } else {
+      if (requireEventId) {
+        throw new BadRequestException({
+          code: "VALIDATION_ERROR",
+          message: "Bắt buộc phải truyền eventId của sự kiện đang check-in.",
+        });
+      }
+      // Legacy /admin/events/check-in compatibility is permitted ONLY when strictly one PUBLISHED event exists in the campus.
+      const publishedEvents = await this.prisma.openDayEvent.findMany({
+        where: {
+          campusId,
+          deletedAt: null,
+          status: PublishStatus.PUBLISHED,
+        },
+        select: { id: true },
+        take: 2,
+      });
+      if (publishedEvents.length !== 1) {
+        throw new BadRequestException({
+          code: "VALIDATION_ERROR",
+          message:
+            publishedEvents.length === 0
+              ? "Không có sự kiện Open Day nào ở trạng thái PUBLISHED; bắt buộc phải truyền eventId."
+              : "Hệ thống đang có nhiều sự kiện Open Day công khai; bắt buộc phải truyền eventId để tránh check-in nhầm sự kiện.",
+        });
+      }
+      resolvedTargetEventId = publishedEvents[0].id;
     }
 
     const now = new Date();
@@ -1485,7 +1517,7 @@ export class OpenDayService {
           });
         }
 
-        if (dto.eventId && participation.eventId !== dto.eventId) {
+        if (participation.eventId !== resolvedTargetEventId) {
           throw new UnprocessableEntityException({
             code: "EVENT_MISMATCH",
             message: `Vé "${code}" thuộc sự kiện "${participation.event.title}", không khớp với sự kiện đang check-in.`,
@@ -1496,7 +1528,7 @@ export class OpenDayService {
                 attendeeName: participation.attendeeName ?? null,
                 ticketEventId: participation.eventId,
                 ticketEventTitle: participation.event.title,
-                expectedEventId: dto.eventId,
+                expectedEventId: resolvedTargetEventId,
               },
             ],
           });

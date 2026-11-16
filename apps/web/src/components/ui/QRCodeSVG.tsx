@@ -82,11 +82,11 @@ const VERSIONS: VersionSpec[] = [
   { version: 4, size: 33, totalCodewords: 100, ecCodewords: 36, dataCodewords: 64, alignPos: [6, 26] },
 ];
 
-function generateQRMatrix(text: string): boolean[][] {
+export function generateQRMatrix(text: string): boolean[][] {
   const encoder = new TextEncoder();
   const rawBytes = encoder.encode(text);
 
-  // Pick smallest fitting version
+  // Pick smallest fitting version (Version 2-M: up to 25 UTF-8 bytes; Version 3-M: up to 41 UTF-8 bytes)
   const spec =
     VERSIONS.find((v) => v.dataCodewords >= rawBytes.length + 3) ??
     VERSIONS[VERSIONS.length - 1];
@@ -151,8 +151,25 @@ function generateQRMatrix(text: string): boolean[][] {
     if (!isFunction[i][6]) setModule(i, 6, i % 2 === 0, true);
   }
 
-  // 4. Dark Module
+  // 4. Dark Module & Reserve Format Information coordinates BEFORE placing data bits
   setModule(size - 8, 8, true, true);
+
+  // Format Information: EC Level M (00) + Mask 0 (000) -> 00000 -> masked with 0x5412 = 101010000010010
+  const formatBits = [1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0];
+  const tlCoords: [number, number][] = [
+    [8, 0], [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [8, 7], [8, 8],
+    [7, 8], [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8],
+  ];
+  const trBlCoords: [number, number][] = [
+    [size - 1, 8], [size - 2, 8], [size - 3, 8], [size - 4, 8], [size - 5, 8], [size - 6, 8], [size - 7, 8],
+    [8, size - 8], [8, size - 7], [8, size - 6], [8, size - 5], [8, size - 4], [8, size - 3], [8, size - 2], [8, size - 1],
+  ];
+  tlCoords.forEach(([r, c], idx) => {
+    setModule(r, c, formatBits[idx] === 1, true);
+  });
+  trBlCoords.forEach(([r, c], idx) => {
+    setModule(r, c, formatBits[idx] === 1, true);
+  });
 
   // 5. Build Data Stream (Byte mode: 0100 + 8-bit length + data + 0000 terminator + pad bytes)
   const bitArray: number[] = [0, 1, 0, 0];
@@ -222,27 +239,6 @@ function generateQRMatrix(text: string): boolean[][] {
     }
   }
 
-  // 8. Format Information: EC Level M (00) + Mask 0 (000) -> 00000 -> masked with 0x5412 = 101010000010010
-  const formatBits = [1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0];
-  // Top-left
-  const tlCoords: [number, number][] = [
-    [8, 0], [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [8, 7], [8, 8],
-    [7, 8], [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8],
-  ];
-  tlCoords.forEach(([r, c], idx) => {
-    grid[r][c] = formatBits[idx] === 1;
-    isFunction[r][c] = true;
-  });
-  // Top-right and bottom-left split
-  const trBlCoords: [number, number][] = [
-    [size - 1, 8], [size - 2, 8], [size - 3, 8], [size - 4, 8], [size - 5, 8], [size - 6, 8], [size - 7, 8],
-    [8, size - 8], [8, size - 7], [8, size - 6], [8, size - 5], [8, size - 4], [8, size - 3], [8, size - 2], [8, size - 1],
-  ];
-  trBlCoords.forEach(([r, c], idx) => {
-    grid[r][c] = formatBits[idx] === 1;
-    isFunction[r][c] = true;
-  });
-
   return grid.map((row) => row.map((cell) => cell ?? false));
 }
 
@@ -275,7 +271,7 @@ export function QRCodeSVG({
     );
   }
 
-  const margin = includeMargin ? 2 : 0;
+  const margin = includeMargin ? 4 : 0;
   const matrixSize = matrix.length;
   const viewBoxSize = matrixSize + margin * 2;
 

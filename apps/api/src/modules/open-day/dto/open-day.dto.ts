@@ -521,12 +521,25 @@ export class AdminEventParticipationsQueryDto {
   pageSize?: number;
 }
 
+export function normalizeTicketCodeInput(value: unknown): unknown {
+  if (typeof value !== "string") {
+    return value;
+  }
+  let normalized = value.trim().toUpperCase();
+  if (normalized.startsWith("TICKET:")) {
+    normalized = normalized.slice("TICKET:".length).trim();
+  }
+  return normalized;
+}
+
 export class CheckInTicketDto {
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(32)
-  @Transform(({ value }) =>
-    typeof value === "string" ? value.trim().toUpperCase() : value,
-  )
+  @IsString({ message: "ticketCode phải là chuỗi hợp lệ." })
+  @IsNotEmpty({ message: "Mã vé QR không được để trống." })
+  @MaxLength(128, { message: "Mã vé QR vượt quá độ dài cho phép." })
+  @Transform(({ value }) => normalizeTicketCodeInput(value))
   ticketCode!: string;
+
+  @IsOptional()
+  @IsUUID("4", { message: "eventId phải là UUID hợp lệ." })
+  eventId?: string;
 }

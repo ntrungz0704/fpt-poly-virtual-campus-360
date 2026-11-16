@@ -37,15 +37,51 @@ export interface OpenDayTicketDto {
   qrPayload: string;
 }
 
+export type CheckInStatusCode =
+  | "CHECKED_IN_SUCCESS"
+  | "ALREADY_CHECKED_IN"
+  | "INVALID_TICKET"
+  | "CANCELLED_TICKET"
+  | "EVENT_MISMATCH"
+  | "INVALID_EVENT_STATUS"
+  | "INVALID_TICKET_STATUS";
+
 export interface CheckInTicketInput {
   ticketCode: string;
+  eventId?: UUID;
+}
+
+export interface CheckInXpRewardDto {
+  awarded: boolean;
+  amountXp: number;
+  userId: UUID | null;
+  reason: "CHECKED_IN_REWARD" | "NO_LINKED_USER" | "ALREADY_AWARDED";
+  ledgerId: UUID | null;
+  idempotencyKey: string | null;
 }
 
 export interface CheckInResultDto {
   success: boolean;
+  status: "CHECKED_IN_SUCCESS";
+  code: "CHECKED_IN_SUCCESS";
   message: string;
   ticket: OpenDayTicketDto;
   checkedInAt: ISO8601Timestamp;
+  checkedInBy: UUID;
+  xpReward: CheckInXpRewardDto;
+}
+
+export interface OpenDayAttendanceStatsDto {
+  eventId: UUID;
+  eventTitle: string;
+  totalAllTickets: number;
+  totalValidTickets: number;
+  totalInvited: number;
+  totalConfirmed: number;
+  totalCheckedIn: number;
+  totalNotCheckedIn: number;
+  totalCancelled: number;
+  attendanceRate: number;
 }
 
 export interface AdminEventParticipationDto {
@@ -59,14 +95,21 @@ export interface AdminEventParticipationDto {
   checkedInAt: ISO8601Timestamp | null;
   checkedInBy: string | null;
   checkedInByName?: string | null;
+  userId?: UUID | null;
   createdAt: ISO8601Timestamp;
 }
 
 export interface AdminParticipationsListResponseDto {
   items: AdminEventParticipationDto[];
   total: number;
+  totalInvited: number;
   totalConfirmed: number;
   totalCheckedIn: number;
+  totalCancelled: number;
+  totalValidTickets: number;
+  totalNotCheckedIn: number;
+  attendanceRate: number;
+  stats: OpenDayAttendanceStatsDto;
   page: number;
   pageSize: number;
 }

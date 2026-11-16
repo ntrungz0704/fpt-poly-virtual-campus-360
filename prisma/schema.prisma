@@ -800,6 +800,7 @@ model QuizAttempt {
   eventId        String   @map("event_id") @db.Uuid
   userId         String?  @map("user_id") @db.Uuid
   ticketCode     String?  @map("ticket_code") @db.VarChar(64)
+  guestSessionId String?  @map("guest_session_id") @db.VarChar(64)
   attendeeName   String   @map("attendee_name") @db.VarChar(160)
   totalQuestions Int      @map("total_questions")
   correctCount   Int      @map("correct_count")
@@ -814,6 +815,7 @@ model QuizAttempt {
   @@index([eventId], map: "idx_quiz_attempts_event_id")
   @@index([ticketCode], map: "idx_quiz_attempts_ticket_code")
   @@index([userId], map: "idx_quiz_attempts_user_id")
+  @@index([guestSessionId], map: "idx_quiz_attempts_guest_session_id")
   @@map("quiz_attempts")
 }
 
@@ -821,6 +823,7 @@ model XpLedger {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId         String?  @map("user_id") @db.Uuid
   ticketCode     String?  @map("ticket_code") @db.VarChar(64)
+  guestSessionId String?  @map("guest_session_id") @db.VarChar(64)
   attendeeName   String   @map("attendee_name") @db.VarChar(160)
   amountXp       Int      @map("amount_xp")
   source         String   @db.VarChar(64)
@@ -833,6 +836,7 @@ model XpLedger {
 
   @@index([ticketCode], map: "idx_xp_ledgers_ticket_code")
   @@index([userId], map: "idx_xp_ledgers_user_id")
+  @@index([guestSessionId], map: "idx_xp_ledgers_guest_session_id")
   @@index([source, referenceId], map: "idx_xp_ledgers_source_reference")
   @@map("xp_ledgers")
 }
@@ -861,6 +865,7 @@ model UserSpinHistory {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId         String?  @map("user_id") @db.Uuid
   ticketCode     String?  @map("ticket_code") @db.VarChar(64)
+  guestSessionId String?  @map("guest_session_id") @db.VarChar(64)
   attendeeName   String   @map("attendee_name") @db.VarChar(160)
   rewardConfigId String   @map("reward_config_id") @db.Uuid
   rewardLabel    String   @map("reward_label") @db.VarChar(120)
@@ -873,6 +878,7 @@ model UserSpinHistory {
 
   @@index([ticketCode], map: "idx_user_spin_histories_ticket_code")
   @@index([userId], map: "idx_user_spin_histories_user_id")
+  @@index([guestSessionId], map: "idx_user_spin_histories_guest_session_id")
   @@map("user_spin_histories")
 }
 

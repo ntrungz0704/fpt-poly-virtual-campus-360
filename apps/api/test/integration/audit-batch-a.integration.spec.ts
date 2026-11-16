@@ -3,6 +3,7 @@ import request from "supertest";
 import { PrismaService } from "../../src/common/adapters/prisma.service";
 import {
   createIntegrationApiApp,
+  extractCookieValue,
   provisionScratchDatabase,
   TEST_ADMIN_BOOTSTRAP_PASSWORD,
   type ApiTestContext,
@@ -172,16 +173,31 @@ describe("Audit Batch A — Security, Concurrency, Tour Go-Live & Portal Integri
     });
 
     it("blocks attendeeName cross-user spin/XP leakage and rejects anonymous use of account-bound tickets", async () => {
-      // Anonymous request with matching attendeeName MUST NOT see Student A's XP or 3 checked-in spins
-      const anonByName = await request(server)
+      // Unauthenticated request WITHOUT server-issued guest session MUST fail closed (never fall back to attendeeName)
+      const noSessionProfile = await request(server)
+        .get("/api/v1/public/gamification/profile")
+        .query({ attendeeName: "Nguyễn Minh Anh" })
+        .expect(401);
+      expect(noSessionProfile.body.error.code).toBe("GUEST_SESSION_REQUIRED");
+
+      const noSessionSpin = await request(server)
+        .post("/api/v1/public/gamification/spin")
+        .send({ attendeeName: "Nguyễn Minh Anh" })
+        .expect(401);
+      expect(noSessionSpin.body.error.code).toBe("GUEST_SESSION_REQUIRED");
+
+      // Even WITH a valid server-issued guest session, matching Student A's attendeeName MUST NOT leak XP or spins
+      const anonAgent = request.agent(server);
+      await anonAgent.post("/api/v1/public/gamification/guest-session").expect(200);
+
+      const anonByName = await anonAgent
         .get("/api/v1/public/gamification/profile")
         .query({ attendeeName: "Nguyễn Minh Anh" })
         .expect(200);
       expect(anonByName.body.data.totalXp).toBe(0);
       expect(anonByName.body.data.spinsAvailable).toBe(0);
 
-      // Anonymous spin with matching attendeeName fails with NO_SPINS_REMAINING
-      const anonSpin = await request(server)
+      const anonSpin = await anonAgent
         .post("/api/v1/public/gamification/spin")
         .send({ attendeeName: "Nguyễn Minh Anh" })
         .expect(400);
@@ -327,6 +343,380 @@ describe("Audit Batch A — Security, Concurrency, Tour Go-Live & Portal Integri
       expect(minhAnhEntries).toHaveLength(2);
       // Exactly ONE matches authenticated Student B
       expect(minhAnhEntries.filter((e) => e.isCurrentAttendee)).toHaveLength(1);
+    });
+
+    it("B-A1: isolates two anonymous walk-in guests with identical attendeeName via server-signed guest sessions", async () => {
+      const sharedGuestName = "Trần Khách Trùng Tên";
+      const quizItem = await prisma.openDayQuizItem.findFirstOrThrow({
+        where: { eventId: publishedEventId, status: "PUBLISHED", deletedAt: null },
+      });
+
+      const agentA = request.agent(server);
+      const agentB = request.agent(server);
+
+      const sessionARes = await agentA
+        .post("/api/v1/public/gamification/guest-session")
+        .expect(200);
+      expect(sessionARes.body.data.sessionActive).toBe(true);
+      expect(sessionARes.body.data.guestId).toBeUndefined();
+      expect(sessionARes.body.data.token).toBeUndefined();
+
+      const cookieA = extractCookieValue(
+        sessionARes.headers["set-cookie"],
+        "gamification_guest",
+      );
+      expect(cookieA).not.toBeNull();
+      expect(cookieA!.rawHeader).toContain("HttpOnly");
+      expect(cookieA!.rawHeader).toContain("SameSite=Lax");
+      expect(cookieA!.rawHeader).toContain("Path=/api/v1/public/gamification");
+
+      const sessionBRes = await agentB
+        .post("/api/v1/public/gamification/guest-session")
+        .expect(200);
+      const cookieB = extractCookieValue(
+        sessionBRes.headers["set-cookie"],
+        "gamification_guest",
+      );
+      expect(cookieB).not.toBeNull();
+      expect(cookieA!.value).not.toBe(cookieB!.value);
+
+      // Re-calling guest-session on agentA preserves the verified identity stably
+      const sessionAReload = await agentA
+        .post("/api/v1/public/gamification/guest-session")
+        .expect(200);
+      const cookieAReload = extractCookieValue(
+        sessionAReload.headers["set-cookie"],
+        "gamification_guest",
+      );
+      expect(cookieAReload!.value.split(".")[1]).toBe(cookieA!.value.split(".")[1]);
+
+      // Guest A completes quiz under sharedGuestName -> receives 60 XP and 2 spins
+      const submitA = await agentA
+        .post("/api/v1/public/gamification/quiz/submit")
+        .send({
+          eventId: publishedEventId,
+          attendeeName: sharedGuestName,
+          items: [{ questionId: quizItem.id, selectedIndex: quizItem.correctIndex }],
+        })
+        .expect(201);
+      expect(submitA.body.data.isXpAwarded).toBe(true);
+      expect(submitA.body.data.scoreXp).toBe(60);
+
+      // Guest A spins once cleanly
+      const spinA = await agentA
+        .post("/api/v1/public/gamification/spin")
+        .send({ attendeeName: sharedGuestName })
+        .expect(201);
+      expect(spinA.body.data.spinsRemaining).toBe(1);
+
+      // Guest B using EXACT SAME attendeeName sees 0 XP, 0 quiz attempts, 0 spins, 0 recent rewards
+      const profileB = await agentB
+        .get("/api/v1/public/gamification/profile")
+        .query({ attendeeName: sharedGuestName })
+        .expect(200);
+      expect(profileB.body.data.totalXp).toBe(0);
+      expect(profileB.body.data.quizAttemptsCount).toBe(0);
+      expect(profileB.body.data.spinsAvailable).toBe(0);
+      expect(profileB.body.data.spinsUsed).toBe(0);
+      expect(profileB.body.data.recentRewards).toHaveLength(0);
+
+      // Guest B cannot spend Guest A's remaining spin via matching attendeeName
+      const spinBAttempt = await agentB
+        .post("/api/v1/public/gamification/spin")
+        .send({ attendeeName: sharedGuestName })
+        .expect(400);
+      expect(spinBAttempt.body.error.code).toBe("NO_SPINS_REMAINING");
+
+      // Guest B submits quiz under SAME attendeeName -> independently earns own 60 XP
+      const submitB = await agentB
+        .post("/api/v1/public/gamification/quiz/submit")
+        .send({
+          eventId: publishedEventId,
+          attendeeName: sharedGuestName,
+          items: [{ questionId: quizItem.id, selectedIndex: quizItem.correctIndex }],
+        })
+        .expect(201);
+      expect(submitB.body.data.isXpAwarded).toBe(true);
+      expect(submitB.body.data.scoreXp).toBe(60);
+
+      // Leaderboard lists both distinct guests cleanly without collision & highlights only caller's entry
+      const lbA = await agentA
+        .get("/api/v1/public/gamification/leaderboard")
+        .query({ limit: 50, attendeeName: sharedGuestName })
+        .expect(200);
+      const sharedEntriesA = lbA.body.data.topEntries.filter(
+        (e: { attendeeName: string }) => e.attendeeName === sharedGuestName,
+      );
+      expect(sharedEntriesA).toHaveLength(2);
+      expect(
+        sharedEntriesA.filter((e: { isCurrentAttendee?: boolean }) => e.isCurrentAttendee),
+      ).toHaveLength(1);
+      expect(lbA.body.data.currentEntry.totalSpins).toBe(1);
+
+      // Unauthenticated request WITHOUT cookie specifying ?attendeeName= MUST NOT highlight or impersonate either guest
+      const lbAnon = await request(server)
+        .get("/api/v1/public/gamification/leaderboard")
+        .query({ limit: 50, attendeeName: sharedGuestName })
+        .expect(200);
+      const sharedEntriesAnon = lbAnon.body.data.topEntries.filter(
+        (e: { attendeeName: string }) => e.attendeeName === sharedGuestName,
+      );
+      expect(
+        sharedEntriesAnon.some((e: { isCurrentAttendee?: boolean }) => e.isCurrentAttendee),
+      ).toBe(false);
+      expect(lbAnon.body.data.currentEntry).toBeNull();
+    });
+
+    it("B-A1: fails closed on missing, tampered, or payload-spoofed guest identity and handles concurrency atomically", async () => {
+      const quizItem = await prisma.openDayQuizItem.findFirstOrThrow({
+        where: { eventId: publishedEventId, status: "PUBLISHED", deletedAt: null },
+      });
+
+      // 1. Missing guest cookie on quiz submit & profile -> 401 GUEST_SESSION_REQUIRED
+      const noCookieSubmit = await request(server)
+        .post("/api/v1/public/gamification/quiz/submit")
+        .send({
+          eventId: publishedEventId,
+          attendeeName: "Trần Khách Trùng Tên",
+          items: [{ questionId: quizItem.id, selectedIndex: quizItem.correctIndex }],
+        })
+        .expect(401);
+      expect(noCookieSubmit.body.error.code).toBe("GUEST_SESSION_REQUIRED");
+
+      // 2. Tampered cookie (forged guestId / broken signature) -> 401 INVALID_GUEST_SESSION across all endpoints
+      const realSession = await request(server)
+        .post("/api/v1/public/gamification/guest-session")
+        .expect(200);
+      const realToken = extractCookieValue(
+        realSession.headers["set-cookie"],
+        "gamification_guest",
+      )!.value;
+      const parts = realToken.split(".");
+      const swappedUuid =
+        parts[1] === "00000000-0000-4000-8000-000000000001"
+          ? "00000000-0000-4000-8000-000000000002"
+          : "00000000-0000-4000-8000-000000000001";
+      const tamperedCookie = `gamification_guest=${parts[0]}.${swappedUuid}.${parts[2]}.${parts[3]}`;
+
+      for (const reqCall of [
+        request(server).get("/api/v1/public/gamification/profile").set("Cookie", tamperedCookie),
+        request(server)
+          .get("/api/v1/public/gamification/leaderboard")
+          .set("Cookie", tamperedCookie),
+        request(server)
+          .post("/api/v1/public/gamification/spin")
+          .set("Cookie", tamperedCookie)
+          .send({ attendeeName: "Kẻ Giả Mạo Cookie" }),
+      ]) {
+        const res = await reqCall.expect(401);
+        expect(res.body.error.code).toBe("INVALID_GUEST_SESSION");
+      }
+
+      // 3. Payload spoofing extra identity fields -> 400 forbidden by strict whitelist DTO pipe
+      await request(server)
+        .post("/api/v1/public/gamification/spin")
+        .set("Cookie", `gamification_guest=${realToken}`)
+        .send({
+          attendeeName: "Guest C",
+          guestSessionId: swappedUuid,
+        })
+        .expect(400);
+
+      // 4. Concurrent quiz submit & spin requests for the SAME verified guest cookie remain atomic
+      const concurrentSubmits = await Promise.all(
+        Array.from({ length: 5 }, () =>
+          request(server)
+            .post("/api/v1/public/gamification/quiz/submit")
+            .set("Cookie", `gamification_guest=${realToken}`)
+            .send({
+              eventId: publishedEventId,
+              attendeeName: "Lê Khách Đồng Thời",
+              items: [{ questionId: quizItem.id, selectedIndex: quizItem.correctIndex }],
+            }),
+        ),
+      );
+      expect(concurrentSubmits.every((r) => r.status === 201)).toBe(true);
+      expect(concurrentSubmits.filter((r) => r.body.data.isXpAwarded)).toHaveLength(1);
+
+      const guestLedgers = await prisma.xpLedger.findMany({
+        where: { guestSessionId: parts[1], source: "QUIZ_COMPLETION" },
+      });
+      expect(guestLedgers).toHaveLength(1);
+
+      const concurrentSpins = await Promise.all(
+        Array.from({ length: 5 }, () =>
+          request(server)
+            .post("/api/v1/public/gamification/spin")
+            .set("Cookie", `gamification_guest=${realToken}`)
+            .send({ attendeeName: "Lê Khách Đồng Thời" }),
+        ),
+      );
+      // Passed quiz => 2 spins total (1 quiz + 1 >=60%), so exactly 2 succeed and 3 reject
+      expect(concurrentSpins.filter((r) => r.status === 201)).toHaveLength(2);
+      expect(concurrentSpins.filter((r) => r.status === 400)).toHaveLength(3);
+      expect(
+        await prisma.userSpinHistory.count({ where: { guestSessionId: parts[1] } }),
+      ).toBe(2);
+
+      // 5. Authenticated Student B cannot hijack unassigned guestTicketCode (mismatched email)
+      await request(server)
+        .post("/api/v1/public/gamification/spin")
+        .set("Authorization", `Bearer ${studentBToken}`)
+        .send({ attendeeName: "Nguyễn Minh Anh", ticketCode: guestTicketCode })
+        .expect(403);
+    });
+
+    it("B-A2: rejects unknown, cancelled, and deleted-event tickets with zero DB writes", async () => {
+      const fakeTicketCode = "OD26-FAKE-9999";
+      const cancelledTicketCode = "OD26-CANC-8888";
+      const deletedEventTicketCode = "OD26-DELT-7777";
+
+      const quizItem = await prisma.openDayQuizItem.findFirstOrThrow({
+        where: { eventId: publishedEventId, status: "PUBLISHED", deletedAt: null },
+      });
+
+      // Prepare CANCELLED ticket and soft-deleted-event ticket
+      const deletedEvent = await prisma.openDayEvent.create({
+        data: {
+          campusId,
+          eventKey: "ba2-deleted-event",
+          title: "Sự kiện đã bị xóa mềm B-A2",
+          subtitle: "Deleted event",
+          dateLabel: "01/01/2026",
+          timeLabel: "08:00 - 12:00",
+          status: "PUBLISHED",
+          deletedAt: new Date(),
+        },
+      });
+
+      await prisma.eventParticipation.createMany({
+        data: [
+          {
+            eventId: publishedEventId,
+            userId: null,
+            ticketCode: cancelledTicketCode,
+            attendeeName: "Khách Đã Hủy Vé",
+            attendeeEmail: "cancelled.ba2@poly.edu.vn",
+            attendeePhone: "0903333333",
+            participationStatus: "CANCELLED",
+          },
+          {
+            eventId: deletedEvent.id,
+            userId: null,
+            ticketCode: deletedEventTicketCode,
+            attendeeName: "Khách Sự Kiện Đã Xóa",
+            attendeeEmail: "deleted.ev.ba2@poly.edu.vn",
+            attendeePhone: "0904444444",
+            participationStatus: "CHECKED_IN",
+            checkedInAt: new Date(),
+          },
+        ],
+      });
+
+      // 1. Unknown ticket MUST be rejected 404 on quiz/submit, spin, profile, leaderboard
+      const quizUnknown = await request(server)
+        .post("/api/v1/public/gamification/quiz/submit")
+        .send({
+          eventId: publishedEventId,
+          attendeeName: "Khách Vé Giả",
+          ticketCode: fakeTicketCode,
+          items: [{ questionId: quizItem.id, selectedIndex: quizItem.correctIndex }],
+        })
+        .expect(404);
+      expect(quizUnknown.body.error.code).toBe("TICKET_NOT_FOUND");
+
+      const spinUnknown = await request(server)
+        .post("/api/v1/public/gamification/spin")
+        .send({ attendeeName: "Khách Vé Giả", ticketCode: fakeTicketCode })
+        .expect(404);
+      expect(spinUnknown.body.error.code).toBe("TICKET_NOT_FOUND");
+
+      await request(server)
+        .get("/api/v1/public/gamification/profile")
+        .query({ ticketCode: fakeTicketCode })
+        .expect(404);
+
+      await request(server)
+        .get("/api/v1/public/gamification/leaderboard")
+        .query({ ticketCode: fakeTicketCode })
+        .expect(404);
+
+      // Even authenticated Student A cannot submit quiz under non-existent ticketCode
+      await request(server)
+        .post("/api/v1/public/gamification/quiz/submit")
+        .set("Authorization", `Bearer ${studentAToken}`)
+        .send({
+          eventId: publishedEventId,
+          attendeeName: "Nguyễn Minh Anh",
+          ticketCode: fakeTicketCode,
+          items: [{ questionId: quizItem.id, selectedIndex: quizItem.correctIndex }],
+        })
+        .expect(404);
+
+      // 2. CANCELLED ticket and soft-deleted-event ticket MUST be rejected 400 TICKET_CANCELLED
+      for (const badTicket of [cancelledTicketCode, deletedEventTicketCode]) {
+        const qRes = await request(server)
+          .post("/api/v1/public/gamification/quiz/submit")
+          .send({
+            eventId: publishedEventId,
+            attendeeName: "Khách Vé Không Hợp Lệ",
+            ticketCode: badTicket,
+            items: [{ questionId: quizItem.id, selectedIndex: quizItem.correctIndex }],
+          })
+          .expect(400);
+        expect(qRes.body.error.code).toBe("TICKET_CANCELLED");
+
+        const sRes = await request(server)
+          .post("/api/v1/public/gamification/spin")
+          .send({ attendeeName: "Khách Vé Không Hợp Lệ", ticketCode: badTicket })
+          .expect(400);
+        expect(sRes.body.error.code).toBe("TICKET_CANCELLED");
+
+        await request(server)
+          .get("/api/v1/public/gamification/profile")
+          .query({ ticketCode: badTicket })
+          .expect(400);
+      }
+
+      // 3. Zero DB persistence for unknown, cancelled, or deleted-event tickets
+      const [badLedgers, badAttempts, badSpins] = await Promise.all([
+        prisma.xpLedger.count({
+          where: {
+            ticketCode: {
+              in: [fakeTicketCode, cancelledTicketCode, deletedEventTicketCode],
+            },
+          },
+        }),
+        prisma.quizAttempt.count({
+          where: {
+            ticketCode: {
+              in: [fakeTicketCode, cancelledTicketCode, deletedEventTicketCode],
+            },
+          },
+        }),
+        prisma.userSpinHistory.count({
+          where: {
+            ticketCode: {
+              in: [fakeTicketCode, cancelledTicketCode, deletedEventTicketCode],
+            },
+          },
+        }),
+      ]);
+      expect(badLedgers).toBe(0);
+      expect(badAttempts).toBe(0);
+      expect(badSpins).toBe(0);
+
+      // 4. Valid existing ticket (OD26-G999-9999) continues working cleanly on quiz submission & profile
+      const validTicketSubmit = await request(server)
+        .post("/api/v1/public/gamification/quiz/submit")
+        .send({
+          eventId: publishedEventId,
+          attendeeName: "Khách Test Race",
+          ticketCode: guestTicketCode,
+          items: [{ questionId: quizItem.id, selectedIndex: quizItem.correctIndex }],
+        })
+        .expect(201);
+      expect(validTicketSubmit.body.data.isXpAwarded).toBe(true);
     });
   });
 

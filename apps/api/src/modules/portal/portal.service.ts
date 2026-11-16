@@ -418,7 +418,7 @@ export class PortalService {
     userTotalXp: number,
   ): Promise<number> {
     const ledgerBuckets = await this.prisma.xpLedger.groupBy({
-      by: ["userId", "ticketCode", "attendeeName"],
+      by: ["userId", "ticketCode", "guestSessionId", "attendeeName"],
       _sum: { amountXp: true },
     });
 
@@ -428,7 +428,9 @@ export class PortalService {
         ? `u:${row.userId}`
         : row.ticketCode
           ? `t:${row.ticketCode.trim().toUpperCase()}`
-          : `g:${row.attendeeName.trim().toLowerCase()}`;
+          : row.guestSessionId
+            ? `gs:${row.guestSessionId}`
+            : `legacy_g:${row.attendeeName.trim().toLowerCase()}`;
       totalsByIdentity.set(
         key,
         (totalsByIdentity.get(key) ?? 0) + (row._sum.amountXp ?? 0),

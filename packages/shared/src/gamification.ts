@@ -48,6 +48,11 @@ export interface SpinWheelConfigResponseDto {
   slices: SpinSliceDto[];
 }
 
+export interface GamificationGuestSessionDto {
+  sessionActive: boolean;
+  expiresAt: string;
+}
+
 export interface SpinWheelInputDto {
   attendeeName: string;
   ticketCode?: string;

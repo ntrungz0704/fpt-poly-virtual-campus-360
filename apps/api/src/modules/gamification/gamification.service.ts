@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from "@nestjs/common";
 import crypto from "node:crypto";
 import { Prisma, PublishStatus } from "@prisma/client";
@@ -25,6 +26,7 @@ import type {
   SpinWheelDto,
   SubmitQuizDto,
 } from "./dto/gamification.dto";
+import type { GuestTokenVerificationResult } from "./gamification-guest-token";
 
 type DbClient = PrismaService | Prisma.TransactionClient;
 
@@ -32,8 +34,10 @@ interface ResolvedParticipantScope {
   displayName: string;
   ticketCode: string | null;
   userId: string | null;
+  guestSessionId: string | null;
   idempotencyIdentity: string;
   lockKey: string;
+  leaderboardIdentityKey: string | null;
   xpFilter: Prisma.XpLedgerWhereInput;
   spinFilter: Prisma.UserSpinHistoryWhereInput;
   quizFilter: Prisma.QuizAttemptWhereInput;
@@ -62,9 +66,25 @@ export class GamificationService {
   async submitQuiz(
     dto: SubmitQuizDto,
     userId?: string,
+    guestVerification: GuestTokenVerificationResult = { status: "missing" },
   ): Promise<QuizSubmissionResultDto> {
     const rawName = dto.attendeeName.trim();
     const rawTicket = dto.ticketCode?.trim().toUpperCase() || undefined;
+
+    if (!rawName) {
+      throw new BadRequestException({
+        code: "VALIDATION_ERROR",
+        message: "attendeeName không được để trống.",
+      });
+    }
+
+    const scope = await this.resolveParticipantScope(this.prisma, {
+      userId,
+      ticketCode: rawTicket,
+      attendeeName: rawName,
+      guestVerification,
+      requireAuthenticatedParticipant: true,
+    });
 
     // Verify event is published and not deleted
     const event = await this.prisma.openDayEvent.findFirst({
@@ -142,13 +162,6 @@ export class GamificationService {
       calculatedXp += 40;
     }
 
-    const scope = await this.resolveParticipantScope(this.prisma, {
-      userId,
-      ticketCode: rawTicket,
-      attendeeName: rawName,
-      enforceTicketOwnership: Boolean(rawTicket),
-    });
-
     const refSuffix = scope.idempotencyIdentity.replace(/\s+/g, "_");
     const idempotentRefId = `quiz_${dto.eventId}_${refSuffix}`.slice(0, 128);
     const idempotencyHash = crypto
@@ -183,6 +196,7 @@ export class GamificationService {
             data: {
               userId: scope.userId,
               ticketCode: scope.ticketCode,
+              guestSessionId: scope.guestSessionId,
               attendeeName: scope.displayName,
               amountXp: calculatedXp,
               source: "QUIZ_COMPLETION",
@@ -211,6 +225,7 @@ export class GamificationService {
           eventId: dto.eventId,
           userId: scope.userId,
           ticketCode: scope.ticketCode,
+          guestSessionId: scope.guestSessionId,
           attendeeName: scope.displayName,
           totalQuestions,
           correctCount,
@@ -272,16 +287,25 @@ export class GamificationService {
   async spinWheel(
     dto: SpinWheelDto,
     userId?: string,
+    guestVerification: GuestTokenVerificationResult = { status: "missing" },
   ): Promise<SpinWheelResultDto> {
     const rawName = dto.attendeeName.trim();
     const rawTicket = dto.ticketCode?.trim().toUpperCase() || undefined;
+
+    if (!rawName) {
+      throw new BadRequestException({
+        code: "VALIDATION_ERROR",
+        message: "attendeeName không được để trống.",
+      });
+    }
 
     const txResult = await this.prisma.$transaction(async (tx) => {
       const scope = await this.resolveParticipantScope(tx, {
         userId,
         ticketCode: rawTicket,
         attendeeName: rawName,
-        enforceTicketOwnership: Boolean(rawTicket),
+        guestVerification,
+        requireAuthenticatedParticipant: true,
       });
 
       // Serialize concurrent spins per participant identity
@@ -379,6 +403,7 @@ export class GamificationService {
         data: {
           userId: scope.userId,
           ticketCode: scope.ticketCode,
+          guestSessionId: scope.guestSessionId,
           attendeeName: scope.displayName,
           rewardConfigId: winningReward.id,
           rewardLabel: winningReward.label,
@@ -392,6 +417,7 @@ export class GamificationService {
           data: {
             userId: scope.userId,
             ticketCode: scope.ticketCode,
+            guestSessionId: scope.guestSessionId,
             attendeeName: scope.displayName,
             amountXp: winningReward.amountXp,
             source: "SPIN_WHEEL",
@@ -441,6 +467,7 @@ export class GamificationService {
   async getProfile(
     query: GamificationProfileQueryDto,
     userId?: string,
+    guestVerification: GuestTokenVerificationResult = { status: "missing" },
   ): Promise<GamificationProfileDto> {
     const rawTicket = query.ticketCode?.trim().toUpperCase() || undefined;
     const rawName = query.attendeeName?.trim() || undefined;
@@ -449,7 +476,8 @@ export class GamificationService {
       userId,
       ticketCode: rawTicket,
       attendeeName: rawName,
-      enforceTicketOwnership: false,
+      guestVerification,
+      requireAuthenticatedParticipant: true,
     });
 
     return this.computeParticipantProfile(this.prisma, scope);
@@ -461,72 +489,80 @@ export class GamificationService {
       userId?: string;
       ticketCode?: string;
       attendeeName?: string;
-      enforceTicketOwnership: boolean;
+      guestVerification?: GuestTokenVerificationResult;
+      requireAuthenticatedParticipant: boolean;
     },
   ): Promise<ResolvedParticipantScope> {
     const rawTicket = params.ticketCode?.trim().toUpperCase() || undefined;
     const rawName = params.attendeeName?.trim() || undefined;
+    const guestVerification = params.guestVerification ?? { status: "missing" };
 
+    // Priority rule B-A2: Every ticketCode supplied by client MUST exist and be valid.
     let inspectedTicket: {
       ticketCode: string;
       userId: string | null;
       attendeeName: string | null;
+      attendeeEmail: string | null;
       participationStatus: string;
       checkedInAt: Date | null;
-      eventDeletedAt: Date | null;
     } | null = null;
 
     if (rawTicket) {
       const ticketRow = await db.eventParticipation.findUnique({
         where: { ticketCode: rawTicket },
         include: {
-          event: { select: { deletedAt: true } },
+          event: { select: { deletedAt: true, status: true } },
         },
       });
 
-      if (ticketRow) {
-        inspectedTicket = {
-          ticketCode: ticketRow.ticketCode,
-          userId: ticketRow.userId,
-          attendeeName: ticketRow.attendeeName,
-          participationStatus: ticketRow.participationStatus,
-          checkedInAt: ticketRow.checkedInAt,
-          eventDeletedAt: ticketRow.event.deletedAt,
-        };
-
-        if (ticketRow.userId !== null && ticketRow.userId !== params.userId) {
-          throw new ForbiddenException({
-            code: "TICKET_BELONGS_TO_ACCOUNT",
-            message:
-              "Vé này đã liên kết với tài khoản thành viên. Vui lòng đăng nhập đúng tài khoản để tiếp tục.",
-          });
-        }
-
-        if (
-          params.enforceTicketOwnership &&
-          (ticketRow.event.deletedAt !== null ||
-            ticketRow.participationStatus === "CANCELLED")
-        ) {
-          throw new BadRequestException({
-            code: "TICKET_CANCELLED",
-            message: "Vé tham gia đã bị hủy hoặc sự kiện không còn hiệu lực.",
-          });
-        }
+      if (!ticketRow) {
+        throw new NotFoundException({
+          code: "TICKET_NOT_FOUND",
+          message: "Mã vé tham gia không tồn tại trong hệ thống.",
+        });
       }
+
+      if (ticketRow.userId !== null && ticketRow.userId !== params.userId) {
+        throw new ForbiddenException({
+          code: "TICKET_BELONGS_TO_ACCOUNT",
+          message:
+            "Vé này đã liên kết với tài khoản thành viên. Vui lòng đăng nhập đúng tài khoản để tiếp tục.",
+        });
+      }
+
+      if (
+        ticketRow.event.deletedAt !== null ||
+        ticketRow.event.status !== PublishStatus.PUBLISHED ||
+        ticketRow.participationStatus === "CANCELLED"
+      ) {
+        throw new BadRequestException({
+          code: "TICKET_CANCELLED",
+          message: "Vé tham gia đã bị hủy hoặc sự kiện không còn hiệu lực.",
+        });
+      }
+
+      inspectedTicket = {
+        ticketCode: ticketRow.ticketCode,
+        userId: ticketRow.userId,
+        attendeeName: ticketRow.attendeeName,
+        attendeeEmail: ticketRow.attendeeEmail,
+        participationStatus: ticketRow.participationStatus,
+        checkedInAt: ticketRow.checkedInAt,
+      };
     }
 
-    // Priority 1: Authenticated User (isolated strictly to userId + user-owned tickets)
+    // Priority 1: Authenticated User (strictly isolated to userId + owned tickets)
     if (params.userId) {
       const [userRecord, ownedTickets] = await Promise.all([
         db.user.findUnique({
-          where: { id: params.userId },
-          select: { fullName: true },
+          where: { id: params.userId, deletedAt: null },
+          select: { fullName: true, email: true },
         }),
         db.eventParticipation.findMany({
           where: {
             userId: params.userId,
             participationStatus: { not: "CANCELLED" },
-            event: { deletedAt: null },
+            event: { deletedAt: null, status: PublishStatus.PUBLISHED },
           },
           orderBy: { createdAt: "desc" },
           select: {
@@ -536,45 +572,68 @@ export class GamificationService {
         }),
       ]);
 
-      const ownedCodes = ownedTickets.map((t) => t.ticketCode);
-      const matchingTicket = rawTicket
-        ? ownedTickets.find((t) => t.ticketCode === rawTicket)
-        : ownedTickets[0];
-      const hasValidTicket = ownedTickets.length > 0;
-      const isCheckedIn = ownedTickets.some((t) => t.checkedInAt !== null);
+      if (!userRecord) {
+        throw new UnauthorizedException({
+          code: "UNAUTHORIZED",
+          message: "Tài khoản không hợp lệ hoặc đã bị vô hiệu hóa.",
+        });
+      }
+
+      if (inspectedTicket && inspectedTicket.userId === null) {
+        const ticketEmail = inspectedTicket.attendeeEmail?.trim().toLowerCase();
+        const userEmail = userRecord.email?.trim().toLowerCase();
+        if (!ticketEmail || !userEmail || ticketEmail !== userEmail) {
+          throw new ForbiddenException({
+            code: "TICKET_OWNERSHIP_MISMATCH",
+            message: "Vé tham gia này không thuộc về tài khoản đang đăng nhập.",
+          });
+        }
+      }
+
+      const effectiveOwnedCodes = Array.from(
+        new Set([
+          ...ownedTickets.map((t) => t.ticketCode),
+          ...(inspectedTicket ? [inspectedTicket.ticketCode] : []),
+        ]),
+      );
 
       const safeStoredTicket =
-        matchingTicket?.ticketCode ??
-        (rawTicket && !inspectedTicket ? rawTicket : ownedTickets[0]?.ticketCode ?? null);
+        inspectedTicket?.ticketCode ?? ownedTickets[0]?.ticketCode ?? null;
+      const hasValidTicket = effectiveOwnedCodes.length > 0;
+      const isCheckedIn =
+        ownedTickets.some((t) => t.checkedInAt !== null) ||
+        inspectedTicket?.checkedInAt !== null && inspectedTicket?.checkedInAt !== undefined;
 
       return {
         displayName:
-          rawName || userRecord?.fullName || "Thành viên FPT Poly",
+          rawName || userRecord.fullName || "Thành viên FPT Poly",
         ticketCode: safeStoredTicket,
         userId: params.userId,
+        guestSessionId: null,
         idempotencyIdentity: `user_${params.userId}`,
         lockKey: `gamification:user:${params.userId}`,
+        leaderboardIdentityKey: `u:${params.userId}`,
         xpFilter: {
           OR: [
             { userId: params.userId },
-            ...(ownedCodes.length > 0
-              ? [{ ticketCode: { in: ownedCodes }, userId: null }]
+            ...(effectiveOwnedCodes.length > 0
+              ? [{ ticketCode: { in: effectiveOwnedCodes }, userId: null }]
               : []),
           ],
         },
         spinFilter: {
           OR: [
             { userId: params.userId },
-            ...(ownedCodes.length > 0
-              ? [{ ticketCode: { in: ownedCodes }, userId: null }]
+            ...(effectiveOwnedCodes.length > 0
+              ? [{ ticketCode: { in: effectiveOwnedCodes }, userId: null }]
               : []),
           ],
         },
         quizFilter: {
           OR: [
             { userId: params.userId },
-            ...(ownedCodes.length > 0
-              ? [{ ticketCode: { in: ownedCodes }, userId: null }]
+            ...(effectiveOwnedCodes.length > 0
+              ? [{ ticketCode: { in: effectiveOwnedCodes }, userId: null }]
               : []),
           ],
         },
@@ -583,73 +642,105 @@ export class GamificationService {
       };
     }
 
-    // Priority 2: Unauthenticated Open Day Ticket Holder (strictly isolated to ticketCode & userId: null)
-    if (rawTicket) {
-      const isTicketValid = Boolean(
-        inspectedTicket &&
-          inspectedTicket.eventDeletedAt === null &&
-          inspectedTicket.participationStatus !== "CANCELLED",
-      );
-      const isTicketCheckedIn = Boolean(
-        isTicketValid && inspectedTicket?.checkedInAt !== null,
-      );
-
+    // Priority 2: Verified Unauthenticated Open Day Ticket Holder (userId === null)
+    if (inspectedTicket) {
       return {
         displayName:
           rawName ||
-          inspectedTicket?.attendeeName ||
-          `Khách mời ${rawTicket.slice(-4)}`,
-        ticketCode: rawTicket,
+          inspectedTicket.attendeeName ||
+          `Khách mời ${inspectedTicket.ticketCode.slice(-4)}`,
+        ticketCode: inspectedTicket.ticketCode,
         userId: null,
-        idempotencyIdentity: `ticket_${rawTicket}`,
-        lockKey: `gamification:ticket:${rawTicket}`,
-        xpFilter: { ticketCode: rawTicket, userId: null },
-        spinFilter: { ticketCode: rawTicket, userId: null },
-        quizFilter: { ticketCode: rawTicket, userId: null },
-        hasValidTicket: isTicketValid,
-        isCheckedIn: isTicketCheckedIn,
+        guestSessionId: null,
+        idempotencyIdentity: `ticket_${inspectedTicket.ticketCode}`,
+        lockKey: `gamification:ticket:${inspectedTicket.ticketCode}`,
+        leaderboardIdentityKey: `t:${inspectedTicket.ticketCode}`,
+        xpFilter: { ticketCode: inspectedTicket.ticketCode, userId: null },
+        spinFilter: { ticketCode: inspectedTicket.ticketCode, userId: null },
+        quizFilter: { ticketCode: inspectedTicket.ticketCode, userId: null },
+        hasValidTicket: true,
+        isCheckedIn: inspectedTicket.checkedInAt !== null,
       };
     }
 
-    // Priority 3: Anonymous Walk-in Guest without ticket (strictly isolated to userId: null AND ticketCode: null)
-    if (rawName) {
-      const guestNameKey = rawName.toLowerCase();
+    // Priority 3: Server-Issued & Signed Anonymous Guest Session (B-A1)
+    if (guestVerification.status === "invalid") {
+      throw new UnauthorizedException({
+        code: "INVALID_GUEST_SESSION",
+        message: "Phiên khách ẩn danh không hợp lệ hoặc đã hết hạn.",
+      });
+    }
+
+    if (guestVerification.status === "missing") {
+      if (params.requireAuthenticatedParticipant) {
+        throw new UnauthorizedException({
+          code: "GUEST_SESSION_REQUIRED",
+          message:
+            "Vui lòng khởi tạo phiên khách tham gia hợp lệ trước khi thao tác dữ liệu cá nhân.",
+        });
+      }
+
+      // Public non-personalized leaderboard browsing without any personal identity
       return {
-        displayName: rawName,
+        displayName: "Khách tham quan",
         ticketCode: null,
         userId: null,
-        idempotencyIdentity: `guest_${guestNameKey}`,
-        lockKey: `gamification:guest:${guestNameKey}`,
-        xpFilter: {
-          userId: null,
-          ticketCode: null,
-          attendeeName: { equals: rawName, mode: "insensitive" },
-        },
-        spinFilter: {
-          userId: null,
-          ticketCode: null,
-          attendeeName: { equals: rawName, mode: "insensitive" },
-        },
-        quizFilter: {
-          userId: null,
-          ticketCode: null,
-          attendeeName: { equals: rawName, mode: "insensitive" },
-        },
+        guestSessionId: null,
+        idempotencyIdentity: "anonymous_empty",
+        lockKey: "gamification:empty",
+        leaderboardIdentityKey: null,
+        xpFilter: { id: MATCH_NONE_ID },
+        spinFilter: { id: MATCH_NONE_ID },
+        quizFilter: { id: MATCH_NONE_ID },
         hasValidTicket: false,
         isCheckedIn: false,
       };
     }
 
-    // No identity supplied
+    const verifiedGuestId = guestVerification.guestId;
+    let resolvedGuestName = rawName;
+    if (!resolvedGuestName) {
+      const [latestAttempt, latestLedger] = await Promise.all([
+        db.quizAttempt.findFirst({
+          where: { userId: null, ticketCode: null, guestSessionId: verifiedGuestId },
+          orderBy: { createdAt: "desc" },
+          select: { attendeeName: true },
+        }),
+        db.xpLedger.findFirst({
+          where: { userId: null, ticketCode: null, guestSessionId: verifiedGuestId },
+          orderBy: { createdAt: "desc" },
+          select: { attendeeName: true },
+        }),
+      ]);
+      resolvedGuestName =
+        latestAttempt?.attendeeName ||
+        latestLedger?.attendeeName ||
+        "Khách tham quan";
+    }
+
     return {
-      displayName: "Khách tham quan",
+      displayName: resolvedGuestName,
       ticketCode: null,
       userId: null,
-      idempotencyIdentity: "anonymous_empty",
-      lockKey: "gamification:empty",
-      xpFilter: { id: MATCH_NONE_ID },
-      spinFilter: { id: MATCH_NONE_ID },
-      quizFilter: { id: MATCH_NONE_ID },
+      guestSessionId: verifiedGuestId,
+      idempotencyIdentity: `guest_${verifiedGuestId}`,
+      lockKey: `gamification:guest:${verifiedGuestId}`,
+      leaderboardIdentityKey: `gs:${verifiedGuestId}`,
+      xpFilter: {
+        userId: null,
+        ticketCode: null,
+        guestSessionId: verifiedGuestId,
+      },
+      spinFilter: {
+        userId: null,
+        ticketCode: null,
+        guestSessionId: verifiedGuestId,
+      },
+      quizFilter: {
+        userId: null,
+        ticketCode: null,
+        guestSessionId: verifiedGuestId,
+      },
       hasValidTicket: false,
       isCheckedIn: false,
     };
@@ -747,18 +838,27 @@ export class GamificationService {
   async getLeaderboard(
     query: LeaderboardQueryDto,
     userId?: string,
+    guestVerification: GuestTokenVerificationResult = { status: "missing" },
   ): Promise<LeaderboardResponseDto> {
     const limit = Math.min(query.limit || 20, 100);
     const rawTicket = query.ticketCode?.trim().toUpperCase() || undefined;
     const rawName = query.attendeeName?.trim() || undefined;
 
+    const currentScope = await this.resolveParticipantScope(this.prisma, {
+      userId,
+      ticketCode: rawTicket,
+      attendeeName: rawName,
+      guestVerification,
+      requireAuthenticatedParticipant: false,
+    });
+
     const [ledgerBuckets, spinBuckets] = await Promise.all([
       this.prisma.xpLedger.groupBy({
-        by: ["userId", "ticketCode", "attendeeName"],
+        by: ["userId", "ticketCode", "guestSessionId", "attendeeName"],
         _sum: { amountXp: true },
       }),
       this.prisma.userSpinHistory.groupBy({
-        by: ["userId", "ticketCode", "attendeeName"],
+        by: ["userId", "ticketCode", "guestSessionId", "attendeeName"],
         _count: { id: true },
       }),
     ]);
@@ -766,11 +866,13 @@ export class GamificationService {
     const resolveBucketKey = (row: {
       userId: string | null;
       ticketCode: string | null;
+      guestSessionId: string | null;
       attendeeName: string;
     }): string => {
       if (row.userId) return `u:${row.userId}`;
       if (row.ticketCode) return `t:${row.ticketCode.trim().toUpperCase()}`;
-      return `g:${row.attendeeName.trim().toLowerCase()}`;
+      if (row.guestSessionId) return `gs:${row.guestSessionId}`;
+      return `legacy_g:${row.attendeeName.trim().toLowerCase()}`;
     };
 
     const spinCountByKey = new Map<string, number>();
@@ -830,13 +932,7 @@ export class GamificationService {
           a.attendeeName.localeCompare(b.attendeeName, "vi"),
       );
 
-    const currentIdentityKey = userId
-      ? `u:${userId}`
-      : rawTicket
-        ? `t:${rawTicket}`
-        : rawName
-          ? `g:${rawName.toLowerCase()}`
-          : null;
+    const currentIdentityKey = currentScope.leaderboardIdentityKey;
 
     const formatEntry = (
       item: {

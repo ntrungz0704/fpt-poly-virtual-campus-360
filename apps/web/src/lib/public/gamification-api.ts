@@ -1,4 +1,5 @@
 import type {
+  GamificationGuestSessionDto,
   GamificationProfileDto,
   LeaderboardResponseDto,
   QuizSubmissionResultDto,
@@ -7,7 +8,71 @@ import type {
   SubmitQuizInputDto,
   SpinWheelInputDto,
 } from "@fpt-campus/shared";
-import { apiRequest } from "../auth/api-client";
+import {
+  ApiClientError,
+  apiRequest,
+  getInMemoryAccessToken,
+  hasSessionHintCookie,
+} from "../auth/api-client";
+
+let guestSessionReady = false;
+let inFlightGuestSessionPromise: Promise<GamificationGuestSessionDto> | null = null;
+
+/**
+ * Ensures the browser holds a server-issued, HMAC-signed HttpOnly cookie for
+ * anonymous walk-in gamification sessions (B-A1), deduplicated via single-flight.
+ */
+export async function ensureGamificationGuestSession(
+  forceRefresh = false,
+): Promise<GamificationGuestSessionDto> {
+  if (guestSessionReady && !forceRefresh) {
+    return { sessionActive: true, expiresAt: "" };
+  }
+  if (!inFlightGuestSessionPromise) {
+    inFlightGuestSessionPromise = apiRequest<GamificationGuestSessionDto>(
+      "/public/gamification/guest-session",
+      {
+        method: "POST",
+        auth: false,
+      },
+    )
+      .then((res) => {
+        guestSessionReady = res.sessionActive;
+        return res;
+      })
+      .finally(() => {
+        inFlightGuestSessionPromise = null;
+      });
+  }
+  return inFlightGuestSessionPromise;
+}
+
+async function withAnonymousGuestSession<T>(
+  hasTicketCode: boolean,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const hasAuthenticatedHint =
+    Boolean(getInMemoryAccessToken()) || hasSessionHintCookie();
+
+  if (!hasTicketCode && !hasAuthenticatedHint && !guestSessionReady) {
+    await ensureGamificationGuestSession().catch(() => undefined);
+  }
+
+  try {
+    return await operation();
+  } catch (err) {
+    if (
+      err instanceof ApiClientError &&
+      err.status === 401 &&
+      (err.code === "GUEST_SESSION_REQUIRED" ||
+        err.code === "INVALID_GUEST_SESSION")
+    ) {
+      await ensureGamificationGuestSession(true);
+      return operation();
+    }
+    throw err;
+  }
+}
 
 /**
  * Fetch active spin wheel slices configuration.
@@ -33,9 +98,11 @@ export async function fetchGamificationProfile(
   if (attendeeName) params.set("attendeeName", attendeeName);
 
   const qs = params.toString();
-  return apiRequest<GamificationProfileDto>(
-    `/public/gamification/profile${qs ? `?${qs}` : ""}`,
-    { auth: "optional" },
+  return withAnonymousGuestSession(Boolean(ticketCode), () =>
+    apiRequest<GamificationProfileDto>(
+      `/public/gamification/profile${qs ? `?${qs}` : ""}`,
+      { auth: "optional" },
+    ),
   );
 }
 
@@ -54,9 +121,11 @@ export async function fetchLeaderboard(
   params.set("limit", String(limit));
 
   const qs = params.toString();
-  return apiRequest<LeaderboardResponseDto>(
-    `/public/gamification/leaderboard${qs ? `?${qs}` : ""}`,
-    { auth: "optional" },
+  return withAnonymousGuestSession(Boolean(ticketCode), () =>
+    apiRequest<LeaderboardResponseDto>(
+      `/public/gamification/leaderboard${qs ? `?${qs}` : ""}`,
+      { auth: "optional" },
+    ),
   );
 }
 
@@ -67,13 +136,15 @@ export async function fetchLeaderboard(
 export async function submitQuizAnswers(
   input: SubmitQuizInputDto,
 ): Promise<QuizSubmissionResultDto> {
-  return apiRequest<QuizSubmissionResultDto>(
-    "/public/gamification/quiz/submit",
-    {
-      method: "POST",
-      body: input,
-      auth: "optional",
-    },
+  return withAnonymousGuestSession(Boolean(input.ticketCode), () =>
+    apiRequest<QuizSubmissionResultDto>(
+      "/public/gamification/quiz/submit",
+      {
+        method: "POST",
+        body: input,
+        auth: "optional",
+      },
+    ),
   );
 }
 
@@ -84,9 +155,11 @@ export async function submitQuizAnswers(
 export async function executeSpinWheel(
   input: SpinWheelInputDto,
 ): Promise<SpinWheelResultDto> {
-  return apiRequest<SpinWheelResultDto>("/public/gamification/spin", {
-    method: "POST",
-    body: input,
-    auth: "optional",
-  });
+  return withAnonymousGuestSession(Boolean(input.ticketCode), () =>
+    apiRequest<SpinWheelResultDto>("/public/gamification/spin", {
+      method: "POST",
+      body: input,
+      auth: "optional",
+    }),
+  );
 }

@@ -1,4 +1,8 @@
 import crypto from "node:crypto";
+import {
+  issueGamificationGuestToken,
+  verifyGamificationGuestToken,
+} from "../../src/modules/gamification/gamification-guest-token";
 
 describe("Gamification Unit Logic Suite (M3D)", () => {
   describe("Quiz Scoring & Authoritative XP Logic", () => {
@@ -114,6 +118,75 @@ describe("Gamification Unit Logic Suite (M3D)", () => {
       expect(getBadge(200)).toBe("Nhà Thám hiểm Poly");
       expect(getBadge(90)).toBe("Sinh viên Tiên phong");
       expect(getBadge(20)).toBe("Tân binh Poly");
+    });
+  });
+
+  describe("Anonymous Guest Session HMAC Token Integrity (B-A1)", () => {
+    const testSecret = "unit-test-jwt-secret-key-min-32-chars-value-001";
+
+    it("issues verifiable UUIDv4 HMAC-signed tokens and preserves valid existing guestId", () => {
+      const now = 1_700_000_000_000;
+      const issued = issueGamificationGuestToken(testSecret, undefined, now);
+      const verified = verifyGamificationGuestToken(issued.token, testSecret, now + 1000);
+
+      expect(verified.status).toBe("valid");
+      if (verified.status === "valid") {
+        expect(verified.guestId).toBe(issued.guestId);
+      }
+
+      // Re-issuing with a server-verified guestId preserves identity cleanly
+      const refreshed = issueGamificationGuestToken(testSecret, issued.guestId, now + 2000);
+      expect(refreshed.guestId).toBe(issued.guestId);
+
+      // Re-issuing with a non-UUID value mints a fresh server UUID instead
+      const forced = issueGamificationGuestToken(testSecret, "attacker-chosen-id", now + 2000);
+      expect(forced.guestId).not.toBe("attacker-chosen-id");
+    });
+
+    it("fails closed on missing, malformed, tampered, wrong-secret, or expired tokens", () => {
+      const now = 1_700_000_000_000;
+      const issued = issueGamificationGuestToken(testSecret, undefined, now);
+
+      expect(verifyGamificationGuestToken(undefined, testSecret)).toEqual({ status: "missing" });
+      expect(verifyGamificationGuestToken("   ", testSecret)).toEqual({ status: "missing" });
+      expect(verifyGamificationGuestToken(12345, testSecret)).toEqual({
+        status: "invalid",
+        reason: "malformed",
+      });
+      expect(verifyGamificationGuestToken("v1.not-a-uuid.9999999999.abc", testSecret)).toEqual({
+        status: "invalid",
+        reason: "malformed",
+      });
+
+      // Tamper guestId segment while preserving valid length signature
+      const parts = issued.token.split(".");
+      const swappedId =
+        parts[1] === "00000000-0000-4000-8000-000000000001"
+          ? "00000000-0000-4000-8000-000000000002"
+          : "00000000-0000-4000-8000-000000000001";
+      const tampered = `${parts[0]}.${swappedId}.${parts[2]}.${parts[3]}`;
+      expect(verifyGamificationGuestToken(tampered, testSecret, now)).toEqual({
+        status: "invalid",
+        reason: "bad_signature",
+      });
+
+      // Wrong secret rejected
+      expect(
+        verifyGamificationGuestToken(
+          issued.token,
+          "different-secret-key-min-32-chars-value-002",
+          now,
+        ),
+      ).toEqual({
+        status: "invalid",
+        reason: "bad_signature",
+      });
+
+      // Expired > 7 days rejected
+      expect(verifyGamificationGuestToken(issued.token, testSecret, now + 8 * 86_400_000)).toEqual({
+        status: "invalid",
+        reason: "expired",
+      });
     });
   });
 });

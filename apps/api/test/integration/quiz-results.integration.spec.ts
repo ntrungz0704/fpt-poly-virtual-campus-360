@@ -527,17 +527,51 @@ describe("Quiz Results & History Review Dashboard Integration Suite (M7.5)", () 
   });
 
   // ============================================================================
-  // Test 5: Student history filter by passed=true
+  // Test 5: Student history filter by passed=true and passed=false (B02 remediation)
   // ============================================================================
-  it("Test 5: Student history filter by passed=true returns only passed attempts", async () => {
-    const res = await request(server)
+  it("Test 5: Student history filter by passed=true and passed=false strictly distinguishes PASS/FAIL", async () => {
+    // 5A: Student 1 has 2 passed attempts (attempt 1 and attempt 2)
+    const resPass = await request(server)
       .get("/api/v1/portal/quiz/history?passed=true")
       .set("Authorization", `Bearer ${student1Token}`)
       .expect(200);
 
-    const data = res.body.data as StudentQuizHistoryListResponseDto;
-    expect(data.total).toBe(2);
-    expect(data.items.every((i) => i.passed === true)).toBe(true);
+    const dataPass = resPass.body.data as StudentQuizHistoryListResponseDto;
+    expect(dataPass.total).toBe(2);
+    expect(dataPass.items.every((i) => i.passed === true)).toBe(true);
+
+    // 5B: Student 1 has 0 failed attempts (attempt 3 has passed: null because EXPIRED)
+    const resFail = await request(server)
+      .get("/api/v1/portal/quiz/history?passed=false")
+      .set("Authorization", `Bearer ${student1Token}`)
+      .expect(200);
+
+    const dataFail = resFail.body.data as StudentQuizHistoryListResponseDto;
+    expect(dataFail.total).toBe(0);
+
+    // 5C: Student 2 has 1 failed attempt (score 0, passed: false)
+    const resS2Fail = await request(server)
+      .get("/api/v1/portal/quiz/history?passed=false")
+      .set("Authorization", `Bearer ${student2Token}`)
+      .expect(200);
+
+    const dataS2Fail = resS2Fail.body.data as StudentQuizHistoryListResponseDto;
+    expect(dataS2Fail.total).toBe(1);
+    expect(dataS2Fail.items[0].passed).toBe(false);
+    expect(dataS2Fail.items[0].id).toBe(student2Attempt1Id);
+
+    // 5D: Student 2 has 0 passed attempts
+    const resS2Pass = await request(server)
+      .get("/api/v1/portal/quiz/history?passed=true")
+      .set("Authorization", `Bearer ${student2Token}`)
+      .expect(200);
+    expect((resS2Pass.body.data as StudentQuizHistoryListResponseDto).total).toBe(0);
+
+    // 5E: Invalid boolean string is rejected by class-validator with 400 Bad Request
+    await request(server)
+      .get("/api/v1/portal/quiz/history?passed=invalid_boolean")
+      .set("Authorization", `Bearer ${student1Token}`)
+      .expect(400);
   });
 
   // ============================================================================
@@ -639,37 +673,90 @@ describe("Quiz Results & History Review Dashboard Integration Suite (M7.5)", () 
   });
 
   // ============================================================================
-  // Test 11: Idempotency & Zero XP on Read
+  // Test 11: B01 Strict Read-Only Semantics: Viewing history or results NEVER mutates PostgreSQL attempt records or XP claims
   // ============================================================================
-  it("Test 11: Zero XP on Read: Repeatedly viewing history or detail does NOT alter attempt status, score or XP claims", async () => {
-    const claimsBefore = await prisma.quizXpClaim.count();
-    const attemptsBefore = await prisma.quizConfigAttempt.findUniqueOrThrow({
-      where: { id: student1Attempt1Id },
+  it("Test 11: Strict Read-Only Semantics: Viewing history or results NEVER mutates PostgreSQL attempt records or XP claims", async () => {
+    // 1. Seed an IN_PROGRESS attempt with expiresAt in the past (1 hour ago)
+    const pastExpiresAt = new Date(Date.now() - 3600_000);
+    const pastStartedAt = new Date(Date.now() - 5400_000);
+    const expiredInProgressAtt = await prisma.quizConfigAttempt.create({
+      data: {
+        userId: student1User.id,
+        quizConfigId: quizConfigBId,
+        attemptNumber: 1,
+        status: "IN_PROGRESS",
+        startedAt: pastStartedAt,
+        expiresAt: pastExpiresAt,
+        submittedAt: null,
+        totalQuestions: 1,
+        answeredCount: 0,
+        correctCount: null,
+        scorePercent: null,
+        passed: null,
+        baseXp: null,
+        bonusXp: null,
+        awardedXp: null,
+      },
     });
 
-    // Make 3 consecutive detail requests
-    await request(server)
-      .get(`/api/v1/portal/quiz/history/${student1Attempt1Id}`)
-      .set("Authorization", `Bearer ${student1Token}`)
-      .expect(200);
-    await request(server)
-      .get(`/api/v1/portal/quiz/history/${student1Attempt1Id}`)
-      .set("Authorization", `Bearer ${student1Token}`)
-      .expect(200);
-    await request(server)
-      .get("/api/v1/portal/quiz/history")
-      .set("Authorization", `Bearer ${student1Token}`)
-      .expect(200);
-
-    const claimsAfter = await prisma.quizXpClaim.count();
-    const attemptsAfter = await prisma.quizConfigAttempt.findUniqueOrThrow({
-      where: { id: student1Attempt1Id },
+    // 2. Snapshot exact row state in PostgreSQL before calling any GET endpoint
+    const dbRowBefore = await prisma.quizConfigAttempt.findUniqueOrThrow({
+      where: { id: expiredInProgressAtt.id },
     });
+    expect(dbRowBefore.status).toBe("IN_PROGRESS");
+    const totalClaimsBefore = await prisma.quizXpClaim.count();
+    const totalLedgerBefore = await prisma.xpLedger.count();
 
-    expect(claimsAfter).toBe(claimsBefore);
-    expect(attemptsAfter.awardedXp).toBe(attemptsBefore.awardedXp);
-    expect(attemptsAfter.status).toBe(attemptsBefore.status);
-    expect(attemptsAfter.scorePercent).toBe(attemptsBefore.scorePercent);
+    // 3. Call Student History GET multiple times (3 times)
+    for (let i = 0; i < 3; i++) {
+      const res = await request(server)
+        .get("/api/v1/portal/quiz/history")
+        .set("Authorization", `Bearer ${student1Token}`)
+        .expect(200);
+
+      const data = res.body.data as StudentQuizHistoryListResponseDto;
+      const attItem = data.items.find((x) => x.id === expiredInProgressAtt.id);
+      expect(attItem).toBeDefined();
+      // Effective display status is EXPIRED because expiresAt <= now
+      expect(attItem!.status).toBe("EXPIRED");
+    }
+
+    // 4. Verify in PostgreSQL that the DB row was NOT updated by Student GET!
+    const dbRowAfterStudent = await prisma.quizConfigAttempt.findUniqueOrThrow({
+      where: { id: expiredInProgressAtt.id },
+    });
+    expect(dbRowAfterStudent.status).toBe("IN_PROGRESS");
+    expect(dbRowAfterStudent.updatedAt.getTime()).toBe(dbRowBefore.updatedAt.getTime());
+
+    // 5. Call Admin Results GET multiple times (3 times)
+    for (let i = 0; i < 3; i++) {
+      const res = await request(server)
+        .get("/api/v1/admin/quiz-configs/results")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(200);
+
+      const data = res.body.data as AdminQuizResultListResponseDto;
+      const attItem = data.items.find((x) => x.id === expiredInProgressAtt.id);
+      expect(attItem).toBeDefined();
+      // Effective display status is EXPIRED because expiresAt <= now
+      expect(attItem!.status).toBe("EXPIRED");
+    }
+
+    // 6. Verify in PostgreSQL that the DB row was STILL NOT updated by Admin GET!
+    const dbRowAfterAdmin = await prisma.quizConfigAttempt.findUniqueOrThrow({
+      where: { id: expiredInProgressAtt.id },
+    });
+    expect(dbRowAfterAdmin.status).toBe("IN_PROGRESS");
+    expect(dbRowAfterAdmin.updatedAt.getTime()).toBe(dbRowBefore.updatedAt.getTime());
+
+    // 7. Verify XP claims and XpLedger counts are 100% unchanged
+    const totalClaimsAfter = await prisma.quizXpClaim.count();
+    const totalLedgerAfter = await prisma.xpLedger.count();
+    expect(totalClaimsAfter).toBe(totalClaimsBefore);
+    expect(totalLedgerAfter).toBe(totalLedgerBefore);
+
+    // Clean up temporary attempt
+    await prisma.quizConfigAttempt.delete({ where: { id: expiredInProgressAtt.id } });
   });
 
   // ============================================================================
@@ -708,17 +795,35 @@ describe("Quiz Results & History Review Dashboard Integration Suite (M7.5)", () 
   });
 
   // ============================================================================
-  // Test 14: Admin filter by passed=true
+  // Test 14: Admin filter by passed=true and passed=false (B02 remediation)
   // ============================================================================
-  it("Test 14: Admin filter by passed=true returns only passed attempts across campus", async () => {
-    const res = await request(server)
+  it("Test 14: Admin filter by passed=true and passed=false distinguishes PASS and FAIL attempts campus-wide", async () => {
+    // 14A: passed=true returns only passed attempts (Student 1 Attempt 1 and Attempt 2)
+    const resPass = await request(server)
       .get("/api/v1/admin/quiz-configs/results?passed=true")
       .set("Authorization", `Bearer ${adminToken}`)
       .expect(200);
 
-    const data = res.body.data as AdminQuizResultListResponseDto;
-    expect(data.total).toBe(2); // Student 1 Attempt 1 and Attempt 2
-    expect(data.items.every((i) => i.passed === true)).toBe(true);
+    const dataPass = resPass.body.data as AdminQuizResultListResponseDto;
+    expect(dataPass.total).toBe(2);
+    expect(dataPass.items.every((i) => i.passed === true)).toBe(true);
+
+    // 14B: passed=false returns only failed attempts (Student 2 Attempt 1)
+    const resFail = await request(server)
+      .get("/api/v1/admin/quiz-configs/results?passed=false")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+
+    const dataFail = resFail.body.data as AdminQuizResultListResponseDto;
+    expect(dataFail.total).toBe(1);
+    expect(dataFail.items[0].passed).toBe(false);
+    expect(dataFail.items[0].id).toBe(student2Attempt1Id);
+
+    // 14C: Invalid boolean string is rejected by class-validator with 400 Bad Request
+    await request(server)
+      .get("/api/v1/admin/quiz-configs/results?passed=not_a_bool")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(400);
   });
 
   // ============================================================================

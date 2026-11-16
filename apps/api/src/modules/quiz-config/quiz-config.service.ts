@@ -792,22 +792,23 @@ export class QuizConfigService {
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
     const skip = (page - 1) * limit;
 
+    // Read-only semantics: Tuyệt đối không INSERT/UPDATE/DELETE trong API GET
     const now = new Date();
-    await this.prisma.quizConfigAttempt.updateMany({
-      where: {
-        status: "IN_PROGRESS",
-        expiresAt: { lte: now },
-      },
-      data: { status: "EXPIRED" },
-    });
-
     const where: Prisma.QuizConfigAttemptWhereInput = {};
 
     if (query.quizConfigId) {
       where.quizConfigId = query.quizConfigId;
     }
 
-    if (query.status) {
+    if (query.status === "EXPIRED") {
+      where.OR = [
+        { status: "EXPIRED" },
+        { status: "IN_PROGRESS", expiresAt: { lte: now } },
+      ];
+    } else if (query.status === "IN_PROGRESS") {
+      where.status = "IN_PROGRESS";
+      where.expiresAt = { gt: now };
+    } else if (query.status) {
       where.status = query.status;
     }
 
@@ -883,6 +884,10 @@ export class QuizConfigService {
         }
       }
 
+      const isExpiredInProgress =
+        att.status === "IN_PROGRESS" && now >= att.expiresAt;
+      const effectiveStatus = isExpiredInProgress ? "EXPIRED" : att.status;
+
       return {
         id: att.id,
         quizConfigId: att.quizConfigId,
@@ -897,7 +902,7 @@ export class QuizConfigService {
         attemptNumber: att.attemptNumber,
         maxAttempts: att.quizConfig.maxAttempts,
         isRetake,
-        status: att.status,
+        status: effectiveStatus,
         startedAt: att.startedAt.toISOString(),
         expiresAt: att.expiresAt.toISOString(),
         submittedAt: att.submittedAt ? att.submittedAt.toISOString() : null,
@@ -1078,6 +1083,11 @@ export class QuizConfigService {
       };
     });
 
+    const now = new Date();
+    const isExpiredInProgress =
+      attempt.status === "IN_PROGRESS" && now >= attempt.expiresAt;
+    const effectiveStatus = isExpiredInProgress ? "EXPIRED" : attempt.status;
+
     return {
       id: attempt.id,
       quizConfigId: attempt.quizConfigId,
@@ -1092,7 +1102,7 @@ export class QuizConfigService {
       attemptNumber: attempt.attemptNumber,
       maxAttempts: attempt.quizConfig.maxAttempts,
       isRetake,
-      status: attempt.status,
+      status: effectiveStatus,
       startedAt: attempt.startedAt.toISOString(),
       expiresAt: attempt.expiresAt.toISOString(),
       submittedAt: attempt.submittedAt ? attempt.submittedAt.toISOString() : null,
@@ -1161,6 +1171,7 @@ export class QuizConfigService {
       },
     });
 
+    const now = new Date();
     return attempts.map((att) => {
       const isRetake = att.attemptNumber > 1;
       const isXpAwarded = (att.awardedXp ?? 0) > 0;
@@ -1174,6 +1185,10 @@ export class QuizConfigService {
           xpReason = "FIRST_SUBMIT_ZERO_XP";
         }
       }
+
+      const isExpiredInProgress =
+        att.status === "IN_PROGRESS" && now >= att.expiresAt;
+      const effectiveStatus = isExpiredInProgress ? "EXPIRED" : att.status;
 
       return {
         id: att.id,
@@ -1189,7 +1204,7 @@ export class QuizConfigService {
         attemptNumber: att.attemptNumber,
         maxAttempts: att.quizConfig.maxAttempts,
         isRetake,
-        status: att.status,
+        status: effectiveStatus,
         startedAt: att.startedAt.toISOString(),
         expiresAt: att.expiresAt.toISOString(),
         submittedAt: att.submittedAt ? att.submittedAt.toISOString() : null,

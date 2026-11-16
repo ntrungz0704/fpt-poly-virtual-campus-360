@@ -1,19 +1,42 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import type {
   PortalAttemptQuestionDto,
   PortalQuizAttemptDto,
   PortalQuizSummaryDto,
+  QuizAttemptStatus,
+  StudentQuizHistoryDetailDto,
+  StudentQuizHistoryItemDto,
   SubmitQuizAttemptResponseDto,
 } from "@fpt-campus/shared";
-import { Badge, Button, EmptyState, ErrorState, LoadingState } from "@/components/ui";
+import { Badge, Button, EmptyState, ErrorState, LoadingState, Modal } from "@/components/ui";
 import { portalApi } from "@/lib/portal/portal-api";
 
 export default function StudentQuizPage() {
   const [quizzes, setQuizzes] = useState<PortalQuizSummaryDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Tab navigation (M7.5)
+  const [activeTab, setActiveTab] = useState<"active" | "history">("active");
+
+  // History state (M7.5)
+  const [historyItems, setHistoryItems] = useState<StudentQuizHistoryItemDto[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyLimit] = useState(10);
+  const [historyTotalPages, setHistoryTotalPages] = useState(1);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<string>("ALL");
+  const [historyPassedFilter, setHistoryPassedFilter] = useState<string>("ALL");
+  const [historyQuizFilter, setHistoryQuizFilter] = useState<string>("ALL");
+
+  // Detail Review state (M7.5)
+  const [selectedHistoryDetail, setSelectedHistoryDetail] = useState<StudentQuizHistoryDetailDto | null>(null);
+  const [loadingHistoryDetail, setLoadingHistoryDetail] = useState(false);
+  const [historyDetailError, setHistoryDetailError] = useState<string | null>(null);
 
   // Active attempt exam room state (M7.3)
   const [activeAttempt, setActiveAttempt] = useState<PortalQuizAttemptDto | null>(null);
@@ -70,6 +93,104 @@ export default function StudentQuizPage() {
       active = false;
     };
   }, []);
+
+  // Fetch student quiz history (M7.5)
+  const fetchHistory = useCallback(
+    async (pageToLoad = 1) => {
+      setHistoryLoading(true);
+      setHistoryError(null);
+      try {
+        const res = await portalApi.getStudentQuizHistory({
+          page: pageToLoad,
+          limit: historyLimit,
+          quizConfigId: historyQuizFilter !== "ALL" ? historyQuizFilter : undefined,
+          status:
+            historyStatusFilter !== "ALL"
+              ? (historyStatusFilter as QuizAttemptStatus)
+              : undefined,
+          passed:
+            historyPassedFilter === "PASSED"
+              ? true
+              : historyPassedFilter === "FAILED"
+                ? false
+                : undefined,
+        });
+        setHistoryItems(res.items);
+        setHistoryTotal(res.total);
+        setHistoryPage(res.page);
+        setHistoryTotalPages(res.totalPages);
+      } catch (err) {
+        setHistoryError(
+          err instanceof Error
+            ? err.message
+            : "Không thể tải lịch sử làm bài thi.",
+        );
+      } finally {
+        setHistoryLoading(false);
+      }
+    },
+    [historyLimit, historyQuizFilter, historyStatusFilter, historyPassedFilter],
+  );
+
+  useEffect(() => {
+    if (activeTab !== "history") return;
+    let active = true;
+    portalApi
+      .getStudentQuizHistory({
+        page: historyPage,
+        limit: historyLimit,
+        quizConfigId: historyQuizFilter !== "ALL" ? historyQuizFilter : undefined,
+        status:
+          historyStatusFilter !== "ALL"
+            ? (historyStatusFilter as QuizAttemptStatus)
+            : undefined,
+        passed:
+          historyPassedFilter === "PASSED"
+            ? true
+            : historyPassedFilter === "FAILED"
+              ? false
+              : undefined,
+      })
+      .then((res) => {
+        if (!active) return;
+        setHistoryItems(res.items);
+        setHistoryTotal(res.total);
+        setHistoryTotalPages(res.totalPages);
+        setHistoryLoading(false);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setHistoryError(
+          err instanceof Error
+            ? err.message
+            : "Không thể tải lịch sử làm bài thi.",
+        );
+        setHistoryLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [activeTab, historyPage, historyLimit, historyQuizFilter, historyStatusFilter, historyPassedFilter]);
+
+  // View history detail modal (M7.5)
+  const handleViewHistoryDetail = async (attemptId: string) => {
+    setSelectedHistoryDetail(null);
+    setLoadingHistoryDetail(true);
+    setHistoryDetailError(null);
+    try {
+      const detail = await portalApi.getStudentQuizHistoryDetail(attemptId);
+      setSelectedHistoryDetail(detail);
+    } catch (err) {
+      setHistoryDetailError(
+        err instanceof Error
+          ? err.message
+          : "Không thể tải chi tiết kết quả lượt thi.",
+      );
+    } finally {
+      setLoadingHistoryDetail(false);
+    }
+  };
 
   // Countdown timer effect
   useEffect(() => {
@@ -931,11 +1052,11 @@ export default function StudentQuizPage() {
     );
   }
 
-  // 4. Default View: Active Quizzes List
+  // 4. Default View: Active Quizzes List & Student Quiz History (M7.5)
   return (
     <div className="max-w-4xl mx-auto space-y-6" data-testid="student-quiz-portal">
       {/* Header */}
-      <div className="ui-card p-6 space-y-2">
+      <div className="ui-card p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="space-y-1">
             <h1 className="text-xl sm:text-2xl font-bold text-on-surface flex items-center gap-2">
@@ -945,83 +1066,609 @@ export default function StudentQuizPage() {
               <span>Bài thi trắc nghiệm trực tuyến</span>
             </h1>
             <p className="text-sm text-secondary">
-              Danh sách bài thi, khảo sát và kiểm tra kiến thức đã phát hành dành riêng cho sinh viên
+              Làm bài thi trắc nghiệm, theo dõi lịch sử kết quả và tích lũy điểm thưởng XP
             </p>
           </div>
-          <Badge variant="primary" className="self-start sm:self-auto text-xs">
-            {quizzes.length} bài thi đang mở
-          </Badge>
+        </div>
+
+        {/* Tab Navigation (M7.5) */}
+        <div className="flex border-b border-outline-variant/30 gap-2 pt-1" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "active"}
+            onClick={() => setActiveTab("active")}
+            className={`pb-2.5 px-3 font-semibold text-sm transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
+              activeTab === "active"
+                ? "border-primary text-primary"
+                : "border-transparent text-secondary hover:text-on-surface"
+            }`}
+            data-testid="tab-active-quizzes"
+          >
+            <span className="material-symbols-outlined text-[18px]">play_circle</span>
+            <span>Bài thi đang mở</span>
+            <Badge variant="primary" className="text-[10px]">
+              {quizzes.length}
+            </Badge>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "history"}
+            onClick={() => {
+              setActiveTab("history");
+              void fetchHistory(1);
+            }}
+            className={`pb-2.5 px-3 font-semibold text-sm transition-all border-b-2 flex items-center gap-2 cursor-pointer ${
+              activeTab === "history"
+                ? "border-primary text-primary"
+                : "border-transparent text-secondary hover:text-on-surface"
+            }`}
+            data-testid="tab-quiz-history"
+          >
+            <span className="material-symbols-outlined text-[18px]">history</span>
+            <span>Lịch sử làm bài</span>
+            {historyTotal > 0 && (
+              <Badge variant="neutral" className="text-[10px]">
+                {historyTotal}
+              </Badge>
+            )}
+          </button>
         </div>
       </div>
 
-      {/* Quizzes List */}
-      {quizzes.length === 0 ? (
-        <EmptyState
-          title="Chưa có bài thi nào đang mở"
-          description="Hiện tại chưa có bài thi nào được phát hành cho tài khoản của bạn. Vui lòng quay lại sau."
-        />
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {quizzes.map((quiz) => (
-            <div
-              key={quiz.id}
-              className="ui-card p-5 flex flex-col justify-between gap-4 hover:border-primary/50 transition-all hover:shadow-sm"
-              data-testid={`quiz-card-${quiz.id}`}
-            >
-              <div className="space-y-2.5">
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-bold text-base text-on-surface line-clamp-2">
-                    {quiz.title}
-                  </h3>
-                  <Badge variant="success" className="text-[11px] shrink-0">
-                    Đang mở
-                  </Badge>
-                </div>
-
-                {quiz.description && (
-                  <p className="text-xs text-secondary line-clamp-2">
-                    {quiz.description}
-                  </p>
-                )}
-
-                {quiz.eventName && (
-                  <span className="inline-flex items-center gap-1 text-[11px] text-primary font-medium">
-                    <span className="material-symbols-outlined text-[14px]">event</span>
-                    <span className="truncate">{quiz.eventName}</span>
-                  </span>
-                )}
-              </div>
-
-              <div className="space-y-3 pt-3 border-t border-outline-variant/30">
-                <div className="flex items-center justify-between text-xs text-secondary">
-                  <span>
-                    <strong>{quiz.totalQuestions}</strong> câu hỏi
-                  </span>
-                  <span>
-                    <strong>{quiz.timeLimitMinutes}</strong> phút
-                  </span>
-                  <span>
-                    Lượt thi tối đa: <strong>{quiz.maxAttempts}</strong>
-                  </span>
-                </div>
-
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => handleStartOrResume(quiz.id)}
-                  className="w-full justify-center flex items-center gap-2"
-                  data-testid={`start-quiz-btn-${quiz.id}`}
+      {/* Tab 1: Active Quizzes List */}
+      {activeTab === "active" && (
+        <>
+          {quizzes.length === 0 ? (
+            <EmptyState
+              title="Chưa có bài thi nào đang mở"
+              description="Hiện tại chưa có bài thi nào được phát hành cho tài khoản của bạn. Vui lòng quay lại sau."
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {quizzes.map((quiz) => (
+                <div
+                  key={quiz.id}
+                  className="ui-card p-5 flex flex-col justify-between gap-4 hover:border-primary/50 transition-all hover:shadow-sm"
+                  data-testid={`quiz-card-${quiz.id}`}
                 >
-                  <span className="material-symbols-outlined text-[18px]">
-                    play_circle
-                  </span>
-                  <span>Vào làm bài thi</span>
-                </Button>
-              </div>
+                  <div className="space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-bold text-base text-on-surface line-clamp-2">
+                        {quiz.title}
+                      </h3>
+                      <Badge variant="success" className="text-[11px] shrink-0">
+                        Đang mở
+                      </Badge>
+                    </div>
+
+                    {quiz.description && (
+                      <p className="text-xs text-secondary line-clamp-2">
+                        {quiz.description}
+                      </p>
+                    )}
+
+                    {quiz.eventName && (
+                      <span className="inline-flex items-center gap-1 text-[11px] text-primary font-medium">
+                        <span className="material-symbols-outlined text-[14px]">event</span>
+                        <span className="truncate">{quiz.eventName}</span>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-3 pt-3 border-t border-outline-variant/30">
+                    <div className="flex items-center justify-between text-xs text-secondary">
+                      <span>
+                        <strong>{quiz.totalQuestions}</strong> câu hỏi
+                      </span>
+                      <span>
+                        <strong>{quiz.timeLimitMinutes}</strong> phút
+                      </span>
+                      <span>
+                        Lượt tối đa: <strong>{quiz.maxAttempts}</strong>
+                      </span>
+                    </div>
+
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleStartOrResume(quiz.id)}
+                      className="w-full justify-center flex items-center gap-2"
+                      data-testid={`start-quiz-btn-${quiz.id}`}
+                    >
+                      <span className="material-symbols-outlined text-[18px]">
+                        play_circle
+                      </span>
+                      <span>Vào làm bài thi</span>
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+        </>
+      )}
+
+      {/* Tab 2: Quiz History List (M7.5-A) */}
+      {activeTab === "history" && (
+        <div className="space-y-4" data-testid="student-quiz-history-panel">
+          {/* Filters Bar */}
+          <div className="ui-card p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-bold text-secondary">Bộ lọc:</span>
+              <select
+                aria-label="Lọc theo bài thi"
+                value={historyQuizFilter}
+                onChange={(e) => {
+                  setHistoryQuizFilter(e.target.value);
+                  setHistoryPage(1);
+                }}
+                className="px-2.5 py-1.5 rounded-lg border border-outline-variant/50 bg-surface text-on-surface text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                data-testid="history-filter-quiz"
+              >
+                <option value="ALL">Tất cả bài thi</option>
+                {quizzes.map((q) => (
+                  <option key={q.id} value={q.id}>
+                    {q.title}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                aria-label="Lọc theo trạng thái"
+                value={historyStatusFilter}
+                onChange={(e) => {
+                  setHistoryStatusFilter(e.target.value);
+                  setHistoryPage(1);
+                }}
+                className="px-2.5 py-1.5 rounded-lg border border-outline-variant/50 bg-surface text-on-surface text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                data-testid="history-filter-status"
+              >
+                <option value="ALL">Tất cả trạng thái</option>
+                <option value="SUBMITTED">Đã hoàn thành</option>
+                <option value="IN_PROGRESS">Đang làm bài</option>
+                <option value="EXPIRED">Quá hạn</option>
+              </select>
+
+              <select
+                aria-label="Lọc theo kết quả đạt hoặc chưa đạt"
+                value={historyPassedFilter}
+                onChange={(e) => {
+                  setHistoryPassedFilter(e.target.value);
+                  setHistoryPage(1);
+                }}
+                className="px-2.5 py-1.5 rounded-lg border border-outline-variant/50 bg-surface text-on-surface text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                data-testid="history-filter-passed"
+              >
+                <option value="ALL">Tất cả kết quả</option>
+                <option value="PASSED">Đạt yêu cầu (PASS)</option>
+                <option value="FAILED">Chưa đạt (FAIL)</option>
+              </select>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void fetchHistory(historyPage)}
+              disabled={historyLoading}
+              className="flex items-center gap-1.5"
+            >
+              <span className={`material-symbols-outlined text-[16px] ${historyLoading ? "animate-spin" : ""}`}>
+                refresh
+              </span>
+              <span>Làm mới</span>
+            </Button>
+          </div>
+
+          {/* History Content */}
+          {historyLoading ? (
+            <div className="p-8 flex justify-center">
+              <LoadingState label="Đang tải lịch sử bài thi..." />
+            </div>
+          ) : historyError ? (
+            <ErrorState
+              title="Không thể tải lịch sử làm bài"
+              description={historyError}
+              actionLabel="Thử lại"
+              onAction={() => void fetchHistory(historyPage)}
+            />
+          ) : historyItems.length === 0 ? (
+            <EmptyState
+              title="Chưa có lượt thi nào"
+              description="Bạn chưa thực hiện lượt làm bài nào phù hợp với bộ lọc hiện tại."
+            />
+          ) : (
+            <div className="space-y-3">
+              {historyItems.map((item) => {
+                const isSubmitted = item.status === "SUBMITTED";
+                const isPassed = item.passed === true;
+
+                return (
+                  <div
+                    key={item.id}
+                    className="ui-card p-4 hover:border-primary/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    data-testid={`history-item-${item.id}`}
+                  >
+                    <div className="space-y-1.5 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-bold text-sm sm:text-base text-on-surface truncate">
+                          {item.quizTitle}
+                        </h3>
+
+                        {item.isRetake ? (
+                          <Badge variant="warning" className="text-[10px]">
+                            Thi lại (Lượt {item.attemptNumber}/{item.maxAttempts})
+                          </Badge>
+                        ) : (
+                          <Badge variant="primary" className="text-[10px]">
+                            Lượt 1/{item.maxAttempts}
+                          </Badge>
+                        )}
+
+                        {item.status === "SUBMITTED" ? (
+                          <Badge variant="success" className="text-[10px]">
+                            Đã hoàn thành
+                          </Badge>
+                        ) : item.status === "IN_PROGRESS" ? (
+                          <Badge variant="warning" className="text-[10px]">
+                            Đang làm dở
+                          </Badge>
+                        ) : (
+                          <Badge variant="neutral" className="text-[10px]">
+                            Quá hạn
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-secondary">
+                        <span>
+                          Bắt đầu: {new Date(item.startedAt).toLocaleString("vi-VN")}
+                        </span>
+                        {item.submittedAt && (
+                          <span>
+                            Nộp bài: {new Date(item.submittedAt).toLocaleString("vi-VN")}
+                          </span>
+                        )}
+                        <span>
+                          Số câu: {item.answeredCount}/{item.totalQuestions}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-outline-variant/30">
+                      {isSubmitted ? (
+                        <div className="text-right">
+                          <div className="flex items-center gap-1.5 justify-end">
+                            <span className="text-base font-mono font-bold text-on-surface">
+                              {item.scorePercent}%
+                            </span>
+                            {isPassed ? (
+                              <Badge variant="success" className="text-[10px] font-bold">
+                                ĐẠT
+                              </Badge>
+                            ) : (
+                              <Badge variant="error" className="text-[10px] font-bold">
+                                CHƯA ĐẠT
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-secondary">
+                            {item.correctCount}/{item.totalQuestions} câu đúng (Sàn: {item.passingScore}%)
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-right text-xs text-secondary">
+                          <span>Chưa có điểm</span>
+                        </div>
+                      )}
+
+                      <div className="text-right">
+                        {item.awardedXp !== null && item.awardedXp > 0 ? (
+                          <Badge variant="warning" className="text-xs font-bold font-mono">
+                            +{item.awardedXp} XP
+                          </Badge>
+                        ) : item.isRetake ? (
+                          <span className="text-[11px] text-secondary block" title="Lượt thi lại không cấp thêm XP">
+                            0 XP (Thi lại)
+                          </span>
+                        ) : item.status === "SUBMITTED" ? (
+                          <span className="text-[11px] text-secondary block" title="Lần đầu nộp bài nhưng đạt 0 điểm">
+                            0 XP
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-secondary block">--</span>
+                        )}
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewHistoryDetail(item.id)}
+                        className="flex items-center gap-1"
+                        data-testid={`view-detail-btn-${item.id}`}
+                      >
+                        <span className="material-symbols-outlined text-[16px]">visibility</span>
+                        <span className="hidden sm:inline">Chi tiết</span>
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Pagination */}
+              {historyTotalPages > 1 && (
+                <div className="flex items-center justify-between pt-2 px-1 text-xs text-secondary">
+                  <span>
+                    Trang {historyPage} / {historyTotalPages} (Tổng cộng {historyTotal} lượt thi)
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={historyPage <= 1 || historyLoading}
+                      onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                    >
+                      Trang trước
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={historyPage >= historyTotalPages || historyLoading}
+                      onClick={() => setHistoryPage((p) => Math.min(historyTotalPages, p + 1))}
+                    >
+                      Trang sau
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
+
+      {/* History Detail Review Modal (M7.5-B) */}
+      <Modal
+        open={Boolean(selectedHistoryDetail || loadingHistoryDetail || historyDetailError)}
+        onClose={() => {
+          setSelectedHistoryDetail(null);
+          setLoadingHistoryDetail(false);
+          setHistoryDetailError(null);
+        }}
+        title="Chi tiết bài làm trắc nghiệm"
+        size="xl"
+      >
+        {loadingHistoryDetail ? (
+          <div className="p-8 flex justify-center">
+            <LoadingState label="Đang tải chi tiết bài làm..." />
+          </div>
+        ) : historyDetailError ? (
+          <div className="p-4 rounded-xl bg-error/10 border border-error/30 text-error text-xs space-y-3">
+            <p>{historyDetailError}</p>
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setHistoryDetailError(null)}
+              >
+                Đóng
+              </Button>
+            </div>
+          </div>
+        ) : selectedHistoryDetail ? (
+          <div className="space-y-6 pt-2" data-testid="student-history-detail-modal">
+            {/* Summary Header Card */}
+            <div className="p-4 rounded-xl bg-surface-container/60 border border-outline-variant/30 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="font-bold text-base text-on-surface">
+                    {selectedHistoryDetail.quizTitle}
+                  </h3>
+                  <p className="text-xs text-secondary mt-0.5">
+                    {selectedHistoryDetail.isRetake
+                      ? `Lượt thi lại #${selectedHistoryDetail.attemptNumber}`
+                      : "Lượt thi đầu tiên"} • Bắt đầu: {new Date(selectedHistoryDetail.startedAt).toLocaleString("vi-VN")}
+                    {selectedHistoryDetail.submittedAt && (
+                      <> • Nộp bài: {new Date(selectedHistoryDetail.submittedAt).toLocaleString("vi-VN")}</>
+                    )}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {selectedHistoryDetail.status === "SUBMITTED" ? (
+                    <Badge variant={selectedHistoryDetail.passed ? "success" : "error"} className="text-xs">
+                      {selectedHistoryDetail.passed ? "ĐẠT YÊU CẦU" : "CHƯA ĐẠT"}
+                    </Badge>
+                  ) : (
+                    <Badge variant="neutral" className="text-xs">
+                      {selectedHistoryDetail.status}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* KPI metrics */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-outline-variant/20 text-center">
+                <div className="p-2 rounded-lg bg-surface">
+                  <span className="text-[11px] text-secondary block">Điểm số</span>
+                  <span className="text-lg font-bold font-mono text-on-surface">
+                    {selectedHistoryDetail.scorePercent !== null ? `${selectedHistoryDetail.scorePercent}%` : "--"}
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-surface">
+                  <span className="text-[11px] text-secondary block">Số câu đúng</span>
+                  <span className="text-lg font-bold font-mono text-on-surface">
+                    {selectedHistoryDetail.correctCount !== null ? `${selectedHistoryDetail.correctCount} / ${selectedHistoryDetail.totalQuestions}` : "--"}
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-surface">
+                  <span className="text-[11px] text-secondary block">Điểm sàn đạt</span>
+                  <span className="text-lg font-bold font-mono text-on-surface">
+                    {selectedHistoryDetail.passingScore}%
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-surface">
+                  <span className="text-[11px] text-secondary block">XP tích lũy</span>
+                  <span className="text-lg font-bold font-mono text-amber-600">
+                    +{selectedHistoryDetail.awardedXp ?? 0} XP
+                  </span>
+                </div>
+              </div>
+
+              {selectedHistoryDetail.xpReason && (
+                <div className="text-[11px] text-secondary text-center pt-1">
+                  Chính sách thưởng:{" "}
+                  <strong>
+                    {selectedHistoryDetail.xpReason === "FIRST_QUIZ_SUBMISSION"
+                      ? "Đã cấp điểm thưởng XP cho lần submit đầu tiên"
+                      : selectedHistoryDetail.xpReason === "ALREADY_AWARDED_OR_RETAKE"
+                        ? "Lượt thi lại (Retake) không tích lũy thêm điểm thưởng XP"
+                        : selectedHistoryDetail.xpReason === "FIRST_SUBMIT_ZERO_XP"
+                          ? "Lần submit đầu tiên đạt 0 điểm (đã ghi nhận quyền thi)"
+                          : selectedHistoryDetail.xpReason}
+                  </strong>
+                </div>
+              )}
+            </div>
+
+            {/* Questions Review or Zero-leak Guard */}
+            {selectedHistoryDetail.status === "SUBMITTED" ? (
+              <div className="space-y-4">
+                <h4 className="text-sm font-bold text-on-surface flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[18px] text-primary">
+                    fact_check
+                  </span>
+                  <span>Xem lại chi tiết từng câu hỏi & đáp án</span>
+                </h4>
+
+                <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-1">
+                  {selectedHistoryDetail.results?.map((item, idx) => {
+                    const isCorrect = item.isCorrect === true;
+                    return (
+                      <div
+                        key={item.questionId}
+                        className={`p-4 rounded-xl border transition-all ${
+                          isCorrect
+                            ? "border-emerald-500/40 bg-emerald-500/5"
+                            : "border-red-500/40 bg-red-500/5"
+                        }`}
+                        data-testid={`review-question-${item.displayedOrder}`}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-3">
+                          <span className="font-bold text-xs px-2 py-0.5 rounded-md bg-surface text-secondary">
+                            Câu {idx + 1}
+                          </span>
+                          {isCorrect ? (
+                            <Badge variant="success" className="text-[10px] flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[12px]">check</span>
+                              <span>Chính xác</span>
+                            </Badge>
+                          ) : (
+                            <Badge variant="error" className="text-[10px] flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[12px]">close</span>
+                              <span>Chưa đúng</span>
+                            </Badge>
+                          )}
+                        </div>
+
+                        <p className="text-sm font-medium text-on-surface mb-3 whitespace-pre-wrap">
+                          {item.questionText}
+                        </p>
+
+                        <div className="space-y-2">
+                          {item.options.map((opt, optIdx) => {
+                            const isSelected = item.selectedOptionIndex === optIdx;
+                            const isCorrectOpt = item.correctOptionIndex === optIdx;
+
+                            let optStyle =
+                              "border-outline-variant/30 bg-surface text-secondary";
+                            if (isSelected && isCorrect) {
+                              optStyle =
+                                "border-emerald-500 bg-emerald-500/15 text-emerald-700 font-semibold";
+                            } else if (isSelected && !isCorrect) {
+                              optStyle =
+                                "border-red-500 bg-red-500/15 text-red-700 font-semibold";
+                            } else if (isCorrectOpt) {
+                              optStyle =
+                                "border-emerald-500/60 bg-emerald-500/10 text-emerald-700 font-medium";
+                            }
+
+                            return (
+                              <div
+                                key={optIdx}
+                                className={`p-2.5 rounded-lg border text-xs flex items-center justify-between gap-2 ${optStyle}`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold uppercase w-5 text-center">
+                                    {String.fromCharCode(65 + optIdx)}.
+                                  </span>
+                                  <span>{opt}</span>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 shrink-0 text-[11px]">
+                                  {isSelected && (
+                                    <span className="italic font-medium">
+                                      (Bạn đã chọn)
+                                    </span>
+                                  )}
+                                  {isCorrectOpt && (
+                                    <span className="inline-flex items-center gap-0.5 text-emerald-600 font-bold">
+                                      <span className="material-symbols-outlined text-[14px]">
+                                        check_circle
+                                      </span>
+                                      <span>Đáp án đúng</span>
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {item.explanation && (
+                          <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs space-y-1">
+                            <span className="font-bold text-primary flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[14px]">
+                                lightbulb
+                              </span>
+                              <span>Giải thích đáp án:</span>
+                            </span>
+                            <p className="text-secondary">{item.explanation}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              // Zero-leak invariant: Không hiển thị đáp án cho bài chưa SUBMITTED
+              <div className="p-4 rounded-xl bg-warning/10 border border-warning/30 space-y-2 text-warning text-xs">
+                <div className="flex items-center gap-1.5 font-bold text-sm">
+                  <span className="material-symbols-outlined text-[18px]">
+                    shield
+                  </span>
+                  <span>Bảo mật nội dung bài thi</span>
+                </div>
+                <p>
+                  Lượt thi này đang ở trạng thái <strong>{selectedHistoryDetail.status}</strong>. Nhằm đảm bảo tính công bằng và bảo mật tuyệt đối cho bài kiểm tra, đáp án và lời giải chi tiết chỉ được phép hiển thị sau khi thí sinh đã nộp bài thành công (SUBMITTED).
+                </p>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2 border-t border-outline-variant/30">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedHistoryDetail(null)}
+              >
+                Đóng
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
     </div>
   );
 }

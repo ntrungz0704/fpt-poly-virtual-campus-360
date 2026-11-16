@@ -16,6 +16,10 @@ import {
 } from "@nestjs/common";
 import type {
   AdminQuizAttemptListResponseDto,
+  AdminQuizResultDetailDto,
+  AdminQuizResultItemDto,
+  AdminQuizResultListResponseDto,
+  AdminQuizResultSummaryDto,
   QuizConfigListResponseDto,
   QuizConfigurationDto,
 } from "@fpt-campus/shared";
@@ -30,6 +34,7 @@ import { PermissionsGuard } from "../../common/guards/permissions.guard";
 import { sanitizeIpAddress } from "../../common/utils/ip-sanitizer";
 import {
   AdminQuizAttemptQueryDto,
+  AdminQuizResultQueryDto,
   CreateQuizConfigDto,
   ManageQuizQuestionsDto,
   QuizConfigQueryDto,
@@ -55,6 +60,39 @@ export class QuizConfigController {
     @Query() query: AdminQuizAttemptQueryDto,
   ): Promise<AdminQuizAttemptListResponseDto> {
     return this.quizConfigService.getAttemptsMonitoring(query);
+  }
+
+  // ============================================================================
+  // M7.5: Quiz Results Dashboard & Review Endpoints
+  // ============================================================================
+
+  @Get("results/summary")
+  async getQuizResultsSummary(
+    @Query("quizConfigId") quizConfigId?: string,
+  ): Promise<AdminQuizResultSummaryDto> {
+    return this.quizConfigService.getQuizResultsSummary(quizConfigId);
+  }
+
+  @Get("results/students/:userId/quizzes/:quizConfigId")
+  async getStudentQuizAttemptHistory(
+    @Param("userId", new ParseUUIDPipe()) userId: string,
+    @Param("quizConfigId", new ParseUUIDPipe()) quizConfigId: string,
+  ): Promise<AdminQuizResultItemDto[]> {
+    return this.quizConfigService.getStudentQuizAttemptHistory(userId, quizConfigId);
+  }
+
+  @Get("results/:attemptId")
+  async getQuizResultDetail(
+    @Param("attemptId", new ParseUUIDPipe()) attemptId: string,
+  ): Promise<AdminQuizResultDetailDto> {
+    return this.quizConfigService.getQuizResultDetail(attemptId);
+  }
+
+  @Get("results")
+  async getQuizResults(
+    @Query() query: AdminQuizResultQueryDto,
+  ): Promise<AdminQuizResultListResponseDto> {
+    return this.quizConfigService.getQuizResults(query);
   }
 
   @Get(":id")

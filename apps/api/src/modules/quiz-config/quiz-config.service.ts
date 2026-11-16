@@ -7,6 +7,10 @@ import { Prisma } from "@prisma/client";
 import type {
   AdminQuizAttemptListResponseDto,
   AdminQuizAttemptMonitoringDto,
+  AdminQuizResultDetailDto,
+  AdminQuizResultItemDto,
+  AdminQuizResultListResponseDto,
+  AdminQuizResultSummaryDto,
   QuestionDifficulty,
   QuizAttemptStatus,
   QuizConfigListResponseDto,
@@ -18,6 +22,7 @@ import type { AuthenticatedUser } from "../../common/decorators/auth.decorators"
 import { AuditLogService } from "../audit-log/audit-log.service";
 import type {
   AdminQuizAttemptQueryDto,
+  AdminQuizResultQueryDto,
   CreateQuizConfigDto,
   ManageQuizQuestionsDto,
   QuizConfigQueryDto,
@@ -774,5 +779,432 @@ export class QuizConfigService {
       limit,
       totalPages: Math.ceil(total / limit) || 1,
     };
+  }
+
+  // ============================================================================
+  // M7.5: Admin Quiz Results & Attempt Review Dashboard
+  // ============================================================================
+
+  async getQuizResults(
+    query: AdminQuizResultQueryDto,
+  ): Promise<AdminQuizResultListResponseDto> {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const now = new Date();
+    await this.prisma.quizConfigAttempt.updateMany({
+      where: {
+        status: "IN_PROGRESS",
+        expiresAt: { lte: now },
+      },
+      data: { status: "EXPIRED" },
+    });
+
+    const where: Prisma.QuizConfigAttemptWhereInput = {};
+
+    if (query.quizConfigId) {
+      where.quizConfigId = query.quizConfigId;
+    }
+
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    if (query.passed !== undefined) {
+      where.passed = query.passed;
+    }
+
+    if (query.from || query.to) {
+      where.startedAt = {
+        ...(query.from ? { gte: new Date(query.from) } : {}),
+        ...(query.to ? { lte: new Date(query.to) } : {}),
+      };
+    }
+
+    if (query.search?.trim()) {
+      const s = query.search.trim();
+      where.user = {
+        OR: [
+          { fullName: { contains: s, mode: "insensitive" } },
+          { email: { contains: s, mode: "insensitive" } },
+          { studentCode: { contains: s, mode: "insensitive" } },
+          { username: { contains: s, mode: "insensitive" } },
+        ],
+      };
+    }
+
+    const sortField = query.sortBy || "submittedAt";
+    const sortDirection = query.sortOrder || "desc";
+    const orderBy: Prisma.QuizConfigAttemptOrderByWithRelationInput = {
+      [sortField]: sortDirection,
+    };
+
+    const [total, attempts] = await Promise.all([
+      this.prisma.quizConfigAttempt.count({ where }),
+      this.prisma.quizConfigAttempt.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy,
+        include: {
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              studentCode: true,
+              avatarUrl: true,
+            },
+          },
+          quizConfig: {
+            select: {
+              id: true,
+              title: true,
+              passingScore: true,
+              maxAttempts: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const items: AdminQuizResultItemDto[] = attempts.map((att) => {
+      const isRetake = att.attemptNumber > 1;
+      const isXpAwarded = (att.awardedXp ?? 0) > 0;
+      let xpReason: string | null = null;
+      if (att.status === "SUBMITTED" && att.awardedXp !== null) {
+        if (att.awardedXp > 0) {
+          xpReason = "FIRST_QUIZ_SUBMISSION";
+        } else if (isRetake) {
+          xpReason = "ALREADY_AWARDED_OR_RETAKE";
+        } else {
+          xpReason = "FIRST_SUBMIT_ZERO_XP";
+        }
+      }
+
+      return {
+        id: att.id,
+        quizConfigId: att.quizConfigId,
+        quizTitle: att.quizConfig.title,
+        student: {
+          id: att.user.id,
+          fullName: att.user.fullName,
+          email: att.user.email ?? "",
+          studentCode: att.user.studentCode ?? null,
+          avatarUrl: att.user.avatarUrl ?? null,
+        },
+        attemptNumber: att.attemptNumber,
+        maxAttempts: att.quizConfig.maxAttempts,
+        isRetake,
+        status: att.status,
+        startedAt: att.startedAt.toISOString(),
+        expiresAt: att.expiresAt.toISOString(),
+        submittedAt: att.submittedAt ? att.submittedAt.toISOString() : null,
+        totalQuestions: att.totalQuestions ?? 0,
+        answeredCount: att.answeredCount ?? 0,
+        correctCount: att.correctCount,
+        scorePercent: att.scorePercent,
+        passingScore: att.quizConfig.passingScore,
+        passed: att.passed,
+        baseXp: att.baseXp,
+        bonusXp: att.bonusXp,
+        awardedXp: att.awardedXp,
+        isXpAwarded,
+        xpReason,
+      };
+    });
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
+
+  async getQuizResultsSummary(
+    quizConfigId?: string,
+  ): Promise<AdminQuizResultSummaryDto> {
+    const where: Prisma.QuizConfigAttemptWhereInput = {};
+    if (quizConfigId) {
+      where.quizConfigId = quizConfigId;
+    }
+
+    const [
+      totalAttempts,
+      totalSubmitted,
+      totalPassed,
+      totalFailed,
+      scoreAgg,
+      distinctUsers,
+      xpAgg,
+    ] = await Promise.all([
+      this.prisma.quizConfigAttempt.count({ where }),
+      this.prisma.quizConfigAttempt.count({
+        where: { ...where, status: "SUBMITTED" },
+      }),
+      this.prisma.quizConfigAttempt.count({
+        where: { ...where, status: "SUBMITTED", passed: true },
+      }),
+      this.prisma.quizConfigAttempt.count({
+        where: { ...where, status: "SUBMITTED", passed: false },
+      }),
+      this.prisma.quizConfigAttempt.aggregate({
+        where: { ...where, status: "SUBMITTED" },
+        _avg: { scorePercent: true },
+      }),
+      this.prisma.quizConfigAttempt.findMany({
+        where,
+        select: { userId: true },
+        distinct: ["userId"],
+      }),
+      this.prisma.quizConfigAttempt.aggregate({
+        where,
+        _sum: { awardedXp: true },
+      }),
+    ]);
+
+    const passRatePercent =
+      totalSubmitted > 0 ? Math.round((totalPassed / totalSubmitted) * 100) : 0;
+    const avgScorePercent = Math.round(scoreAgg._avg.scorePercent ?? 0);
+    const uniqueStudentsCount = distinctUsers.length;
+    const totalAwardedXp = xpAgg._sum.awardedXp ?? 0;
+
+    return {
+      totalAttempts,
+      totalSubmitted,
+      totalPassed,
+      totalFailed,
+      passRatePercent,
+      avgScorePercent,
+      uniqueStudentsCount,
+      totalAwardedXp,
+    };
+  }
+
+  async getQuizResultDetail(
+    attemptId: string,
+  ): Promise<AdminQuizResultDetailDto> {
+    const attempt = await this.prisma.quizConfigAttempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            studentCode: true,
+            avatarUrl: true,
+          },
+        },
+        quizConfig: {
+          select: {
+            id: true,
+            title: true,
+            passingScore: true,
+            maxAttempts: true,
+          },
+        },
+        answers: {
+          orderBy: { displayedOrder: "asc" },
+          include: {
+            quizConfigQuestion: {
+              select: {
+                id: true,
+                questionText: true,
+                optionsJson: true,
+                correctIndex: true,
+                explanation: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!attempt) {
+      throw new NotFoundException({
+        code: "ATTEMPT_NOT_FOUND",
+        message: `Không tìm thấy lượt thi với ID: ${attemptId}`,
+      });
+    }
+
+    const isRetake = attempt.attemptNumber > 1;
+    const isXpAwarded = (attempt.awardedXp ?? 0) > 0;
+    let xpReason: string | null = null;
+    if (attempt.status === "SUBMITTED" && attempt.awardedXp !== null) {
+      if (attempt.awardedXp > 0) {
+        xpReason = "FIRST_QUIZ_SUBMISSION";
+      } else if (isRetake) {
+        xpReason = "ALREADY_AWARDED_OR_RETAKE";
+      } else {
+        xpReason = "FIRST_SUBMIT_ZERO_XP";
+      }
+    }
+
+    const results = attempt.answers.map((ans) => {
+      const q = ans.quizConfigQuestion;
+      const rawOptions = Array.isArray(q.optionsJson)
+        ? (q.optionsJson as string[])
+        : typeof q.optionsJson === "string"
+          ? JSON.parse(q.optionsJson)
+          : [];
+
+      const optionOrder = Array.isArray(ans.optionOrderJson)
+        ? (ans.optionOrderJson as number[])
+        : [];
+
+      const displayedOptions =
+        optionOrder.length === rawOptions.length
+          ? optionOrder.map((origIdx) => rawOptions[origIdx])
+          : rawOptions;
+
+      const correctDisplayedIndex = optionOrder.indexOf(q.correctIndex);
+      const selectedIdx = ans.selectedOptionIndex;
+      const isCorrect =
+        selectedIdx !== null && selectedIdx === correctDisplayedIndex;
+
+      return {
+        questionId: q.id,
+        displayedOrder: ans.displayedOrder,
+        questionText: q.questionText,
+        options: displayedOptions,
+        selectedOptionIndex: selectedIdx,
+        correctOptionIndex: correctDisplayedIndex,
+        isCorrect,
+        explanation: q.explanation || null,
+      };
+    });
+
+    return {
+      id: attempt.id,
+      quizConfigId: attempt.quizConfigId,
+      quizTitle: attempt.quizConfig.title,
+      student: {
+        id: attempt.user.id,
+        fullName: attempt.user.fullName,
+        email: attempt.user.email ?? "",
+        studentCode: attempt.user.studentCode ?? null,
+        avatarUrl: attempt.user.avatarUrl ?? null,
+      },
+      attemptNumber: attempt.attemptNumber,
+      maxAttempts: attempt.quizConfig.maxAttempts,
+      isRetake,
+      status: attempt.status,
+      startedAt: attempt.startedAt.toISOString(),
+      expiresAt: attempt.expiresAt.toISOString(),
+      submittedAt: attempt.submittedAt ? attempt.submittedAt.toISOString() : null,
+      totalQuestions: attempt.totalQuestions ?? attempt.answers.length,
+      answeredCount:
+        attempt.answeredCount ??
+        attempt.answers.filter((a) => a.selectedOptionIndex !== null).length,
+      correctCount: attempt.correctCount,
+      scorePercent: attempt.scorePercent,
+      passingScore: attempt.quizConfig.passingScore,
+      passed: attempt.passed,
+      baseXp: attempt.baseXp,
+      bonusXp: attempt.bonusXp,
+      awardedXp: attempt.awardedXp,
+      isXpAwarded,
+      xpReason,
+      summary: {
+        totalQuestions: attempt.totalQuestions ?? attempt.answers.length,
+        answeredCount:
+          attempt.answeredCount ??
+          attempt.answers.filter((a) => a.selectedOptionIndex !== null).length,
+        correctCount: attempt.correctCount ?? 0,
+        scorePercent: attempt.scorePercent ?? 0,
+        passingScore: attempt.quizConfig.passingScore,
+        passed: attempt.passed ?? false,
+      },
+      xp: {
+        baseXp: attempt.baseXp ?? 0,
+        bonusXp: attempt.bonusXp ?? 0,
+        awardedXp: attempt.awardedXp ?? 0,
+        isXpAwarded,
+        reason: xpReason ?? "QUIZ_SUBMITTED",
+      },
+      results,
+    };
+  }
+
+  async getStudentQuizAttemptHistory(
+    userId: string,
+    quizConfigId: string,
+  ): Promise<AdminQuizResultItemDto[]> {
+    const attempts = await this.prisma.quizConfigAttempt.findMany({
+      where: {
+        userId,
+        quizConfigId,
+      },
+      orderBy: { attemptNumber: "asc" },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            studentCode: true,
+            avatarUrl: true,
+          },
+        },
+        quizConfig: {
+          select: {
+            id: true,
+            title: true,
+            passingScore: true,
+            maxAttempts: true,
+          },
+        },
+      },
+    });
+
+    return attempts.map((att) => {
+      const isRetake = att.attemptNumber > 1;
+      const isXpAwarded = (att.awardedXp ?? 0) > 0;
+      let xpReason: string | null = null;
+      if (att.status === "SUBMITTED" && att.awardedXp !== null) {
+        if (att.awardedXp > 0) {
+          xpReason = "FIRST_QUIZ_SUBMISSION";
+        } else if (isRetake) {
+          xpReason = "ALREADY_AWARDED_OR_RETAKE";
+        } else {
+          xpReason = "FIRST_SUBMIT_ZERO_XP";
+        }
+      }
+
+      return {
+        id: att.id,
+        quizConfigId: att.quizConfigId,
+        quizTitle: att.quizConfig.title,
+        student: {
+          id: att.user.id,
+          fullName: att.user.fullName,
+          email: att.user.email ?? "",
+          studentCode: att.user.studentCode ?? null,
+          avatarUrl: att.user.avatarUrl ?? null,
+        },
+        attemptNumber: att.attemptNumber,
+        maxAttempts: att.quizConfig.maxAttempts,
+        isRetake,
+        status: att.status,
+        startedAt: att.startedAt.toISOString(),
+        expiresAt: att.expiresAt.toISOString(),
+        submittedAt: att.submittedAt ? att.submittedAt.toISOString() : null,
+        totalQuestions: att.totalQuestions ?? 0,
+        answeredCount: att.answeredCount ?? 0,
+        correctCount: att.correctCount,
+        scorePercent: att.scorePercent,
+        passingScore: att.quizConfig.passingScore,
+        passed: att.passed,
+        baseXp: att.baseXp,
+        bonusXp: att.bonusXp,
+        awardedXp: att.awardedXp,
+        isXpAwarded,
+        xpReason,
+      };
+    });
   }
 }

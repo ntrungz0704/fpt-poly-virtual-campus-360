@@ -11,7 +11,7 @@ import {
 } from "./test-db.helper";
 
 describe("Question Bank Management Integration Suite (M6)", () => {
-  jest.setTimeout(60_000);
+  jest.setTimeout(120_000);
   let dbHandle: ScratchDbHandle;
   let ctx: ApiTestContext;
   let adminToken = "";

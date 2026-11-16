@@ -183,3 +183,52 @@ export class AdminQuizAttemptQueryDto implements AdminQuizAttemptListQueryDto {
   search?: string;
 }
 
+export class AdminQuizResultQueryDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  page?: number = 1;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  @IsOptional()
+  limit?: number = 20;
+
+  @IsUUID("4")
+  @IsOptional()
+  quizConfigId?: string;
+
+  @IsString()
+  @IsOptional()
+  search?: string;
+
+  @Type(() => Boolean)
+  @IsBoolean()
+  @IsOptional()
+  passed?: boolean;
+
+  @IsEnum(["IN_PROGRESS", "SUBMITTED", "EXPIRED"])
+  @IsOptional()
+  status?: QuizAttemptStatus;
+
+  @IsString()
+  @IsOptional()
+  from?: string;
+
+  @IsString()
+  @IsOptional()
+  to?: string;
+
+  @IsEnum(["submittedAt", "startedAt", "scorePercent", "awardedXp", "attemptNumber"])
+  @IsOptional()
+  sortBy?: "submittedAt" | "startedAt" | "scorePercent" | "awardedXp" | "attemptNumber" = "submittedAt";
+
+  @IsEnum(["asc", "desc"])
+  @IsOptional()
+  sortOrder?: "asc" | "desc" = "desc";
+}
+
+

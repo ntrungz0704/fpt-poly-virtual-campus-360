@@ -19,6 +19,11 @@ import {
   type UpdateQuestionStatusDto,
   type AdminQuizAttemptListQueryDto,
   type AdminQuizAttemptListResponseDto,
+  type AdminQuizResultDetailDto,
+  type AdminQuizResultItemDto,
+  type AdminQuizResultListResponseDto,
+  type AdminQuizResultQueryDto,
+  type AdminQuizResultSummaryDto,
   type CreateQuizConfigInputDto,
   type QuizConfigFilterQuery,
   type QuizConfigListResponseDto,
@@ -661,6 +666,71 @@ export const quizConfigApi = {
     const qs = sp.toString();
     return apiRequest<AdminQuizAttemptListResponseDto>(
       `/admin/quiz-configs/attempts/monitoring${qs ? `?${qs}` : ""}`,
+      {
+        method: "GET",
+        auth: true,
+      },
+    );
+  },
+
+  // M7.5: Quiz Results Dashboard API
+  async getResults(
+    params?: AdminQuizResultQueryDto,
+  ): Promise<AdminQuizResultListResponseDto> {
+    const sp = new URLSearchParams();
+    if (params?.page) sp.set("page", String(params.page));
+    if (params?.limit) sp.set("limit", String(params.limit));
+    if (params?.quizConfigId) sp.set("quizConfigId", params.quizConfigId);
+    if (params?.search) sp.set("search", params.search);
+    if (params?.status) sp.set("status", params.status);
+    if (params?.passed !== undefined) sp.set("passed", String(params.passed));
+    if (params?.from) sp.set("from", params.from);
+    if (params?.to) sp.set("to", params.to);
+    if (params?.sortBy) sp.set("sortBy", params.sortBy);
+    if (params?.sortOrder) sp.set("sortOrder", params.sortOrder);
+    const qs = sp.toString();
+    return apiRequest<AdminQuizResultListResponseDto>(
+      `/admin/quiz-configs/results${qs ? `?${qs}` : ""}`,
+      {
+        method: "GET",
+        auth: true,
+      },
+    );
+  },
+
+  async getResultsSummary(
+    quizConfigId?: string,
+  ): Promise<AdminQuizResultSummaryDto> {
+    const sp = new URLSearchParams();
+    if (quizConfigId) sp.set("quizConfigId", quizConfigId);
+    const qs = sp.toString();
+    return apiRequest<AdminQuizResultSummaryDto>(
+      `/admin/quiz-configs/results/summary${qs ? `?${qs}` : ""}`,
+      {
+        method: "GET",
+        auth: true,
+      },
+    );
+  },
+
+  async getResultDetail(
+    attemptId: string,
+  ): Promise<AdminQuizResultDetailDto> {
+    return apiRequest<AdminQuizResultDetailDto>(
+      `/admin/quiz-configs/results/${attemptId}`,
+      {
+        method: "GET",
+        auth: true,
+      },
+    );
+  },
+
+  async getStudentAttemptHistory(
+    userId: string,
+    quizConfigId: string,
+  ): Promise<AdminQuizResultItemDto[]> {
+    return apiRequest<AdminQuizResultItemDto[]>(
+      `/admin/quiz-configs/results/students/${userId}/quizzes/${quizConfigId}`,
       {
         method: "GET",
         auth: true,

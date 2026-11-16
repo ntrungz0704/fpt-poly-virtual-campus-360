@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
   Res,
   UseGuards,
 } from "@nestjs/common";
@@ -18,6 +19,8 @@ import type {
   PortalQuizSummaryDto,
   SaveQuizProgressDto,
   SaveQuizProgressResponseDto,
+  StudentQuizHistoryDetailDto,
+  StudentQuizHistoryListResponseDto,
   SubmitQuizAttemptResponseDto,
 } from "@fpt-campus/shared";
 import {
@@ -25,6 +28,7 @@ import {
   type AuthenticatedUser,
 } from "../../common/decorators/auth.decorators";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { StudentQuizHistoryQueryDto } from "./dto/portal.dto";
 import { PortalQuizService } from "./portal-quiz.service";
 
 @Controller("portal/quiz")
@@ -48,6 +52,28 @@ export class PortalQuizController {
   ): Promise<PortalQuizSummaryDto[]> {
     this.enforceStudentRole(user);
     return this.portalQuizService.getActiveQuizzes(user.id);
+  }
+
+  // ============================================================================
+  // M7.5: Student Quiz History & Detail Review Endpoints
+  // ============================================================================
+
+  @Get("history")
+  async getStudentQuizHistory(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: StudentQuizHistoryQueryDto,
+  ): Promise<StudentQuizHistoryListResponseDto> {
+    this.enforceStudentRole(user);
+    return this.portalQuizService.getStudentQuizHistory(user.id, query);
+  }
+
+  @Get("history/:attemptId")
+  async getStudentQuizHistoryDetail(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("attemptId", new ParseUUIDPipe()) attemptId: string,
+  ): Promise<StudentQuizHistoryDetailDto> {
+    this.enforceStudentRole(user);
+    return this.portalQuizService.getStudentQuizHistoryDetail(user.id, attemptId);
   }
 
   // ============================================================================

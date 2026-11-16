@@ -14,6 +14,9 @@ import {
   type SaveQuizProgressResponseDto,
   type StudentLinkRequestItemDto,
   type StudentProfileDto,
+  type StudentQuizHistoryDetailDto,
+  type StudentQuizHistoryListResponseDto,
+  type StudentQuizHistoryQueryDto,
   type SubmitQuizAttemptResponseDto,
   type UpdateStudentProfileRequest,
 } from "@fpt-campus/shared";
@@ -122,6 +125,30 @@ export const portalApi = {
       {
         method: "POST",
       },
+    );
+  },
+
+  // Quiz History methods (M7.5)
+  getStudentQuizHistory(
+    query?: StudentQuizHistoryQueryDto,
+  ): Promise<StudentQuizHistoryListResponseDto> {
+    const sp = new URLSearchParams();
+    if (query?.page) sp.set("page", String(query.page));
+    if (query?.limit) sp.set("limit", String(query.limit));
+    if (query?.quizConfigId) sp.set("quizConfigId", query.quizConfigId);
+    if (query?.status) sp.set("status", query.status);
+    if (query?.passed !== undefined) sp.set("passed", String(query.passed));
+    const qs = sp.toString();
+    return apiRequest<StudentQuizHistoryListResponseDto>(
+      `/portal/quiz/history${qs ? `?${qs}` : ""}`,
+    );
+  },
+
+  getStudentQuizHistoryDetail(
+    attemptId: string,
+  ): Promise<StudentQuizHistoryDetailDto> {
+    return apiRequest<StudentQuizHistoryDetailDto>(
+      `/portal/quiz/history/${attemptId}`,
     );
   },
 };

@@ -253,5 +253,139 @@ export interface SubmitQuizAttemptResponseDto {
   results: QuizAttemptQuestionResultDto[];
 }
 
+// ============================================================================
+// Milestone M7.5: Quiz Results & History Review Dashboard Contracts
+// ============================================================================
+
+export interface StudentQuizHistoryItemDto {
+  id: string;
+  quizConfigId: string;
+  quizTitle: string;
+  attemptNumber: number;
+  maxAttempts: number;
+  isRetake: boolean;
+  status: QuizAttemptStatus;
+  startedAt: string;
+  expiresAt: string;
+  submittedAt: string | null;
+  totalQuestions: number;
+  answeredCount: number;
+  correctCount: number | null;
+  scorePercent: number | null;
+  passingScore: number;
+  passed: boolean | null;
+  baseXp: number | null;
+  bonusXp: number | null;
+  awardedXp: number | null;
+  isXpAwarded: boolean;
+  xpReason?: string | null;
+}
+
+export interface StudentQuizHistoryQueryDto {
+  page?: number;
+  limit?: number;
+  quizConfigId?: string;
+  status?: QuizAttemptStatus;
+  passed?: boolean;
+}
+
+export interface StudentQuizHistoryListResponseDto {
+  items: StudentQuizHistoryItemDto[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface StudentQuizQuestionReviewDto {
+  questionId: string;
+  displayedOrder: number;
+  questionText: string;
+  options: string[];
+  selectedOptionIndex: number | null;
+  correctOptionIndex?: number | null;
+  isCorrect?: boolean | null;
+  explanation?: string | null;
+}
+
+export interface StudentQuizHistoryDetailDto extends StudentQuizHistoryItemDto {
+  summary?: QuizAttemptSummaryDto;
+  xp?: QuizAttemptXpAwardDto;
+  results?: StudentQuizQuestionReviewDto[];
+}
+
+export interface AdminQuizResultItemDto {
+  id: string;
+  quizConfigId: string;
+  quizTitle: string;
+  student: AdminQuizAttemptStudentDto;
+  attemptNumber: number;
+  maxAttempts: number;
+  isRetake: boolean;
+  status: QuizAttemptStatus;
+  startedAt: string;
+  expiresAt: string;
+  submittedAt: string | null;
+  totalQuestions: number;
+  answeredCount: number;
+  correctCount: number | null;
+  scorePercent: number | null;
+  passingScore: number;
+  passed: boolean | null;
+  baseXp: number | null;
+  bonusXp: number | null;
+  awardedXp: number | null;
+  isXpAwarded: boolean;
+  xpReason?: string | null;
+}
+
+export interface AdminQuizResultQueryDto {
+  page?: number;
+  limit?: number;
+  quizConfigId?: string;
+  search?: string;
+  passed?: boolean;
+  status?: QuizAttemptStatus;
+  from?: string;
+  to?: string;
+  sortBy?: "submittedAt" | "startedAt" | "scorePercent" | "awardedXp" | "attemptNumber";
+  sortOrder?: "asc" | "desc";
+}
+
+export interface AdminQuizResultListResponseDto {
+  items: AdminQuizResultItemDto[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface AdminQuizResultSummaryDto {
+  totalAttempts: number;
+  totalSubmitted: number;
+  totalPassed: number;
+  totalFailed: number;
+  passRatePercent: number;
+  avgScorePercent: number;
+  uniqueStudentsCount: number;
+  totalAwardedXp: number;
+}
+
+export interface AdminQuizResultDetailDto extends AdminQuizResultItemDto {
+  summary?: QuizAttemptSummaryDto;
+  xp?: QuizAttemptXpAwardDto;
+  results: Array<{
+    questionId: string;
+    displayedOrder: number;
+    questionText: string;
+    options: string[];
+    selectedOptionIndex: number | null;
+    correctOptionIndex: number;
+    isCorrect: boolean;
+    explanation?: string | null;
+  }>;
+}
+
+
 
 

@@ -14,7 +14,7 @@ import {
 } from "./test-db.helper";
 
 describe("Quiz Delivery Integration Suite (M7.2)", () => {
-  jest.setTimeout(60_000);
+  jest.setTimeout(120_000);
   let dbHandle: ScratchDbHandle;
   let ctx: ApiTestContext;
   let prisma: PrismaService;

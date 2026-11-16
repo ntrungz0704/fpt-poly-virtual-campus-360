@@ -14,9 +14,15 @@ import type {
   QuizAttemptStatus,
   SaveQuizProgressDto,
   SaveQuizProgressResponseDto,
+  StudentQuizHistoryDetailDto,
+  StudentQuizHistoryItemDto,
+  StudentQuizHistoryListResponseDto,
+  StudentQuizQuestionReviewDto,
   SubmitQuizAttemptResponseDto,
 } from "@fpt-campus/shared";
+import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/adapters/prisma.service";
+import type { StudentQuizHistoryQueryDto } from "./dto/portal.dto";
 
 @Injectable()
 export class PortalQuizService {
@@ -963,5 +969,285 @@ export class PortalQuizService {
       [result[i], result[j]] = [result[j], result[i]];
     }
     return result;
+  }
+
+  /**
+   * M7.5-A: Lấy lịch sử các lượt thi của sinh viên hiện tại
+   * - Phân trang server-side, lọc theo bài thi, trạng thái hoặc kết quả PASS/FAIL.
+   * - Phân biệt lượt thi đầu tiên và lượt thi lại (isRetake: attemptNumber > 1).
+   * - Không làm lộ dữ liệu của sinh viên khác (lọc cứng theo userId từ token).
+   * - Không biến đổi attempt chưa submit thành đã hoàn tất.
+   */
+  async getStudentQuizHistory(
+    userId: string,
+    query: StudentQuizHistoryQueryDto,
+  ): Promise<StudentQuizHistoryListResponseDto> {
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.min(Math.max(1, query.limit || 10), 50);
+    const skip = (page - 1) * limit;
+
+    // Tự động chuẩn hóa các attempt quá hạn của chính sinh viên này
+    const now = new Date();
+    await this.prisma.quizConfigAttempt.updateMany({
+      where: {
+        userId,
+        status: "IN_PROGRESS",
+        expiresAt: { lte: now },
+      },
+      data: { status: "EXPIRED" },
+    });
+
+    const where: Prisma.QuizConfigAttemptWhereInput = { userId };
+
+    if (query.quizConfigId) {
+      where.quizConfigId = query.quizConfigId;
+    }
+
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    if (query.passed !== undefined) {
+      where.passed = query.passed;
+    }
+
+    const [total, attempts] = await Promise.all([
+      this.prisma.quizConfigAttempt.count({ where }),
+      this.prisma.quizConfigAttempt.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { startedAt: "desc" },
+        include: {
+          quizConfig: {
+            select: {
+              id: true,
+              title: true,
+              passingScore: true,
+              maxAttempts: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const items: StudentQuizHistoryItemDto[] = attempts.map((att) => {
+      const isRetake = att.attemptNumber > 1;
+      const isXpAwarded = (att.awardedXp ?? 0) > 0;
+      let xpReason: string | null = null;
+      if (att.status === "SUBMITTED" && att.awardedXp !== null) {
+        if (att.awardedXp > 0) {
+          xpReason = "FIRST_QUIZ_SUBMISSION";
+        } else if (isRetake) {
+          xpReason = "ALREADY_AWARDED_OR_RETAKE";
+        } else {
+          xpReason = "FIRST_SUBMIT_ZERO_XP";
+        }
+      }
+
+      return {
+        id: att.id,
+        quizConfigId: att.quizConfigId,
+        quizTitle: att.quizConfig.title,
+        attemptNumber: att.attemptNumber,
+        maxAttempts: att.quizConfig.maxAttempts,
+        isRetake,
+        status: att.status,
+        startedAt: att.startedAt.toISOString(),
+        expiresAt: att.expiresAt.toISOString(),
+        submittedAt: att.submittedAt ? att.submittedAt.toISOString() : null,
+        totalQuestions: att.totalQuestions ?? 0,
+        answeredCount: att.answeredCount ?? 0,
+        correctCount: att.correctCount,
+        scorePercent: att.scorePercent,
+        passingScore: att.quizConfig.passingScore,
+        passed: att.passed,
+        baseXp: att.baseXp,
+        bonusXp: att.bonusXp,
+        awardedXp: att.awardedXp,
+        isXpAwarded,
+        xpReason,
+      };
+    });
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
+  }
+
+  /**
+   * M7.5-B: Xem chi tiết kết quả lượt thi của sinh viên
+   * - Bảo vệ quyền sở hữu tuyệt đối chống IDOR (chỉ sinh viên sở hữu mới được xem).
+   * - Không phát sinh tính điểm hoặc cấp thêm XP khi đọc dữ liệu.
+   * - Zero-leak: Nếu attempt chưa SUBMITTED (VD: EXPIRED), tuyệt đối KHÔNG trả về đáp án đúng/explanation.
+   * - Nếu attempt đã SUBMITTED, trả về chi tiết đáp án sinh viên đã chọn kèm đáp án đúng và giải thích.
+   */
+  async getStudentQuizHistoryDetail(
+    userId: string,
+    attemptId: string,
+  ): Promise<StudentQuizHistoryDetailDto> {
+    const attempt = await this.prisma.quizConfigAttempt.findUnique({
+      where: { id: attemptId },
+      include: {
+        quizConfig: {
+          select: {
+            id: true,
+            title: true,
+            passingScore: true,
+            maxAttempts: true,
+          },
+        },
+        answers: {
+          orderBy: { displayedOrder: "asc" },
+          include: {
+            quizConfigQuestion: {
+              select: {
+                id: true,
+                questionText: true,
+                optionsJson: true,
+                correctIndex: true,
+                explanation: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!attempt) {
+      throw new NotFoundException({
+        code: "ATTEMPT_NOT_FOUND",
+        message: "Lượt thi không tồn tại.",
+      });
+    }
+
+    // IDOR Protection
+    if (attempt.userId !== userId) {
+      throw new ForbiddenException({
+        code: "FORBIDDEN_ATTEMPT_OWNERSHIP",
+        message: "Bạn không có quyền xem kết quả lượt thi của sinh viên khác.",
+      });
+    }
+
+    const isRetake = attempt.attemptNumber > 1;
+    const isXpAwarded = (attempt.awardedXp ?? 0) > 0;
+    let xpReason: string | null = null;
+    if (attempt.status === "SUBMITTED" && attempt.awardedXp !== null) {
+      if (attempt.awardedXp > 0) {
+        xpReason = "FIRST_QUIZ_SUBMISSION";
+      } else if (isRetake) {
+        xpReason = "ALREADY_AWARDED_OR_RETAKE";
+      } else {
+        xpReason = "FIRST_SUBMIT_ZERO_XP";
+      }
+    }
+
+    const baseDto: StudentQuizHistoryItemDto = {
+      id: attempt.id,
+      quizConfigId: attempt.quizConfigId,
+      quizTitle: attempt.quizConfig.title,
+      attemptNumber: attempt.attemptNumber,
+      maxAttempts: attempt.quizConfig.maxAttempts,
+      isRetake,
+      status: attempt.status,
+      startedAt: attempt.startedAt.toISOString(),
+      expiresAt: attempt.expiresAt.toISOString(),
+      submittedAt: attempt.submittedAt ? attempt.submittedAt.toISOString() : null,
+      totalQuestions: attempt.totalQuestions ?? attempt.answers.length,
+      answeredCount:
+        attempt.answeredCount ??
+        attempt.answers.filter((a) => a.selectedOptionIndex !== null).length,
+      correctCount: attempt.correctCount,
+      scorePercent: attempt.scorePercent,
+      passingScore: attempt.quizConfig.passingScore,
+      passed: attempt.passed,
+      baseXp: attempt.baseXp,
+      bonusXp: attempt.bonusXp,
+      awardedXp: attempt.awardedXp,
+      isXpAwarded,
+      xpReason,
+    };
+
+    // Nếu bài thi chưa nộp (IN_PROGRESS hoặc EXPIRED) -> không trả về đáp án đúng
+    if (attempt.status !== "SUBMITTED") {
+      return {
+        ...baseDto,
+        summary: {
+          totalQuestions: baseDto.totalQuestions,
+          answeredCount: baseDto.answeredCount,
+          correctCount: baseDto.correctCount ?? 0,
+          scorePercent: baseDto.scorePercent ?? 0,
+          passingScore: baseDto.passingScore,
+          passed: baseDto.passed ?? false,
+        },
+        xp: {
+          baseXp: baseDto.baseXp ?? 0,
+          bonusXp: baseDto.bonusXp ?? 0,
+          awardedXp: baseDto.awardedXp ?? 0,
+          isXpAwarded: false,
+          reason: "ATTEMPT_NOT_SUBMITTED",
+        },
+        results: [],
+      };
+    }
+
+    // Đã SUBMITTED: Trả về kết quả câu hỏi chi tiết
+    const results: StudentQuizQuestionReviewDto[] = attempt.answers.map((ans) => {
+      const q = ans.quizConfigQuestion;
+      const rawOptions = Array.isArray(q.optionsJson)
+        ? (q.optionsJson as string[])
+        : typeof q.optionsJson === "string"
+          ? JSON.parse(q.optionsJson)
+          : [];
+
+      const optionOrder = Array.isArray(ans.optionOrderJson)
+        ? (ans.optionOrderJson as number[])
+        : [];
+
+      const displayedOptions =
+        optionOrder.length === rawOptions.length
+          ? optionOrder.map((origIdx) => rawOptions[origIdx])
+          : rawOptions;
+
+      const correctDisplayedIndex = optionOrder.indexOf(q.correctIndex);
+      const selectedIdx = ans.selectedOptionIndex;
+      const isCorrect =
+        selectedIdx !== null && selectedIdx === correctDisplayedIndex;
+
+      return {
+        questionId: q.id,
+        displayedOrder: ans.displayedOrder,
+        questionText: q.questionText,
+        options: displayedOptions,
+        selectedOptionIndex: selectedIdx,
+        correctOptionIndex: correctDisplayedIndex,
+        isCorrect,
+        explanation: q.explanation || null,
+      };
+    });
+
+    return {
+      ...baseDto,
+      summary: {
+        totalQuestions: baseDto.totalQuestions,
+        answeredCount: baseDto.answeredCount,
+        correctCount: baseDto.correctCount ?? 0,
+        scorePercent: baseDto.scorePercent ?? 0,
+        passingScore: baseDto.passingScore,
+        passed: baseDto.passed ?? false,
+      },
+      xp: {
+        baseXp: baseDto.baseXp ?? 0,
+        bonusXp: baseDto.bonusXp ?? 0,
+        awardedXp: baseDto.awardedXp ?? 0,
+        isXpAwarded,
+        reason: xpReason ?? "QUIZ_SUBMITTED",
+      },
+      results,
+    };
   }
 }

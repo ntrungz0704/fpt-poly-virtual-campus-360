@@ -154,7 +154,7 @@ test.describe.serial("Milestone M3C: Open Day User Flow & QR Check-in E2E", () =
     const errors = attachErrorCollector(page);
 
     // 1. Log in as admin (bootstrap admin retains mustChangePassword = true policy)
-    const rotatedAdminPassword = "E2EBootstr@p-Updated-2026!";
+    const rotatedAdminPassword = `${ADMIN_PASSWORD}-Rotated!`;
     await page.goto(`${WEB_BASE}/login`);
     await page.locator("#login-identifier").fill("admin");
     await page.locator("#login-password").fill(ADMIN_PASSWORD);
@@ -162,6 +162,7 @@ test.describe.serial("Milestone M3C: Open Day User Flow & QR Check-in E2E", () =
 
     await page.waitForURL(/\/(admin|change-password)/, { timeout: 15_000 });
     if (page.url().includes("/change-password")) {
+      await expect(page.getByText(/Bắt buộc đổi mật khẩu lần đầu/i)).toBeVisible();
       await page.locator("#current-password").fill(ADMIN_PASSWORD);
       await page.locator("#new-password").fill(rotatedAdminPassword);
       await page.locator("#confirm-password").fill(rotatedAdminPassword);

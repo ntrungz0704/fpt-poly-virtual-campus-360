@@ -11,6 +11,8 @@ const webDir = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(webDir, "..", "..");
 
 const E2E_DB_NAME = "vc_e2e_phase2b";
+const E2E_ADMIN_BOOTSTRAP_PASSWORD =
+  process.env.E2E_ADMIN_BOOTSTRAP_PASSWORD || "E2EBootstr@p-Init-2026!";
 const API_URL = "http://localhost:4000/api/v1";
 const WEB_URL = "http://localhost:3000";
 
@@ -45,7 +47,7 @@ async function setupScratchDatabase(baseUrl) {
   const childEnv = {
     ...process.env,
     DATABASE_URL: testDbUrl,
-    ADMIN_BOOTSTRAP_PASSWORD: "E2EBootstr@p-Init-2026!",
+    ADMIN_BOOTSTRAP_PASSWORD: E2E_ADMIN_BOOTSTRAP_PASSWORD,
     NODE_ENV: "test",
     PRISMA_SEED_SKIP_DOTENV: "1",
   };
@@ -245,11 +247,13 @@ async function main() {
       "test",
       "cli.js",
     );
-    execFileSync(process.execPath, [pwCli, "test"], {
+    const extraArgs = process.argv.slice(2);
+    execFileSync(process.execPath, [pwCli, "test", ...extraArgs], {
       cwd: webDir,
       env: {
         ...process.env,
         E2E_DB_URL: testDbUrl,
+        ADMIN_BOOTSTRAP_PASSWORD: E2E_ADMIN_BOOTSTRAP_PASSWORD,
       },
       stdio: "inherit",
     });

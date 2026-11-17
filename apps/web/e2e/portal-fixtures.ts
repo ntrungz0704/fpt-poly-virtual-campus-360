@@ -17,6 +17,7 @@ export interface PortalFixtures {
 }
 
 export function getDatabaseUrl(): string {
+  if (process.env.E2E_DB_URL) return process.env.E2E_DB_URL;
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
   const envPath = path.join(repoRoot, ".env");
   if (fs.existsSync(envPath)) {

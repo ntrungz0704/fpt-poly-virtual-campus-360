@@ -1,23 +1,23 @@
 # PROJECT_STATUS — FPT Polytechnic Virtual Campus 360°
 
 > [!IMPORTANT]
-> **Nguồn sự thật đương đại (Đã nghiệm thu FULL PASS toàn bộ M6 & M7.1–M7.5 tại commit `b23a5ce`, cập nhật `2026-11-16` trên nhánh `main`):**
-> - **Branch & Authoritative HEAD:** `main` @ `b23a5ce`
-> - **Chất lượng kiểm chứng:** 100% Typecheck pass (0 lỗi), 14/14 Unit tests pass, 91/91 PostgreSQL integration tests pass (0 regression), Turbopack build 28/28 routes pass.
-> - **Milestones Đã Nghiệm Thu Đầy Đủ:** M1, M2, M3A–D, M4 (GIS & Phân quyền), M5 (News CMS), M6 (Ngân hàng câu hỏi), M7.1 (Quiz Config & Snapshot), M7.2 (Quiz Delivery & Shuffle), M7.3 (Quiz Attempt Engine), M7.4 (Quiz Scoring & One-Time XP), M7.5 (Quiz Results & Admin Dashboard).
-> - **Trạng thái:** **READY FOR MILESTONE M8 (Open Day Event & QR Check-in)** (Bảo toàn 39 Prisma Models, 21 Enums và 13 NestJS Modules).
+> **Trạng thái đương đại mới nhất (Post-M8 Integration & Audit Batch A — cập nhật `2026-11-17` trên nhánh `audit/comprehensive-quality-remediation`):**
+> - **`origin/main` HEAD (đã merge M8 PR #2):** `c0a268dafaeb84c537f667cabad82b63ee3d39bb` (merge commit của PR [#2](https://github.com/ntrungz0704/fpt-poly-virtual-campus-360/pull/2) gồm `10f8471` và `a8b3833`, trên nền `ef03ce9`).
+> - **Audit Branch (đã đồng bộ `origin/main`):** `audit/comprehensive-quality-remediation` (merge commit `bff4323e910470ffa96f56a7646ba1fa1e5f7778`, B-A1/B-A2 commit `09d0bccb43768d14ddf36d502a5dbfaefa255dd3`, B-A3 Option 1 commit `a9bbfaade7777b2de0a54181c302435e6759a41e`).
+> - **Milestones đã hoàn thành trên `main`:** M1–M7.5 và **M8** (Open Day Event & QR Check-in Engine, B01/B02).
+> - **Trạng thái kiểm toán:** Đã hoàn tất **Batch A** (bảo mật/concurrency gamification, Tour Go-Live guard, Portal integrity/rank/avatar XSS, QR ISO-18004, gỡ public fake fallbacks, B-A1, B-A2 và B-A3 Option 1) — **chờ Tech Lead nghiệm thu chốt Batch A** trước khi bắt đầu **Batch B** (không tuyên bố FULL PASS toàn hệ thống khi còn 10/19 integration suites và Playwright E2E chưa chạy lại ở đợt này).
 
 ---
 
-## 1A. Hiện Trạng Đương Đại Chi Tiết (Cập nhật 2026-11-16 trên nhánh `main`)
+## 1A. Hiện Trạng Đương Đại Chi Tiết (Cập nhật `2026-11-17` trên nhánh `audit/comprehensive-quality-remediation`)
 
 | Lĩnh vực | Trạng thái Thực tế | Chi tiết Kiểm chứng Kỹ thuật |
 |---|---|---|
-| **Cơ sở dữ liệu (Prisma + PostgreSQL 16)** | **ACCEPTED (S6 - Production Ready)** | 39 Models, 21 Enums, quản lý qua 12 migrations. Đã tích hợp đầy đủ `EventParticipation`, `XpLedger`, `QuizConfiguration`, `QuizConfigAttempt`, `QuizXpClaim`, `ParentStudentLink`. |
-| **Backend Core & Business API (`apps/api`)** | **ACCEPTED (S6 - Production Ready)** | 13 NestJS Modules: `auth`, `users-rbac`, `public`, `open-day`, `gamification`, `portal`, `media`, `storage`, `audit-log`, `health`, `news`, `questions`, `quiz-config`. Chuẩn Envelope RESTful `/api/v1`. |
-| **Bảo mật & Phân quyền (Auth & RBAC)** | **ACCEPTED (S6 - Production Ready)** | Băm Argon2id, JWT Cookie HttpOnly rotation, RBAC 6 vai trò, chống IDOR tuyệt đối trên Server-Side. |
-| **Giao diện Web (`apps/web`)** | **ACCEPTED (28/28 Routes)** | Next.js 16.4.6 App Router, Tailwind CSS, 28 routes chức năng (Portal thi trắc nghiệm, Admin kết quả, Tour 360, GIS Map). |
-| **Bộ kiểm thử tự động (Unit & Integration)** | **VERIFIED (14/14 Unit, 91/91 PostgreSQL)** | 14 unit test web (Node test runner), 91 integration test backend chạy trên PostgreSQL thực tế (0 mock). |
+| **Cơ sở dữ liệu (Prisma + PostgreSQL 16)** | **VERIFIED (`13` migrations)** | `39` Models, `23` Enums, quản lý qua `13` migrations (gồm `20261117000001_gamification_guest_session_id` thêm `guest_session_id` nullable cho walk-in gamification). |
+| **Backend Core & Business API (`apps/api`)** | **BATCH A READY / PENDING ACCEPTANCE** | `14` NestJS Modules: `auth`, `users-rbac`, `public`, `open-day` (gồm M8 check-in controller), `gamification` (HMAC guest cookie + strict ticket check + XP-only leaderboard), `portal`, `media`, `storage`, `audit-log`, `health`, `news`, `questions`, `quiz-config`. |
+| **Bảo mật & Phân quyền (Auth & RBAC)** | **POLICY LOCKED (`mustChangePassword = true`)** | Argon2id, JWT + HttpOnly refresh rotation, RBAC 6 vai trò; tài khoản admin seed giữ `mustChangePassword = true` (sửa E2E login/change-password flow vào Batch B; `auth-session.integration.spec.ts` vẫn fail `2` test do `seed.ts:1311` chưa đồng bộ từ `d03b55a`). |
+| **Giao diện Web (`apps/web`)** | **VERIFIED BUILD (`28/28` routes)** | Next.js 16.4.6 App Router, Tailwind CSS, `28` `page.tsx` routes, tích hợp M8 QR Scanner (`jsqr`) + QR ISO-18004 (`QRCodeSVG`) + client guest-session handshake. |
+| **Bộ kiểm thử tự động sau đồng bộ M8 + B-A3** | **PARTIAL REGRESSION PASS (PostgreSQL 16)** | `@fpt-campus/shared build`, `pnpm typecheck`, `web lint/typecheck/build` (`28/28`) & `20/20` web unit tests PASS; `api lint/typecheck/build` & `9/9` API unit suites (`38/38`) PASS; `9/19` PostgreSQL 16 integration suites (`80/80` tests) PASS. Còn `auth-session` (known baseline fail), `9` integration suites ngoài scope và `4/4` Playwright E2E (Batch E) chưa chạy. |
 
 ---
 

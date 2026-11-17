@@ -1,10 +1,12 @@
-# Batch A Targeted Remediation Report — B-A1, B-A2 & B-A3 Analysis
+# Batch A Targeted Remediation & Post-M8 Integration Report — B-A1, B-A2 & B-A3
 
 **Repository:** `ntrungz0704/fpt-poly-virtual-campus-360`  
 **Branch:** `audit/comprehensive-quality-remediation`  
-**Base (`main`):** `ef03ce95f5ad7a746fb355eb0999aa94bfc1c2b2` *(bảo toàn nguyên vẹn)*  
-**M8 Branch (untouched):** `feat/m8-open-day-checkin` (`a8b3833c9c134939b6f6ea97973728041d1b0b70`, PR [#2](https://github.com/ntrungz0704/fpt-poly-virtual-campus-360/pull/2) `OPEN`)  
-**Code & Test Remediation Commit SHA:** `09d0bccb43768d14ddf36d502a5dbfaefa255dd3` *(bảo toàn nguyên vẹn `3cc520253a3828f2343af7c1586e41cf5e494897`, `6f04c39a872de8bef5180e220257d53a71ae2525`, `08f0c79741f02b77d7d1af0752afb921c5470b74`)*
+**`origin/main` HEAD (Post-M8 Merge):** `c0a268dafaeb84c537f667cabad82b63ee3d39bb` (merge PR [#2](https://github.com/ntrungz0704/fpt-poly-virtual-campus-360/pull/2) lúc `2026-11-17T06:14:38Z`, chứa M8 `10f8471` & `a8b3833` trên nền `ef03ce95f5ad7a746fb355eb0999aa94bfc1c2b2`)  
+**Post-M8 Sync Merge Commit on Audit Branch:** `bff4323e910470ffa96f56a7646ba1fa1e5f7778`  
+**B-A1/B-A2 Remediation Commit SHA:** `09d0bccb43768d14ddf36d502a5dbfaefa255dd3`  
+**B-A3 Option 1 Commit SHA:** `a9bbfaade7777b2de0a54181c302435e6759a41e`  
+**Historical Commits Preserved Intact:** `3cc520253a3828f2343af7c1586e41cf5e494897`, `6f04c39a872de8bef5180e220257d53a71ae2525`, `08f0c79741f02b77d7d1af0752afb921c5470b74`, `09d0bccb43768d14ddf36d502a5dbfaefa255dd3`, `3f273f731f54a66929aede66318973a93fc97722`
 
 ---
 
@@ -154,14 +156,64 @@
 
 ---
 
-## 8. Trạng thái Git & Xác nhận Ranh giới
+## 8. Trạng thái Git & Xác nhận Ranh giới (Tại mốc trước Post-M8 Sync — xem Mục 9 cho trạng thái cuối)
 
 - **Code & Test Remediation Commit SHA:** `09d0bccb43768d14ddf36d502a5dbfaefa255dd3` *(trên `audit/comprehensive-quality-remediation`, sau các commit `3cc5202`, `6f04c39`, `08f0c79`)*
 - **Remote Branch URL:** https://github.com/ntrungz0704/fpt-poly-virtual-campus-360/tree/audit/comprehensive-quality-remediation
-- **Xác nhận ranh giới:**
-  - `main` giữ nguyên tại `ef03ce95f5ad7a746fb355eb0999aa94bfc1c2b2` (không sửa).
-  - `feat/m8-open-day-checkin` giữ nguyên tại `a8b3833c9c134939b6f6ea97973728041d1b0b70` (không sửa); PR [#2](https://github.com/ntrungz0704/fpt-poly-virtual-campus-360/pull/2) giữ nguyên trạng thái `OPEN` (không merge/đóng).
-  - Chính sách `mustChangePassword = true` giữ nguyên; không nới lỏng bất kỳ assertion nào.
-  - Không thực hiện Batch B, C, D, E hoặc F.
 
-**Dừng tại đây chờ Tech Lead review B-A1, B-A2 và phản hồi quyết định B-A3.**
+---
+
+## 9. Post-M8 Integration & B-A3 Option 1 Finalization (`2026-11-17`)
+
+### 9.1 Xác minh Merge M8 PR #2 & Đồng bộ `origin/main`
+- **PR #2:** Đã được merge theo ủy quyền của owner (`gh pr merge 2 --merge`) thành `MERGED` lúc `2026-11-17T06:14:38Z` (URL: https://github.com/ntrungz0704/fpt-poly-virtual-campus-360/pull/2).
+- **M8 Merge Commit / `origin/main` HEAD mới:** `c0a268dafaeb84c537f667cabad82b63ee3d39bb` (giữ nguyên 2 commits M8 `10f84718f3679b22cb0ac5d39fd01d30408cafbd` và `a8b3833c9c134939b6f6ea97973728041d1b0b70`, không rewrite/sửa M8).
+- **Chiến lược đồng bộ nhánh Audit (`git merge --no-ff origin/main` → `bff4323e910470ffa96f56a7646ba1fa1e5f7778`):**
+  - Vì `audit/comprehensive-quality-remediation` đã tồn tại công khai trên `origin` (`3f273f7`), chạy `git rebase` sẽ bắt buộc rewrite toàn bộ SHA lịch sử (`3cc5202..3f273f7`) và bị từ chối khi push nếu không force-push.
+  - Theo xác nhận lựa chọn phương án từ user/owner, thực hiện `git merge --no-ff origin/main` để **bảo toàn nguyên vẹn toàn bộ SHA lịch sử (`3cc5202..3f273f7`)** và đồng bộ lên `origin` bằng push thường (0 force-push).
+  - **Kiểm tra xung đột & `QRCodeSVG.tsx`:** Merge hoàn tất với **0 conflict**. Đối chiếu `git diff origin/main..HEAD -- apps/web/src/components/ui/QRCodeSVG.tsx` trả về rỗng và đọc trực tiếp file xác nhận chỉ có duy nhất một implementation ISO-18004 chuẩn (`generateQRMatrix` đặt format bits trước bit dữ liệu, quiet zone `4`, đồng thời test #9 với `jsQR` của M8 decode thành công).
+- **Trạng thái B-A1 / B-A2 sau đồng bộ:** Giữ nguyên toàn bộ `guest_session_id` schema/migration, `gamification-guest-token.ts`, `@Post("guest-session")`, fail-closed `401 GUEST_SESSION_REQUIRED` / `INVALID_GUEST_SESSION`, và `404`/`403`/`400` strict ticket check.
+
+### 9.2 Hoàn tất B-A3 — Option 1 (Commit `a9bbfaa`)
+- **Code sửa (`apps/api/src/modules/gamification/gamification.service.ts`):** Đổi điều kiện lọc tại `getLeaderboard()` từ `.filter((entry) => entry.totalXp > 0 || entry.totalSpins > 0)` thành `.filter((entry) => entry.totalXp > 0)` để dọn điều kiện dư thừa và đồng bộ rule XP Leaderboard (`totalXp > 0`) với `PortalService.getGamification`. Không bổ sung participant spin-only 0 XP, không thay đổi dữ liệu lịch sử.
+- **Unit Test bổ sung (`apps/api/test/unit/gamification.spec.ts`):** Thêm suite `B-A3 Option 1: XP Leaderboard Filtering & Guest Identity Bucket Unit Check` gọi trực tiếp `GamificationService.getLeaderboard()` chứng minh:
+  - Participant chỉ có `UserSpinHistory` (`0 XP`, `3 spins`) và ledger row `0 XP` bị loại khỏi leaderboard.
+  - Hai khách có `guestSessionId` khác nhau dù trùng `attendeeName` hiển thị tách thành 2 entries độc lập.
+  - Entry có `totalXp > 0` hiển thị đúng `totalXp` và `totalSpins`.
+- **Giới hạn dữ liệu Legacy Guest (Bắt buộc ghi nhận):**
+  - Các bản ghi walk-in guest cũ được tạo trước B-A1 không có `guestSessionId` (`userId: null`, `ticketCode: null`, `guestSessionId: null`) vẫn được gom theo `attendeeName.trim().toLowerCase()` trong bucket fallback `legacy_g:<name>`.
+  - Không thể khôi phục chính xác danh tính phiên riêng lẻ cho các bản ghi lịch sử đó từ dữ liệu DB hiện có. Theo quyết định Tech Lead, **không xóa hoặc sửa dữ liệu lịch sử** trong đợt này.
+
+### 9.3 Kết quả Verification & Regression Sau Đồng bộ M8 + B-A3 Option 1
+
+| Hạng mục | Lệnh chạy thực tế (Post-Merge + Post-`a9bbfaa`) | Exit Code | Test Counts / Kết quả |
+|---|---|---|---|
+| Lockfile sync (M8 `jsqr`) | `pnpm install --frozen-lockfile` | `0` | Khớp `pnpm-lock.yaml`, `jsqr` cài sẵn trong `apps/web` |
+| Prisma Client | `pnpm exec prisma generate` | `0` | Prisma Client `v6.19.3` |
+| Shared Build | `pnpm --filter @fpt-campus/shared build` | `0` | Compiled cleanly |
+| Workspace Typecheck | `pnpm typecheck` (`@fpt-campus/shared` + `web`) | `0` | `0` TS errors |
+| Web Lint + Typecheck + Unit | `pnpm --filter web lint; pnpm --filter web typecheck; pnpm --filter web test:unit` (`task-1562`) | `0` | ESLint `0` lỗi; `tsc --noEmit` `0` lỗi; **20 passed, 0 failed, 0 skipped** (gồm test `jsQR` của M8 & `QRCodeSVG` Batch A) |
+| Web Build | `pnpm --filter web build` (`task-1566`) | `0` | `next build` thành công (**28/28 routes**) |
+| API Lint + Typecheck + Build + Unit | `pnpm --filter api lint; pnpm --filter api typecheck; pnpm --filter api build; pnpm --filter api test:unit` (`task-1566`) | `0` | ESLint `0` lỗi; `tsc --noEmit` `0` lỗi; `nest build` OK; **9/9 suites, 38/38 unit tests passed** (gồm M8 `m8-checkin-dto.spec.ts` + `gamification.spec.ts` B-A1/B-A3) |
+| PostgreSQL 16 Integration Regression (9 suites) | `pnpm --filter api exec jest --runInBand --forceExit test/integration/audit-batch-a.integration.spec.ts test/integration/quiz-submit.integration.spec.ts test/integration/quiz-results.integration.spec.ts test/integration/open-day-tickets-checkin.integration.spec.ts test/integration/open-day-rbac-crud.integration.spec.ts test/integration/open-day-checkin-engine.integration.spec.ts test/integration/csrf-cors.integration.spec.ts test/integration/public-isolation.integration.spec.ts test/integration/m1-migration-schema.integration.spec.ts` (`task-1570`) | `0` | **9/9 suites passed, 80/80 tests passed** trên PostgreSQL 16 (gồm `audit-batch-a` 9/9 + M8 `open-day-checkin-engine` PASS) |
+
+### 9.4 Test chưa chạy ở đợt Post-M8 & Lý do (Không tuyên bố FULL PASS)
+1. **`auth-session.integration.spec.ts` (1 suite — known pre-existing fail):** Đã xác định fail 2 tests trên baseline do `prisma/seed.ts:1311` (`mustChangePassword: false` từ `d03b55a`) trái assertion `true` ở `auth-session.integration.spec.ts:45`; giữ nguyên chính sách `mustChangePassword = true` theo lệnh Tech Lead, xử lý đồng bộ vào Batch B.
+2. **9 Integration suites còn lại trên `apps/api/test/integration/` (ngoài 9 suites đã chạy ở mục 9.3):**
+   - `health.integration.spec.ts`, `location-gis-crud.integration.spec.ts`, `media-library-advanced.integration.spec.ts`, `news-cms.integration.spec.ts`, `question-bank.integration.spec.ts`, `quiz-attempt.integration.spec.ts`, `quiz-config.integration.spec.ts`, `quiz-delivery.integration.spec.ts`, `rbac-provisioning-activation.integration.spec.ts`.
+   - *Lý do:* Nằm ngoài phạm vi regression bắt buộc của B-A3/Post-M8 integration đợt này.
+3. **Playwright E2E (`4/4` files: `auth-integration.spec.ts`, `gamification-flow.spec.ts`, `open-day-flow.spec.ts`, `portal-flow.spec.ts`):**
+   - *Lý do:* Thuộc phạm vi Batch E theo kế hoạch Tech Lead; chưa chạy lại live browser E2E. *(Lưu ý tồn đọng đã ghi nhận ở mục 6 về fake `localStorage` ticket trong `gamification-flow.spec.ts`.)*
+4. **GitHub Actions CI:** Chưa có `.github/workflows` trong repository (`0` workflow runs).
+
+### 9.5 Danh sách Files & Xác nhận Cuối
+- **Files thay đổi sau merge `origin/main` (`bff4323`):**
+  1. `apps/api/src/modules/gamification/gamification.service.ts` (B-A3 Option 1 tại `a9bbfaa`)
+  2. `apps/api/test/unit/gamification.spec.ts` (B-A3 Option 1 unit test tại `a9bbfaa`)
+  3. `PROJECT_STATUS.md` (đồng bộ trạng thái đương đại Post-M8 & Batch A, bảo toàn lịch sử Phase 1 / 2A-3)
+  4. `docs/comprehensive-audit/BATCH_A_TARGETED_REMEDIATION_REPORT.md` (cập nhật báo cáo hoàn tất Post-M8 & B-A3)
+- **Xác nhận ranh giới:**
+  - Không commit thẳng lên `main`, không sửa/rewrite commits M8 `10f8471` và `a8b3833`, không force-push.
+  - Không thay đổi `mustChangePassword = true`, không bắt đầu Batch B–F.
+
+**Dừng tại đây chờ Tech Lead đánh giá nghiệm thu chốt Batch A trước khi kích hoạt Batch B.**

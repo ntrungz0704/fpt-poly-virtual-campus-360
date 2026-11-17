@@ -1,11 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { AdminDashboardMetrics, AdminRecentActivityLog } from "@/components/admin";
-import { Badge } from "@/components/ui";
+import { Badge, Button } from "@/components/ui";
 import { OFFICIAL_CAMPUS_INFO } from "@/data/campus-data";
+import { formatAuditTimestampVi } from "@/lib/admin/overview-mappers";
 import {
   getPrimaryRoleLabel,
   hasRequiredAdminPathPermission,
@@ -46,6 +47,8 @@ const QUICK_WORKSPACES = [
 
 export function AdminOverviewContent() {
   const { user } = useAuth();
+  const [refreshSignal, setRefreshSignal] = useState(0);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const visibleWorkspaces = QUICK_WORKSPACES.filter((ws) =>
     hasRequiredAdminPathPermission(user, ws.href),
   );
@@ -63,10 +66,24 @@ export function AdminOverviewContent() {
             Đợt sự kiện đang cấu hình:{" "}
             <strong className="text-on-surface">{OFFICIAL_CAMPUS_INFO.openDayDateLabel}</strong> (
             {OFFICIAL_CAMPUS_INFO.openDayTimeLabel})
+            {lastSyncedAt && (
+              <span className="ml-2 text-xs text-secondary inline-block whitespace-nowrap">
+                · Đồng bộ CSDL: {formatAuditTimestampVi(lastSyncedAt)}
+              </span>
+            )}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            icon="refresh"
+            onClick={() => setRefreshSignal((n) => n + 1)}
+            className="min-h-[40px]"
+          >
+            Làm mới số liệu
+          </Button>
           <Link
             href="/campus"
             className="ui-btn ui-btn-outline min-h-[40px] px-3.5 py-2 text-xs font-semibold"
@@ -89,7 +106,10 @@ export function AdminOverviewContent() {
       </div>
 
       {/* Operational Counters */}
-      <AdminDashboardMetrics />
+      <AdminDashboardMetrics
+        refreshSignal={refreshSignal}
+        onSynced={setLastSyncedAt}
+      />
 
       {/* Authenticated Operator Session Summary + Workspace Shortcuts */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -160,7 +180,7 @@ export function AdminOverviewContent() {
         </div>
       </div>
 
-      <AdminRecentActivityLog />
+      <AdminRecentActivityLog refreshSignal={refreshSignal} />
     </div>
   );
 }

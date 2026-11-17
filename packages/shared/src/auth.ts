@@ -260,3 +260,20 @@ export interface AdminAuditLogsResponseDto {
   limit: number;
   total: number;
 }
+
+export interface AdminOverviewMetricsDto {
+  tourNodesTotal: number;
+  tourNodesPublished: number;
+  hotspotsTotal: number;
+  locationsTotal: number;
+  locationsPublished: number;
+  approvedPanoramasCount: number;
+  openDayEventsPublished: number;
+  eventRegistrationsActive: number;
+  eventRegistrationsCheckedIn: number;
+  checkInRatePercent: number | null;
+  activeUsersTotal: number;
+  activatedUsersTotal: number;
+  activationRatePercent: number | null;
+  generatedAt: ISO8601Timestamp;
+}

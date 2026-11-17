@@ -4,6 +4,7 @@ import {
   type ApiEnvelope,
   type ApiErrorCode,
   type ApiErrorDetail,
+  type ApiMeta,
   type AuthUserProfileDto,
   type ChangePasswordRequest,
   type CreateQuestionInputDto,
@@ -121,7 +122,9 @@ export function clearClientSessionState(): void {
   setSessionHintCookie(false);
 }
 
-async function parseApiResponse<T>(response: Response): Promise<T> {
+async function parseApiEnvelope<T>(
+  response: Response,
+): Promise<{ data: T; meta: ApiMeta }> {
   let payload: ApiEnvelope<T> | null = null;
   try {
     payload = (await response.json()) as ApiEnvelope<T>;
@@ -130,7 +133,10 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
   }
 
   if (response.ok && payload && isApiSuccessEnvelope(payload)) {
-    return payload.data;
+    return {
+      data: payload.data,
+      meta: payload.meta ?? {},
+    };
   }
 
   if (payload && isApiErrorEnvelope(payload)) {
@@ -188,7 +194,7 @@ async function executeRefreshRequest(): Promise<LoginResponse> {
   }
 
   try {
-    const data = await parseApiResponse<LoginResponse>(response);
+    const { data } = await parseApiEnvelope<LoginResponse>(response);
     inMemoryAccessToken = data.accessToken;
     setSessionHintCookie(true);
     lifecycleHandlers.onSessionUpdated?.(data.user);
@@ -231,10 +237,10 @@ export interface ApiRequestOptions {
   skipRefreshRetry?: boolean;
 }
 
-export async function apiRequest<T>(
+export async function apiRequestEnvelope<T>(
   path: string,
   options: ApiRequestOptions = {},
-): Promise<T> {
+): Promise<{ data: T; meta: ApiMeta }> {
   const {
     method = "GET",
     body,
@@ -302,7 +308,7 @@ export async function apiRequest<T>(
   }
 
   try {
-    return await parseApiResponse<T>(response);
+    return await parseApiEnvelope<T>(response);
   } catch (error) {
     if (error instanceof ApiClientError) {
       if (error.status === 401 && isRequiredAuth) {
@@ -314,6 +320,14 @@ export async function apiRequest<T>(
     }
     throw error;
   }
+}
+
+export async function apiRequest<T>(
+  path: string,
+  options: ApiRequestOptions = {},
+): Promise<T> {
+  const { data } = await apiRequestEnvelope<T>(path, options);
+  return data;
 }
 
 export const authApi = {

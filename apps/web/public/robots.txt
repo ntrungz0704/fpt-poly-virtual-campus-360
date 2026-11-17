@@ -3,5 +3,6 @@ Allow: /
 Disallow: /admin
 Disallow: /portal
 Disallow: /login
+Disallow: /change-password
 
 Sitemap: https://virtualcampus.poly.edu.vn/sitemap.xml

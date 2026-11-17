@@ -115,7 +115,7 @@ test.describe.serial("Audit Batch B-C2 — Events Countdown & Public Content Hon
 
     await page.reload();
     await expect(page.getByTestId("event-countdown-happening")).toBeVisible();
-    await expect(page.getByText("Sự kiện đang diễn ra hoặc đã đến giờ đón tiếp khách tham quan")).toBeVisible();
+    await expect(page.getByText("Đã đến thời gian bắt đầu sự kiện")).toBeVisible();
 
     await page.unroute("**/api/v1/public/events");
     expect(errors.pageErrors).toEqual([]);
@@ -164,15 +164,16 @@ test.describe.serial("Audit Batch B-C2 — Events Countdown & Public Content Hon
     await expect(emailInput).toBeVisible();
     await expect(emailInput).toHaveValue("");
 
-    // Zero unverified 24h promise on page
+    // Zero unverified 24h promise and zero unverified hotline on page
     const pageText = await page.locator("body").innerText();
     expect(pageText).not.toContain("Nguyễn Văn An");
     expect(pageText).not.toContain("trong vòng 24 giờ");
     expect(pageText).not.toContain("Đăng ký tư vấn thành công!");
+    expect(pageText).not.toContain("1900 633 540");
 
-    // Limitation notice is visible
+    // Limitation notice is visible directing to official portal
     await expect(page.getByTestId("contact-online-limitation")).toBeVisible();
-    await expect(page.getByText("1900 633 540").first()).toBeVisible();
+    await expect(page.getByText("caodang.fpt.edu.vn/lien-he").first()).toBeVisible();
 
     // Fill form and submit -> honest guidance banner, zero fake ticket success
     await nameInput.fill("Tran Thu Trang");
@@ -182,7 +183,8 @@ test.describe.serial("Audit Batch B-C2 — Events Countdown & Public Content Hon
 
     const submitNotice = page.getByTestId("contact-submission-notice");
     await expect(submitNotice).toBeVisible();
-    await expect(submitNotice).toContainText("1900 633 540");
+    await expect(submitNotice).toContainText("caodang.fpt.edu.vn");
+    await expect(submitNotice).not.toContainText("1900 633 540");
     await expect(submitNotice).not.toContainText("trong vòng 24 giờ");
 
     expect(errors.pageErrors).toEqual([]);
@@ -200,11 +202,11 @@ test.describe.serial("Audit Batch B-C2 — Events Countdown & Public Content Hon
     expect(pageText).not.toContain("42+");
     expect(pageText).not.toContain("Điểm nhìn VR 360° số hóa");
 
-    // Verified 5 buildings at QTSC
+    // Verified buildings overview at QTSC
     const buildingCount = page.getByTestId("verified-building-count");
     await expect(buildingCount).toBeVisible();
-    await expect(buildingCount).toHaveText("5");
-    await expect(page.getByText("Tòa nhà & Phân khu tại QTSC")).toBeVisible();
+    await expect(buildingCount).toContainText("5");
+    await expect(buildingCount).toContainText("phân khu mô phỏng tiêu biểu");
 
     expect(errors.pageErrors).toEqual([]);
     expect(errors.hydrationErrors).toEqual([]);

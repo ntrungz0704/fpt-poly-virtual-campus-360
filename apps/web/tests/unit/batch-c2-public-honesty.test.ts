@@ -23,19 +23,19 @@ test("REAL-07: calculateEventCountdown handles future events, happening/past eve
   assert.equal(futureCountdown.seconds, 15);
   assert.match(futureCountdown.label, /14 ngày 2 giờ 30 phút 15 giây/);
 
-  // 2. Happening / Past event: never displays negative numbers
+  // 2. Happening / Past event: never displays negative numbers and uses neutral semantics
   const pastIso = "2026-05-30T08:00:00.000Z";
   const pastCountdown = calculateEventCountdown(pastIso, baseNow);
-  assert.equal(pastCountdown.status, "HAPPENING_OR_PAST");
+  assert.equal(pastCountdown.status, "STARTED_OR_PASSED");
   assert.equal(pastCountdown.days, 0);
   assert.equal(pastCountdown.hours, 0);
   assert.equal(pastCountdown.minutes, 0);
   assert.equal(pastCountdown.seconds, 0);
-  assert.match(pastCountdown.label, /đang diễn ra hoặc đã đến giờ đón khách/);
+  assert.match(pastCountdown.label, /Đã đến thời gian bắt đầu sự kiện/);
 
   // 3. Exact target timestamp (diff = 0)
   const exactCountdown = calculateEventCountdown("2026-06-01T10:00:00.000Z", baseNow);
-  assert.equal(exactCountdown.status, "HAPPENING_OR_PAST");
+  assert.equal(exactCountdown.status, "STARTED_OR_PASSED");
   assert.equal(exactCountdown.days, 0);
 
   // 4. Missing / null / invalid dates
@@ -112,13 +112,14 @@ test("REAL-09: contact/page.tsx removes dummy PII, eliminates fake client-side s
   assert.equal(contactSource.includes("0987 654 321"), false);
   assert.equal(contactSource.includes("an.nguyen@gmail.com"), false);
 
-  // Zero unverified 24h promise
+  // Zero unverified 24h promise & zero unverified hotline
   assert.equal(contactSource.includes("24 giờ qua số điện thoại"), false);
   assert.equal(contactSource.includes("Đăng ký tư vấn thành công!"), false);
+  assert.equal(contactSource.includes("1900 633 540"), false);
 
-  // Has honest limitation note directing to verified hotline
+  // Has honest limitation note directing to verified official URLs
   assert.match(contactSource, /contact-online-limitation/);
-  assert.match(contactSource, /1900 633 540/);
+  assert.match(contactSource, /officialContactUrl/);
 });
 
 test("REAL-10: about/page.tsx removes unverified '42+' metric and binds to verified campus building data", () => {

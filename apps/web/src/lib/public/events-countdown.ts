@@ -1,6 +1,6 @@
 export type CountdownStatus =
   | "UPCOMING"
-  | "HAPPENING_OR_PAST"
+  | "STARTED_OR_PASSED"
   | "UNANNOUNCED";
 
 export interface EventCountdownState {
@@ -14,7 +14,9 @@ export interface EventCountdownState {
 
 /**
  * Calculates countdown units from now until eventDate.
- * Enforces non-negative values and explicit unannounced state when date is absent.
+ * Enforces non-negative values, explicit unannounced state when date is absent,
+ * and neutral "STARTED_OR_PASSED" state when date has arrived (since public DTO
+ * does not carry endDate/runtime status, we cannot assert the event is actively happening).
  */
 export function calculateEventCountdown(
   eventDate: string | null | undefined,
@@ -47,12 +49,12 @@ export function calculateEventCountdown(
   const diffMs = targetMs - nowMs;
   if (diffMs <= 0) {
     return {
-      status: "HAPPENING_OR_PAST",
+      status: "STARTED_OR_PASSED",
       days: 0,
       hours: 0,
       minutes: 0,
       seconds: 0,
-      label: "Sự kiện đang diễn ra hoặc đã đến giờ đón khách",
+      label: "Đã đến thời gian bắt đầu sự kiện",
     };
   }
 

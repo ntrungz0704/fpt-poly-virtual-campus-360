@@ -120,7 +120,7 @@ export default function AboutPage() {
             <h2 className="text-2xl sm:text-3xl font-extrabold font-heading">Những Con Số Ấn Tượng</h2>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
               <span className="font-heading text-3xl sm:text-4xl font-extrabold text-primary block mb-1">200K+</span>
               <span className="text-xs text-slate-300">Sinh viên &amp; Cựu sinh viên</span>
@@ -133,15 +133,6 @@ export default function AboutPage() {
               <span className="font-heading text-3xl sm:text-4xl font-extrabold text-emerald-400 block mb-1">97.7%</span>
               <span className="text-xs text-slate-300">Sinh viên có việc làm</span>
             </div>
-            <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-              <span
-                data-testid="verified-building-count"
-                className="font-heading text-3xl sm:text-4xl font-extrabold text-blue-400 block mb-1"
-              >
-                {CAMPUS_BUILDINGS.length}
-              </span>
-              <span className="text-xs text-slate-300">Tòa nhà &amp; Phân khu tại QTSC</span>
-            </div>
           </div>
         </section>
 
@@ -149,8 +140,19 @@ export default function AboutPage() {
         <section className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <Badge variant="brand">Khuôn viên QTSC Quận 12</Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="brand">Khuôn viên QTSC Quận 12</Badge>
+                <span
+                  data-testid="verified-building-count"
+                  className="text-xs font-semibold text-secondary"
+                >
+                  {CAMPUS_BUILDINGS.length} phân khu mô phỏng tiêu biểu
+                </span>
+              </div>
               <h2 className="type-h1 text-on-surface mt-1">Cơ Sở Vật Chất &amp; Không Gian Học Tập</h2>
+              <p className="text-xs text-secondary mt-1">
+                Các tòa nhà và phân khu tiêu biểu được lập mô hình trong bản đồ số (Dữ liệu thử nghiệm QTSC)
+              </p>
             </div>
             <Link href="/locations" className="ui-cta-link text-sm font-bold flex items-center gap-1">
               <span>Xem toàn bộ phòng thực hành</span>

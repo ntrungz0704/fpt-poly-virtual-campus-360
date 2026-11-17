@@ -46,9 +46,15 @@ export default function ContactPage() {
               Đội ngũ cán bộ tư vấn sẵn sàng giải đáp 100% thắc mắc về phương thức xét tuyển học bạ, học phí trọn gói, cam kết việc làm và trải nghiệm thực tế cơ sở vật chất.
             </p>
             <div className="flex flex-wrap gap-4 text-xs font-semibold pt-2">
-              <div className="flex items-center gap-2 bg-white/10 backdrop-blur px-4 py-2.5 rounded-xl border border-white/10">
-                <span className="material-symbols-outlined text-primary">call</span> Hotline 24/7: 1900 633 540
-              </div>
+              <a
+                href={OFFICIAL_CAMPUS_INFO.officialContactUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 bg-white/10 backdrop-blur px-4 py-2.5 rounded-xl border border-white/10 hover:bg-white/20 transition"
+              >
+                <span className="material-symbols-outlined text-primary">public</span>
+                <span>Cổng Liên hệ: caodang.fpt.edu.vn/lien-he</span>
+              </a>
               <div className="flex items-center gap-2 bg-white/10 backdrop-blur px-4 py-2.5 rounded-xl border border-white/10">
                 <span className="material-symbols-outlined text-primary">location_on</span> QTSC Quận 12, TP.HCM
               </div>
@@ -87,7 +93,7 @@ export default function ContactPage() {
                 <p className="leading-relaxed text-amber-900">
                   Hệ thống tiếp nhận biểu mẫu trực tuyến hiện chưa tích hợp endpoint lưu trữ cơ sở dữ liệu.
                   Để được hỗ trợ hồ sơ và giải đáp thông tin chính xác nhất, quý thí sinh vui lòng liên hệ trực tiếp
-                  Hotline <strong>1900 633 540</strong> hoặc đến Văn phòng Tuyển sinh tại <strong>Toà nhà Innovation (QTSC Quận 12)</strong>.
+                  qua Cổng thông tin chính thức tại <a href={OFFICIAL_CAMPUS_INFO.officialContactUrl} target="_blank" rel="noopener noreferrer" className="underline font-bold">caodang.fpt.edu.vn/lien-he</a> hoặc đến Văn phòng Tuyển sinh tại <strong>Toà nhà Innovation (QTSC Quận 12)</strong>.
                 </p>
               </div>
             </div>
@@ -99,13 +105,13 @@ export default function ContactPage() {
                 data-testid="contact-submission-notice"
               >
                 <span className="material-symbols-outlined text-3xl text-primary" aria-hidden="true">
-                  phone_in_talk
+                  public
                 </span>
                 <h3 className="text-sm font-bold text-on-surface font-heading">
-                  Vui lòng liên hệ trực tiếp Hotline Tuyển sinh
+                  Vui lòng truy cập Cổng Thông tin Tuyển sinh Chính thức
                 </h3>
                 <p className="text-xs text-secondary leading-relaxed max-w-md mx-auto">
-                  Biểu mẫu trực tuyến chưa hỗ trợ gửi tự động qua hệ thống. Quý phụ huynh và thí sinh {formData.fullName ? `(${formData.fullName}) ` : ""}vui lòng gọi ngay <strong>1900 633 540</strong> hoặc truy cập cổng thông tin chính thức <strong>{OFFICIAL_CAMPUS_INFO.officialSiteUrl}</strong> để cán bộ tuyển sinh hỗ trợ trực tiếp.
+                  Biểu mẫu trực tuyến chưa hỗ trợ gửi tự động qua hệ thống. Quý phụ huynh và thí sinh {formData.fullName ? `(${formData.fullName}) ` : ""}vui lòng truy cập Cổng liên hệ chính thức <strong>{OFFICIAL_CAMPUS_INFO.officialContactUrl}</strong> hoặc cổng trường <strong>{OFFICIAL_CAMPUS_INFO.officialSiteUrl}</strong> để cán bộ tuyển sinh hỗ trợ trực tiếp.
                 </p>
                 <button
                   type="button"
@@ -318,13 +324,18 @@ export default function ContactPage() {
             {/* Assistance banner */}
             <div className="bg-gradient-to-br from-orange-50 to-orange-100/60 rounded-3xl p-6 border border-primary/20 space-y-3">
               <div className="flex items-center gap-2.5">
-                <span className="material-symbols-outlined text-2xl text-primary">headset_mic</span>
-                <span className="font-heading font-bold text-sm text-on-surface">Hỗ trợ Trực tuyến Zalo &amp; Hotline</span>
+                <span className="material-symbols-outlined text-2xl text-primary">public</span>
+                <span className="font-heading font-bold text-sm text-on-surface">Cổng Hỗ trợ Tuyển sinh Trực tuyến</span>
               </div>
-              <p className="text-xs text-secondary">Gặp gỡ trực tiếp tư vấn viên qua Zalo Official Account hoặc hotline ưu tiên.</p>
+              <p className="text-xs text-secondary">Truy cập cổng tuyển sinh chính thức để nộp hồ sơ xét tuyển và liên hệ tư vấn viên.</p>
               <div className="flex gap-3 pt-1">
-                <a href="tel:1900633540" className="flex-1 py-2.5 px-3 rounded-xl bg-primary text-white text-xs font-bold text-center shadow-xs">
-                  Gọi 1900 633 540
+                <a
+                  href={OFFICIAL_CAMPUS_INFO.officialContactUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-primary text-white text-xs font-bold text-center shadow-xs"
+                >
+                  Cổng Liên Hệ Tuyển Sinh
                 </a>
                 <a
                   href={OFFICIAL_CAMPUS_INFO.officialSiteUrl}

@@ -76,19 +76,19 @@ function EventLiveCountdown({
     );
   }
 
-  if (countdown.status === "HAPPENING_OR_PAST") {
+  if (countdown.status === "STARTED_OR_PASSED") {
     return (
       <div
-        className="pt-2 flex items-center gap-2 text-xs font-bold text-emerald-400"
+        className="pt-2 flex items-center gap-2 text-xs font-semibold text-slate-200"
         data-testid="event-countdown-happening"
       >
         <span
-          className="material-symbols-outlined text-[18px] text-emerald-400"
+          className="material-symbols-outlined text-[18px] text-primary"
           aria-hidden="true"
         >
-          celebration
+          event_available
         </span>
-        <span>Sự kiện đang diễn ra hoặc đã đến giờ đón tiếp khách tham quan</span>
+        <span>Đã đến thời gian bắt đầu sự kiện</span>
       </div>
     );
   }

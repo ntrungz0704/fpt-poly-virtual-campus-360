@@ -1,11 +1,14 @@
 # PROJECT_STATUS — FPT Polytechnic Virtual Campus 360°
 
 > [!IMPORTANT]
-> **Trạng thái đương đại mới nhất (Post-M8 Integration & Audit Batch A — cập nhật `2026-11-17` trên nhánh `audit/comprehensive-quality-remediation`):**
-> - **`origin/main` HEAD (đã merge M8 PR #2):** `c0a268dafaeb84c537f667cabad82b63ee3d39bb` (merge commit của PR [#2](https://github.com/ntrungz0704/fpt-poly-virtual-campus-360/pull/2) gồm `10f8471` và `a8b3833`, trên nền `ef03ce9`).
-> - **Audit Branch (đã đồng bộ `origin/main`):** `audit/comprehensive-quality-remediation` (merge commit `bff4323e910470ffa96f56a7646ba1fa1e5f7778`, B-A1/B-A2 commit `09d0bccb43768d14ddf36d502a5dbfaefa255dd3`, B-A3 Option 1 commit `a9bbfaade7777b2de0a54181c302435e6759a41e`).
+> **Trạng thái đương đại mới nhất (Post-M8 Integration + Audit Batch A & Batch B COMPLETE — cập nhật `2026-11-17` trên nhánh `audit/comprehensive-quality-remediation`):**
+> - **`origin/main` HEAD (đã merge M8 PR #2, không đụng trực tiếp):** `c0a268dafaeb84c537f667cabad82b63ee3d39bb` (merge commit của PR [#2](https://github.com/ntrungz0704/fpt-poly-virtual-campus-360/pull/2) gồm `10f8471` và `a8b3833`, trên nền `ef03ce9`).
+> - **Audit Branch:** `audit/comprehensive-quality-remediation`
 > - **Milestones đã hoàn thành trên `main`:** M1–M7.5 và **M8** (Open Day Event & QR Check-in Engine, B01/B02).
-> - **Trạng thái kiểm toán:** Đã hoàn tất **Batch A** (bảo mật/concurrency gamification, Tour Go-Live guard, Portal integrity/rank/avatar XSS, QR ISO-18004, gỡ public fake fallbacks, B-A1, B-A2 và B-A3 Option 1) — **chờ Tech Lead nghiệm thu chốt Batch A** trước khi bắt đầu **Batch B** (không tuyên bố FULL PASS toàn hệ thống khi còn 10/19 integration suites và Playwright E2E chưa chạy lại ở đợt này).
+> - **Trạng thái kiểm toán đã nghiệm thu bởi Tech Lead:**
+>   - **Batch A — COMPLETE (`ACCEPTED` tại `6aa4427`):** `bff4323`, `09d0bcc` (B-A1/B-A2), `a9bbfaa` (B-A3 Option 1).
+>   - **Batch B — COMPLETE (`B-B1`, `B-B2`, `B-B3`, `B-B4` đều `ACCEPTED` tại `1fee256`, chi tiết tại [`BATCH_B_REMEDIATION_REPORT.md`](docs/comprehensive-audit/BATCH_B_REMEDIATION_REPORT.md)):** `a388652` & `c3096c5` (B-B1), `aca1ab5` & `4de2026` (B-B2), `fe1531b` (B-B3), `1fee256` (B-B4).
+> - **Ranh giới sẵn sàng dự án:** **Batch B COMPLETE ≠ Production-Ready.** Dự án vẫn còn các nhóm việc **Batches C–F** (`UI-09`/content cleanup ngoài dashboard, dead code, full cross-browser E2E Batch E, CI `.github/workflows`, và điều kiện cutover/vận hành `OPS-01/02/03` / `prisma/preflight-m1-quiz-event.sql` `BLK-E1`) chưa triển khai/nghiệm thu.
 
 ---
 
@@ -13,11 +16,11 @@
 
 | Lĩnh vực | Trạng thái Thực tế | Chi tiết Kiểm chứng Kỹ thuật |
 |---|---|---|
-| **Cơ sở dữ liệu (Prisma + PostgreSQL 16)** | **VERIFIED (`13` migrations)** | `39` Models, `23` Enums, quản lý qua `13` migrations (gồm `20261117000001_gamification_guest_session_id` thêm `guest_session_id` nullable cho walk-in gamification). |
-| **Backend Core & Business API (`apps/api`)** | **BATCH A READY / PENDING ACCEPTANCE** | `14` NestJS Modules: `auth`, `users-rbac`, `public`, `open-day` (gồm M8 check-in controller), `gamification` (HMAC guest cookie + strict ticket check + XP-only leaderboard), `portal`, `media`, `storage`, `audit-log`, `health`, `news`, `questions`, `quiz-config`. |
-| **Bảo mật & Phân quyền (Auth & RBAC)** | **POLICY LOCKED (`mustChangePassword = true`)** | Argon2id, JWT + HttpOnly refresh rotation, RBAC 6 vai trò; tài khoản admin seed giữ `mustChangePassword = true` (sửa E2E login/change-password flow vào Batch B; `auth-session.integration.spec.ts` vẫn fail `2` test do `seed.ts:1311` chưa đồng bộ từ `d03b55a`). |
-| **Giao diện Web (`apps/web`)** | **VERIFIED BUILD (`28/28` routes)** | Next.js 16.4.6 App Router, Tailwind CSS, `28` `page.tsx` routes, tích hợp M8 QR Scanner (`jsqr`) + QR ISO-18004 (`QRCodeSVG`) + client guest-session handshake. |
-| **Bộ kiểm thử tự động sau đồng bộ M8 + B-A3** | **PARTIAL REGRESSION PASS (PostgreSQL 16)** | `@fpt-campus/shared build`, `pnpm typecheck`, `web lint/typecheck/build` (`28/28`) & `20/20` web unit tests PASS; `api lint/typecheck/build` & `9/9` API unit suites (`38/38`) PASS; `9/19` PostgreSQL 16 integration suites (`80/80` tests) PASS. Còn `auth-session` (known baseline fail), `9` integration suites ngoài scope và `4/4` Playwright E2E (Batch E) chưa chạy. |
+| **Cơ sở dữ liệu (Prisma + PostgreSQL 16)** | **VERIFIED (`14` migrations)** | `39` Models, `23` Enums, quản lý qua `14` migrations (B-A1 thêm `20261117000001_gamification_guest_session_id`; B-B1 thêm `20261117000002_event_participation_active_email_unique` khóa trùng email active). |
+| **Backend Core & Business API (`apps/api`)** | **BATCH A & B ACCEPTED** | `14` NestJS Modules: `GET /api/v1/admin/overview` (B-B3 PostgreSQL counts), `GET /api/v1/admin/audit-logs` (`audit:read`), `TourAdminService` đồng bộ TX/edge/`deleteNode`/guard `tour:publish` trên `updateNode` (B-B2), `NewsAdminService`/`NewsPublicService` xử lý `BigInt` & loại media `deleted_at IS NOT NULL` (B-B4), `PublicService.registerEvent` chống race `P2002` (B-B1). |
+| **Bảo mật & Phân quyền (Auth & RBAC)** | **POLICY LOCKED & VERIFIED (`auth-session` 4/4 PASS)** | `prisma/seed.ts:1311` giữ nguyên `mustChangePassword: true`; E2E runner đồng bộ `E2E_ADMIN_BOOTSTRAP_PASSWORD`; `PATCH /admin/tour/nodes/:id` chặn đổi `status` thiếu `tour:publish` (`403`); `/admin/audit-logs` giữ chặt `audit:read` (`403` cho `TOUR_EDITOR`/`EVENT_OPERATOR`). |
+| **Giao diện Web (`apps/web`)** | **VERIFIED BUILD (`28/28` routes)** | Next.js 16.4.6 App Router (`28` routes): gỡ 100% `localStorage`/`TOUR_SCENES` ở Tour Studio & Admin Locations (B-B2); gỡ KPI/log giả trên Dashboard Admin & xử lý `403`/error/empty/loading qua `apiRequestEnvelope` (B-B3); dọn timer/unmount trong `SpinWheel.tsx` qua `createSpinTimerLifecycle()` (B-B4). |
+| **Bộ kiểm thử tự động sau B-B4 (`1fee256`)** | **SCOPED REGRESSION PASS (PostgreSQL 16)** | `@fpt-campus/shared build`, `api build/lint/typecheck` (`0` lỗi), **11/11** API unit suites (**42/42 PASS**), `web lint/typecheck/build` (`28/28`) & **32/32** Web unit tests PASS; **5/5** PG16 integration suites trọng tâm sau `1fee256` (**36/36 PASS**: `news-cms` 17/17, `audit-batch-a` 9/9, `audit-batch-b1` 5/5, `audit-batch-b2` 3/3, `audit-batch-b3` 2/2). Thêm E2E `admin-dashboard-b3.spec.ts` (**2/2 PASS**) ở B-B3 & `open-day-flow.spec.ts` (**5/5 PASS**) ở B-B1. Còn lỗi E2E pre-existing ngoài scope (`auth-integration #5`, `portal-flow #4`), full regression Batch E & CI chưa chạy. |
 
 ---
 

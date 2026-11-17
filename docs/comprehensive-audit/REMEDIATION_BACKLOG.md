@@ -4,8 +4,8 @@
 
 | Batch | Focus | Severity Scope | Status |
 |---|---|---|---|
-| **Batch A** | Critical Security, Race Conditions, Integrity Guards, QR ISO Fix & Zero Fake Mutations | **P0 / P1** | **IN PROGRESS (Executing Now — Stop after Batch A for Tech Lead Review)** |
-| **Batch B** | Admin Dashboard Real Data API (`metrics` + `audit-logs`), Virtual Tour Studio DB Sync, SpinWheel Timeout Cleanup, Concurrent Email Registration Lock, M8/Auth Seed Decision Alignment | **P1 / P2** | **Pending Tech Lead Review of Batch A** |
+| **Batch A** | Critical Security, Race Conditions, Integrity Guards, QR ISO Fix & Zero Fake Mutations (`B-A1`–`B-A3`) | **P0 / P1** | **COMPLETE (`ACCEPTED @ 6aa4427`)** |
+| **Batch B** | Auth Seed/Reg Race (`B-B1`), Tour Studio PostgreSQL Sync (`B-B2`), Admin Dashboard Real Data (`B-B3`), SpinWheel Cleanup & News Media (`B-B4`) | **P1 / P2** | **COMPLETE (`ACCEPTED @ 1fee256`)** |
 | **Batch C** | UI/UX & Real Content Remediation (Events real countdown, Schedule `NOON`, inline toast replacing `alert()`, Location/[slug] fake hardware specs removal, Contact form honesty, About facts check, AdminOverview links, Sitemap dynamic DB integration) | **P2** | **Planned** |
 | **Batch D** | Code Quality, Dead Code & Cleanup (`DigitalPassCard`, `PersonalItineraryTimeline`, `StudentProfileHeader`, unused `news-items.ts` once sitemap updated, shared spin rules helper, `puppeteer` cleanup audit) | **P2 / P3** | **Planned** |
 | **Batch E** | Cross-Browser/E2E Regression, Accessibility, Mobile Responsive Sweep & Playwright E2E Suite Repair/Verification | **QA / Perf** | **Planned** |

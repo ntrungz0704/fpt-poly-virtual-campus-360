@@ -1,3 +1,40 @@
+# HANDOFF TO TECH LEAD (GPT) — COMPREHENSIVE AUDIT BATCH B COMPLETION (`B-B1` → `B-B4`)
+
+**Kho lưu trữ:** `ntrungz0704/fpt-poly-virtual-campus-360`  
+**Nhánh làm việc hiện tại:** `audit/comprehensive-quality-remediation` *(tạo từ `main @ ef03ce9`, đã merge `origin/main` Post-M8 `c0a268d` tại `bff4323`)*  
+**Trạng thái nghiệm thu Tech Lead:** **Batch A ACCEPTED (`6aa4427`)** · **Batch B COMPLETE (`B-B1` → `B-B4` ALL ACCEPTED tại `1fee256`)**  
+**Báo cáo chi tiết Batch B:** [`docs/comprehensive-audit/BATCH_B_REMEDIATION_REPORT.md`](comprehensive-audit/BATCH_B_REMEDIATION_REPORT.md)  
+**Đối chiếu trạng thái tổng thể:** [`PROJECT_STATUS.md`](../PROJECT_STATUS.md)
+
+---
+
+## 1. Tóm tắt Kết quả Batch B (Đã Nghiệm thu Theo Từng Gói)
+
+1. **B-B1 (`AUTH-SEED-POLICY` + `PUBLIC-REG-RACE`) — `ACCEPTED` (`a388652`, `c3096c5`):**
+   - Khôi phục `mustChangePassword: true` trong `prisma/seed.ts:1311`; đồng bộ `E2E_ADMIN_BOOTSTRAP_PASSWORD`, `E2E_DB_URL` và luồng đổi mật khẩu đầu cho E2E (`open-day-flow.spec.ts` 5/5 PASS; `auth-session.integration.spec.ts` 4/4 PASS).
+   - Bổ sung partial unique index PostgreSQL `uq_event_participations_active_email` (`prisma/migrations/20261117000002_event_participation_active_email_unique/migration.sql`) và xử lý atomic `P2002` (`409 DUPLICATE_REGISTRATION`) + retry `ticket_code` trong `PublicService.registerEvent()` (`audit-batch-b1.integration.spec.ts` 5/5 PASS).
+2. **B-B2 (`TOUR-STUDIO-SYNC`) — `ACCEPTED` (`aca1ab5`, `4de2026`):**
+   - Gỡ 100% `localStorage` (`vc_admin_tour_scenes`) và fallback tĩnh `TOUR_SCENES` khỏi `/admin/virtual-tour` và `/admin/locations`; PostgreSQL là Source of Truth duy nhất kèm Loading/Error/Empty states.
+   - Bổ sung `DELETE /api/v1/admin/tour/nodes/:id` (`deleteNode()` dọn 3 FK nullable `Location.primaryNodeId`, `Building.defaultNodeId`, `Campus.defaultEntryNodeId`, xóa hotspots trước edges và ghi `AuditLog` cùng `$transaction`); đồng bộ `TourEdge`/hotspot trong `$transaction` của `batchSaveStudio()`.
+   - Vá lỗ hổng phân quyền thực tế trên `PATCH /api/v1/admin/tour/nodes/:id`: bắt buộc quyền `tour:publish` khi đổi `status`, siết `@IsEnum`, bọc `unpublishTour()` trong `$transaction` (`audit-batch-b2.integration.spec.ts` 3/3 PASS).
+3. **B-B3 (`REAL-05 / REAL-06 / UI-09`) — `ACCEPTED` (`fe1531b`):**
+   - Tạo `GET /api/v1/admin/overview` (`@RequireAnyPermission(...)`) truy vấn số liệu thực PostgreSQL (`0`/`N/A` khi rỗng); gỡ sạch KPI/nhật ký giả (`128,450`, `3,820`, `95.5%`, `99.98%`, `Panorama 8K`, `RECENT_OPERATIONS`).
+   - Tích hợp `GET /api/v1/admin/audit-logs?page=1&limit=8` giữ nguyên `@RequirePermissions("audit:read")`, thêm `apiRequestEnvelope()` trong `api-client.ts` đọc đúng phân trang `{ data, meta }` từ `ResponseEnvelopeInterceptor`, và xử lý `403` tường minh không giả lập dữ liệu (`audit-batch-b3.integration.spec.ts` 2/2 PASS; `e2e/admin-dashboard-b3.spec.ts` 2/2 PASS với ảnh Desktop/Mobile/`403`).
+4. **B-B4 (`SPINWHEEL-CLEANUP + NEWS-MEDIA-POLISH`) — `ACCEPTED` (`1fee256`):**
+   - Tách `createSpinTimerLifecycle()` (`epoch` + `isMountedRef` + `cancel()` khi unmount) cho `SpinWheel.tsx` ngăn cập nhật state/callback muộn, giữ nguyên logic quay/idempotency (`spinwheel-cleanup.test.ts` 3/3 PASS).
+   - Loại bỏ `coverMedia: true` gây lỗi serialize `BigInt` (`fileSizeBytes`) ở `NewsAdminService.getArticle()`, loại trừ `MediaAsset` đã soft-delete (`deleted_at IS NOT NULL`) ở cả Admin & Public News API, từ chối media không tồn tại/đã xóa/`FAILED` (`400`), và bảo toàn bài viết legacy dùng `coverImageUrl` (`news-media-polish.spec.ts` 2/2 PASS; `news-cms.integration.spec.ts` 17/17 PASS).
+
+## 2. Xác nhận Kiểm thử, Giới hạn & Phạm vi Còn Lại (Không tuyên bố Production-Ready)
+- **Kiểm thử sau B-B4 (`1fee256`, `exit code = 0`):** Shared/API/Web build (`28/28` routes), lint, typecheck đều `0` lỗi; API unit **11/11 suites (42/42 PASS)**; Web unit **32/32 PASS**; PostgreSQL 16 integration 5 suites trọng tâm (**36/36 PASS**: `news-cms` 17/17, `audit-batch-a` 9/9, `audit-batch-b1` 5/5, `audit-batch-b2` 3/3, `audit-batch-b3` 2/2).
+- **Giới hạn & việc còn lại:** Vẫn còn **Batches C–F** (`UI-09`/content cleanup ngoài dashboard, dead code, full cross-browser E2E Batch E sửa 2 lỗi pre-existing `auth-integration #5` & `portal-flow #4`, CI `.github/workflows`, cùng rà soát điều kiện vận hành/cutover `OPS-01/02/03` và preflight `prisma/preflight-m1-quiz-event.sql` `BLK-E1`). Batch B là **COMPLETE**, không tự động gộp lên `main` hoặc tự suy diễn trạng thái production-ready.
+
+---
+
+# PRESERVED HISTORICAL HANDOFF RECORD (MILESTONE M7.5 — 2026-11-16, BRANCH `fix/m4-acceptance-blockers`)
+
+> [!NOTE]
+> Tài liệu dưới đây được bảo toàn nguyên văn để lưu giữ lịch sử nghiệm thu Milestone M7.5 trước khi nhánh `audit/comprehensive-quality-remediation` triển khai Batch A & Batch B.
+
 # BÁO CÁO NGHIỆM THU NGHIỆP VỤ & KỸ THUẬT MILESTONE M7.5 — TARGETED REMEDIATION (B01 & B02)
 ## ĐÃ KHẮC PHỤC TRIỆT ĐỂ READ-ONLY SEMANTICS VÀ BOOLEAN QUERY TRANSFORMATION TRÊN POSTGRESQL THỰC TẾ
 

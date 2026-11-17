@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -16,6 +17,8 @@ import {
   type AdminQuizResultsSummaryDto,
   type BuildingCode,
   type CheckInResultDto,
+  type CheckInXpRewardDto,
+  type OpenDayAttendanceStatsDto,
   type OpenDayEventMetadataDto,
   type ParticipationStatus,
 } from "@fpt-campus/shared";
@@ -27,21 +30,25 @@ import {
   type PaginatedPayload,
 } from "../../common/interceptors/response-envelope.interceptor";
 import { AuditLogService } from "../audit-log/audit-log.service";
-import type {
-  AdminEventParticipationsQueryDto,
-  AdminEventsQueryDto,
-  CheckInTicketDto,
-  OpenDayLookupBuildingDto,
-  OpenDayLookupTourNodeDto,
-  PatchOpenDayEventDto,
-  PatchOpenDayFaqDto,
-  PatchOpenDayQuizItemDto,
-  PatchOpenDaySessionDto,
-  UpsertOpenDayEventDto,
-  UpsertOpenDayFaqDto,
-  UpsertOpenDayQuizItemDto,
-  UpsertOpenDaySessionDto,
+import {
+  normalizeTicketCodeInput,
+  type AdminEventParticipationsQueryDto,
+  type AdminEventsQueryDto,
+  type CheckInTicketDto,
+  type OpenDayLookupBuildingDto,
+  type OpenDayLookupTourNodeDto,
+  type PatchOpenDayEventDto,
+  type PatchOpenDayFaqDto,
+  type PatchOpenDayQuizItemDto,
+  type PatchOpenDaySessionDto,
+  type UpsertOpenDayEventDto,
+  type UpsertOpenDayFaqDto,
+  type UpsertOpenDayQuizItemDto,
+  type UpsertOpenDaySessionDto,
 } from "./dto/open-day.dto";
+
+const OPEN_DAY_CHECKIN_XP_REWARD = 50;
+const OPEN_DAY_CHECKIN_XP_SOURCE = "CHECK_IN";
 
 const ADMIN_EVENT_INCLUDE = {
   _count: {
@@ -1241,19 +1248,91 @@ export class OpenDayService {
   }
 
   // ---------------------------------------------------------------------------
-  // M3C: Open Day Participations & Check-in
+  // M3C / M8: Open Day Participations, Attendance Stats & Check-in Engine
   // ---------------------------------------------------------------------------
+
+  private assertCheckInActorAuthorized(actor: AuthenticatedUser): void {
+    if (actor.userType !== "ADMIN" && actor.userType !== "STAFF") {
+      throw new ForbiddenException({
+        code: "FORBIDDEN",
+        message:
+          "Chỉ tài khoản Quản trị (ADMIN) hoặc Nhân sự (STAFF) mới có quyền thực hiện nghiệp vụ check-in.",
+      });
+    }
+  }
+
+  private async computeEventAttendanceStats(
+    eventId: string,
+    eventTitle: string,
+  ): Promise<OpenDayAttendanceStatsDto> {
+    const grouped = await this.prisma.eventParticipation.groupBy({
+      by: ["participationStatus"],
+      where: { eventId },
+      _count: { _all: true },
+    });
+
+    let totalInvited = 0;
+    let totalConfirmed = 0;
+    let totalCheckedIn = 0;
+    let totalCancelled = 0;
+
+    for (const row of grouped) {
+      if (row.participationStatus === "INVITED") {
+        totalInvited = row._count._all;
+      } else if (row.participationStatus === "CONFIRMED") {
+        totalConfirmed = row._count._all;
+      } else if (row.participationStatus === "CHECKED_IN") {
+        totalCheckedIn = row._count._all;
+      } else if (row.participationStatus === "CANCELLED") {
+        totalCancelled = row._count._all;
+      }
+    }
+
+    const totalAllTickets =
+      totalInvited + totalConfirmed + totalCheckedIn + totalCancelled;
+    const totalValidTickets = totalInvited + totalConfirmed + totalCheckedIn;
+    const totalNotCheckedIn = totalInvited + totalConfirmed;
+    const attendanceRate =
+      totalValidTickets > 0
+        ? Number(((totalCheckedIn / totalValidTickets) * 100).toFixed(2))
+        : 0;
+
+    return {
+      eventId,
+      eventTitle,
+      totalAllTickets,
+      totalValidTickets,
+      totalInvited,
+      totalConfirmed,
+      totalCheckedIn,
+      totalNotCheckedIn,
+      totalCancelled,
+      attendanceRate,
+    };
+  }
+
+  async getEventAttendanceStats(
+    eventId: string,
+    actor?: AuthenticatedUser,
+  ): Promise<OpenDayAttendanceStatsDto> {
+    if (actor) {
+      this.assertCheckInActorAuthorized(actor);
+    }
+    const campusId = await this.resolveAuthorizedCampusId();
+    const event = await this.requireEventInCampus(eventId, campusId);
+    return this.computeEventAttendanceStats(event.id, event.title);
+  }
 
   async listParticipations(
     eventId: string,
     query: AdminEventParticipationsQueryDto,
+    actor?: AuthenticatedUser,
   ): Promise<AdminParticipationsListResponseDto> {
-    const event = await this.prisma.openDayEvent.findFirst({
-      where: { id: eventId, deletedAt: null },
-    });
-    if (!event) {
-      throw new NotFoundException("Sự kiện không tồn tại.");
+    if (actor) {
+      this.assertCheckInActorAuthorized(actor);
     }
+    const campusId = await this.resolveAuthorizedCampusId();
+    const event = await this.requireEventInCampus(eventId, campusId);
 
     const page = Math.max(1, query.page ?? 1);
     const pageSize = Math.min(100, Math.max(1, query.pageSize ?? 20));
@@ -1277,14 +1356,9 @@ export class OpenDayService {
       ];
     }
 
-    const [total, totalConfirmed, totalCheckedIn, rows] = await Promise.all([
-      this.prisma.eventParticipation.count({ where: { eventId } }),
-      this.prisma.eventParticipation.count({
-        where: { eventId, participationStatus: "CONFIRMED" },
-      }),
-      this.prisma.eventParticipation.count({
-        where: { eventId, participationStatus: "CHECKED_IN" },
-      }),
+    const [stats, filteredTotal, rows] = await Promise.all([
+      this.computeEventAttendanceStats(event.id, event.title),
+      this.prisma.eventParticipation.count({ where }),
       this.prisma.eventParticipation.findMany({
         where,
         orderBy: { createdAt: "desc" },
@@ -1310,14 +1384,21 @@ export class OpenDayService {
       checkedInBy: r.checkedInBy,
       checkedInByName:
         r.checkedInByUser?.fullName ?? r.checkedInByUser?.username ?? null,
+      userId: r.userId,
       createdAt: r.createdAt.toISOString(),
     }));
 
     return {
       items,
-      total,
-      totalConfirmed,
-      totalCheckedIn,
+      total: filteredTotal,
+      totalInvited: stats.totalInvited,
+      totalConfirmed: stats.totalConfirmed,
+      totalCheckedIn: stats.totalCheckedIn,
+      totalCancelled: stats.totalCancelled,
+      totalValidTickets: stats.totalValidTickets,
+      totalNotCheckedIn: stats.totalNotCheckedIn,
+      attendanceRate: stats.attendanceRate,
+      stats,
       page,
       pageSize,
     };
@@ -1327,88 +1408,357 @@ export class OpenDayService {
     dto: CheckInTicketDto,
     actor: AuthenticatedUser,
     ipAddress: string | null,
+    options?: { requireEventId?: boolean },
   ): Promise<CheckInResultDto> {
-    const code = dto.ticketCode.trim().toUpperCase();
-    const participation = await this.prisma.eventParticipation.findUnique({
-      where: { ticketCode: code },
-      include: { event: true },
-    });
+    this.assertCheckInActorAuthorized(actor);
 
-    if (!participation || participation.event.deletedAt !== null) {
+    const normalizedRaw = normalizeTicketCodeInput(dto.ticketCode);
+    const code = typeof normalizedRaw === "string" ? normalizedRaw : "";
+    if (!code || code.length > 32) {
       throw new NotFoundException({
-        code: "TICKET_NOT_FOUND",
-        message: `Mã vé "${code}" không tồn tại trên hệ thống.`,
+        code: "INVALID_TICKET",
+        message: `Mã vé "${code || ""}" không hợp lệ hoặc không tồn tại trên hệ thống.`,
+        details: [{ rule: "INVALID_TICKET", ticketCode: code }],
       });
     }
 
-    if (participation.participationStatus === "CHECKED_IN") {
-      const timeStr = participation.checkedInAt
-        ? new Date(participation.checkedInAt).toLocaleString("vi-VN")
-        : "";
-      throw new ConflictException({
-        code: "ALREADY_CHECKED_IN",
-        message: `Vé "${code}" đã được check-in vào lúc ${timeStr}. Không thể check-in lại!`,
-      });
-    }
+    const campusId = await this.resolveAuthorizedCampusId();
+    const requireEventId = options?.requireEventId ?? true;
 
-    if (participation.participationStatus === "CANCELLED") {
-      throw new BadRequestException({
-        code: "TICKET_CANCELLED",
-        message: `Vé "${code}" đã bị hủy, không thể thực hiện check-in.`,
+    let resolvedTargetEventId: string;
+    if (dto.eventId) {
+      const targetEvent = await this.requireEventInCampus(
+        dto.eventId,
+        campusId,
+      );
+      if (targetEvent.status !== PublishStatus.PUBLISHED) {
+        throw new UnprocessableEntityException({
+          code: "INVALID_EVENT_STATUS",
+          message: `Sự kiện "${targetEvent.title}" hiện không ở trạng thái cho phép check-in.`,
+          details: [
+            {
+              rule: "INVALID_EVENT_STATUS",
+              eventId: targetEvent.id,
+              eventTitle: targetEvent.title,
+              eventStatus: targetEvent.status,
+            },
+          ],
+        });
+      }
+      resolvedTargetEventId = targetEvent.id;
+    } else {
+      if (requireEventId) {
+        throw new BadRequestException({
+          code: "VALIDATION_ERROR",
+          message: "Bắt buộc phải truyền eventId của sự kiện đang check-in.",
+        });
+      }
+      // Legacy /admin/events/check-in compatibility is permitted ONLY when strictly one PUBLISHED event exists in the campus.
+      const publishedEvents = await this.prisma.openDayEvent.findMany({
+        where: {
+          campusId,
+          deletedAt: null,
+          status: PublishStatus.PUBLISHED,
+        },
+        select: { id: true },
+        take: 2,
       });
+      if (publishedEvents.length !== 1) {
+        throw new BadRequestException({
+          code: "VALIDATION_ERROR",
+          message:
+            publishedEvents.length === 0
+              ? "Không có sự kiện Open Day nào ở trạng thái PUBLISHED; bắt buộc phải truyền eventId."
+              : "Hệ thống đang có nhiều sự kiện Open Day công khai; bắt buộc phải truyền eventId để tránh check-in nhầm sự kiện.",
+        });
+      }
+      resolvedTargetEventId = publishedEvents[0].id;
     }
 
     const now = new Date();
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const result = await tx.eventParticipation.update({
-        where: { id: participation.id },
-        data: {
-          participationStatus: "CHECKED_IN",
-          checkedInAt: now,
-          checkedInBy: actor.id,
-        },
-        include: { event: true },
-      });
 
-      await this.auditLogService.record({
-        actorUserId: actor.id,
-        actorUsername: actor.username,
-        action: "OPEN_DAY_CHECK_IN",
-        resourceType: "event_participation",
-        resourceId: result.id,
-        diffJson: {
-          ticketCode: result.ticketCode,
-          checkedInAt: now.toISOString(),
-          eventId: result.eventId,
-        },
-        ipAddress,
-        tx,
-      });
+    const { updatedTicket, xpReward } = await this.prisma.$transaction(
+      async (tx) => {
+        // Lock participation row in PostgreSQL to serialize concurrent check-ins for the same ticketCode
+        const lockedRows = await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT id
+          FROM event_participations
+          WHERE ticket_code = ${code}
+          FOR UPDATE
+        `;
 
-      return result;
-    });
+        if (lockedRows.length === 0) {
+          throw new NotFoundException({
+            code: "INVALID_TICKET",
+            message: `Mã vé "${code}" không tồn tại trên hệ thống.`,
+            details: [{ rule: "INVALID_TICKET", ticketCode: code }],
+          });
+        }
+
+        const participation = await tx.eventParticipation.findUnique({
+          where: { id: lockedRows[0].id },
+          include: {
+            event: true,
+            user: {
+              select: { id: true, fullName: true },
+            },
+          },
+        });
+
+        if (
+          !participation ||
+          participation.event.deletedAt !== null ||
+          participation.event.campusId !== campusId
+        ) {
+          throw new NotFoundException({
+            code: "INVALID_TICKET",
+            message: `Mã vé "${code}" không tồn tại hoặc không thuộc khuôn viên được phép check-in.`,
+            details: [{ rule: "INVALID_TICKET", ticketCode: code }],
+          });
+        }
+
+        if (participation.eventId !== resolvedTargetEventId) {
+          throw new UnprocessableEntityException({
+            code: "EVENT_MISMATCH",
+            message: `Vé "${code}" thuộc sự kiện "${participation.event.title}", không khớp với sự kiện đang check-in.`,
+            details: [
+              {
+                rule: "EVENT_MISMATCH",
+                ticketCode: code,
+                attendeeName: participation.attendeeName ?? null,
+                ticketEventId: participation.eventId,
+                ticketEventTitle: participation.event.title,
+                expectedEventId: resolvedTargetEventId,
+              },
+            ],
+          });
+        }
+
+        if (participation.event.status !== PublishStatus.PUBLISHED) {
+          throw new UnprocessableEntityException({
+            code: "INVALID_EVENT_STATUS",
+            message: `Sự kiện "${participation.event.title}" chưa được công khai (PUBLISHED) để thực hiện check-in.`,
+            details: [
+              {
+                rule: "INVALID_EVENT_STATUS",
+                ticketCode: code,
+                attendeeName: participation.attendeeName ?? null,
+                eventId: participation.eventId,
+                eventTitle: participation.event.title,
+                eventStatus: participation.event.status,
+              },
+            ],
+          });
+        }
+
+        if (participation.participationStatus === "CANCELLED") {
+          throw new BadRequestException({
+            code: "CANCELLED_TICKET",
+            message: `Vé "${code}" đã bị hủy, không thể thực hiện check-in.`,
+            details: [
+              {
+                rule: "CANCELLED_TICKET",
+                ticketCode: code,
+                attendeeName: participation.attendeeName ?? null,
+                eventId: participation.eventId,
+                eventTitle: participation.event.title,
+              },
+            ],
+          });
+        }
+
+        if (participation.participationStatus === "CHECKED_IN") {
+          const timeStr = participation.checkedInAt
+            ? new Date(participation.checkedInAt).toLocaleString("vi-VN")
+            : "";
+          throw new ConflictException({
+            code: "ALREADY_CHECKED_IN",
+            message: `Vé "${code}" đã được check-in vào lúc ${timeStr}. Không thể check-in lại!`,
+            details: [
+              {
+                rule: "ALREADY_CHECKED_IN",
+                ticketCode: code,
+                attendeeName: participation.attendeeName ?? null,
+                eventId: participation.eventId,
+                eventTitle: participation.event.title,
+                checkedInAt: participation.checkedInAt
+                  ? participation.checkedInAt.toISOString()
+                  : null,
+              },
+            ],
+          });
+        }
+
+        if (
+          participation.participationStatus !== "INVITED" &&
+          participation.participationStatus !== "CONFIRMED"
+        ) {
+          throw new UnprocessableEntityException({
+            code: "INVALID_TICKET_STATUS",
+            message: `Trạng thái vé "${participation.participationStatus}" không hợp lệ để check-in.`,
+            details: [
+              {
+                rule: "INVALID_TICKET_STATUS",
+                ticketCode: code,
+                status: participation.participationStatus,
+              },
+            ],
+          });
+        }
+
+        // Conditional atomic update ensuring single check-in transition
+        const conditionalUpdate = await tx.eventParticipation.updateMany({
+          where: {
+            id: participation.id,
+            participationStatus: { in: ["INVITED", "CONFIRMED"] },
+          },
+          data: {
+            participationStatus: "CHECKED_IN",
+            checkedInAt: now,
+            checkedInBy: actor.id,
+          },
+        });
+
+        if (conditionalUpdate.count !== 1) {
+          throw new ConflictException({
+            code: "ALREADY_CHECKED_IN",
+            message: `Vé "${code}" đã được check-in trước đó.`,
+            details: [{ rule: "ALREADY_CHECKED_IN", ticketCode: code }],
+          });
+        }
+
+        const updatedRow = await tx.eventParticipation.findUniqueOrThrow({
+          where: { id: participation.id },
+          include: { event: true },
+        });
+
+        // XP Award inside the same atomic transaction:
+        // Only credit XP when participation.userId is linked to a user account; never assign XP to actor or another user.
+        const linkedUserId = participation.userId ?? null;
+        let resolvedXpReward: CheckInXpRewardDto;
+
+        if (linkedUserId) {
+          const idempotencyKey = `open-day:check-in:${participation.eventId}:${participation.ticketCode}`;
+          const existingLedger = await tx.xpLedger.findUnique({
+            where: { idempotencyKey },
+            select: { id: true },
+          });
+
+          if (existingLedger) {
+            resolvedXpReward = {
+              awarded: false,
+              amountXp: 0,
+              userId: linkedUserId,
+              reason: "ALREADY_AWARDED",
+              ledgerId: existingLedger.id,
+              idempotencyKey,
+            };
+          } else {
+            const resolvedName =
+              participation.attendeeName?.trim() ||
+              participation.user?.fullName?.trim() ||
+              participation.ticketCode;
+
+            const createdLedger = await tx.xpLedger.create({
+              data: {
+                userId: linkedUserId,
+                ticketCode: participation.ticketCode,
+                attendeeName: resolvedName.slice(0, 160),
+                amountXp: OPEN_DAY_CHECKIN_XP_REWARD,
+                source: OPEN_DAY_CHECKIN_XP_SOURCE,
+                referenceId: participation.id,
+                idempotencyKey,
+                metadataJson: {
+                  eventId: participation.eventId,
+                  eventKey: participation.event.eventKey,
+                  participationId: participation.id,
+                  ticketCode: participation.ticketCode,
+                  checkedInBy: actor.id,
+                  checkedInAt: now.toISOString(),
+                },
+              },
+              select: { id: true },
+            });
+
+            resolvedXpReward = {
+              awarded: true,
+              amountXp: OPEN_DAY_CHECKIN_XP_REWARD,
+              userId: linkedUserId,
+              reason: "CHECKED_IN_REWARD",
+              ledgerId: createdLedger.id,
+              idempotencyKey,
+            };
+          }
+        } else {
+          resolvedXpReward = {
+            awarded: false,
+            amountXp: 0,
+            userId: null,
+            reason: "NO_LINKED_USER",
+            ledgerId: null,
+            idempotencyKey: null,
+          };
+        }
+
+        await this.auditLogService.record({
+          actorUserId: actor.id,
+          actorUsername: actor.username,
+          action: "OPEN_DAY_CHECK_IN",
+          resourceType: "event_participation",
+          resourceId: updatedRow.id,
+          diffJson: {
+            ticketCode: updatedRow.ticketCode,
+            eventId: updatedRow.eventId,
+            eventKey: updatedRow.event.eventKey,
+            previousStatus: participation.participationStatus,
+            newStatus: "CHECKED_IN",
+            checkedInAt: now.toISOString(),
+            checkedInBy: actor.id,
+            xpAwarded: resolvedXpReward.awarded,
+            xpAmount: resolvedXpReward.amountXp,
+            xpRecipientUserId: resolvedXpReward.userId,
+            xpReason: resolvedXpReward.reason,
+            xpLedgerId: resolvedXpReward.ledgerId,
+            xpIdempotencyKey: resolvedXpReward.idempotencyKey,
+          },
+          ipAddress,
+          tx,
+        });
+
+        return { updatedTicket: updatedRow, xpReward: resolvedXpReward };
+      },
+    );
+
+    const attendeeDisplay = updatedTicket.attendeeName || code;
+    const message = xpReward.awarded
+      ? `Check-in thành công cho ${attendeeDisplay} (+${xpReward.amountXp} XP)!`
+      : `Check-in thành công cho ${attendeeDisplay}! (Vé chưa liên kết tài khoản sinh viên — không cộng XP)`;
 
     return {
       success: true,
-      message: `Check-in thành công cho khách tham quan: ${updated.attendeeName || code}!`,
+      status: "CHECKED_IN_SUCCESS",
+      code: "CHECKED_IN_SUCCESS",
+      message,
       ticket: {
-        id: updated.id,
-        ticketCode: updated.ticketCode,
-        eventId: updated.eventId,
-        eventTitle: updated.event.title,
-        eventDateLabel: updated.event.dateLabel,
-        eventTimeLabel: updated.event.timeLabel,
-        attendeeName: updated.attendeeName ?? "",
-        attendeeEmail: updated.attendeeEmail ?? "",
-        attendeePhone: updated.attendeePhone ?? "",
-        participationStatus: updated.participationStatus,
-        checkedInAt: updated.checkedInAt
-          ? updated.checkedInAt.toISOString()
+        id: updatedTicket.id,
+        ticketCode: updatedTicket.ticketCode,
+        eventId: updatedTicket.eventId,
+        eventTitle: updatedTicket.event.title,
+        eventDateLabel: updatedTicket.event.dateLabel,
+        eventTimeLabel: updatedTicket.event.timeLabel,
+        attendeeName: updatedTicket.attendeeName ?? "",
+        attendeeEmail: updatedTicket.attendeeEmail ?? "",
+        attendeePhone: updatedTicket.attendeePhone ?? "",
+        participationStatus: updatedTicket.participationStatus,
+        checkedInAt: updatedTicket.checkedInAt
+          ? updatedTicket.checkedInAt.toISOString()
           : null,
-        createdAt: updated.createdAt.toISOString(),
-        qrPayload: `TICKET:${updated.ticketCode}`,
+        createdAt: updatedTicket.createdAt.toISOString(),
+        qrPayload: `TICKET:${updatedTicket.ticketCode}`,
       },
       checkedInAt: now.toISOString(),
+      checkedInBy: actor.id,
+      xpReward,
     };
   }
 

@@ -6,6 +6,7 @@ import type {
   AdminQuizResultsSummaryDto,
   CheckInResultDto,
   CheckInTicketInput,
+  OpenDayAttendanceStatsDto,
 } from "@fpt-campus/shared";
 import { apiRequest } from "../auth/api-client";
 
@@ -79,13 +80,26 @@ export async function fetchAdminParticipations(
 }
 
 /**
- * Check-in attendee by ticket code.
- * POST /api/v1/admin/events/check-in
+ * Fetch real-time PostgreSQL attendance statistics for an event.
+ * GET /api/v1/open-day/events/:eventId/attendance-stats
+ */
+export async function fetchOpenDayAttendanceStats(
+  eventId: string,
+): Promise<OpenDayAttendanceStatsDto> {
+  return apiRequest<OpenDayAttendanceStatsDto>(
+    `/open-day/events/${encodeURIComponent(eventId)}/attendance-stats`,
+    { auth: true },
+  );
+}
+
+/**
+ * Check-in attendee by QR / ticket code.
+ * POST /api/v1/open-day/check-in
  */
 export async function checkInAttendeeTicket(
   input: CheckInTicketInput,
 ): Promise<CheckInResultDto> {
-  return apiRequest<CheckInResultDto>("/admin/events/check-in", {
+  return apiRequest<CheckInResultDto>("/open-day/check-in", {
     method: "POST",
     body: input,
     auth: true,

@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import type {
   AdminEventParticipationDto,
   AdminOpenDayEventDto,
   AdminOpenDayQuizItemDto,
   AdminOpenDaySessionDto,
+  OpenDayAttendanceStatsDto,
 } from "@fpt-campus/shared";
 import {
   Badge,
@@ -27,10 +28,17 @@ import {
   fetchAdminEventSessions,
   fetchAdminParticipations,
   fetchAdminQuizItems,
+  fetchOpenDayAttendanceStats,
 } from "@/lib/admin/events-admin-api";
-import { ApiClientError } from "@/lib/auth/api-client";
+import {
+  buildSuccessOutcome,
+  classifyCheckInError,
+  extractTicketCodeFromQr,
+  type CheckInOutcomeView,
+} from "@/lib/admin/qr-scanner-utils";
 import { cn } from "@/lib/utils";
 import { ExamRoomMonitoring } from "./components/exam-room-monitoring";
+import { OpenDayCheckInStation } from "./components/open-day-checkin-station";
 import { QuizConfigManager } from "./components/quiz-config-manager";
 import { QuizResultsDashboard } from "./components/quiz-results-dashboard";
 
@@ -43,12 +51,16 @@ export default function AdminEventsPage() {
   const [sessions, setSessions] = useState<AdminOpenDaySessionDto[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
 
-  // Check-in roster state
+  // Check-in & Attendance Dashboard state (M8)
   const [participations, setParticipations] = useState<AdminEventParticipationDto[]>([]);
+  const [attendanceStats, setAttendanceStats] = useState<OpenDayAttendanceStatsDto | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [totalRoster, setTotalRoster] = useState(0);
   const [totalCheckedIn, setTotalCheckedIn] = useState(0);
+  const [filteredRosterTotal, setFilteredRosterTotal] = useState(0);
   const [isLoadingRoster, setIsLoadingRoster] = useState(true);
   const [rosterQuery, setRosterQuery] = useState("");
+  const [rosterStatusFilter, setRosterStatusFilter] = useState<string>("ALL");
 
   // Quiz items state
   const [quizItems, setQuizItems] = useState<AdminOpenDayQuizItemDto[]>([]);
@@ -67,9 +79,15 @@ export default function AdminEventsPage() {
     explanation: "",
   });
 
-  // Quick check-in input state
-  const [quickTicketCode, setQuickTicketCode] = useState("");
+  // Check-in Engine UI State (M8)
   const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [lastOutcome, setLastOutcome] = useState<CheckInOutcomeView | null>(null);
+  const [recentOutcomes, setRecentOutcomes] = useState<CheckInOutcomeView[]>([]);
+
+  const selectedEvent = useMemo(
+    () => events.find((e) => e.id === selectedEventId) ?? null,
+    [events, selectedEventId],
+  );
 
   // Toast state
   const [toast, setToast] = useState<{
@@ -123,34 +141,85 @@ export default function AdminEventsPage() {
     };
   }, [selectedEventId]);
 
-  // Load participations when tab is 'checkin', event changes, or query changes
-  const loadParticipations = useCallback((eventId: string, query: string) => {
-    setIsLoadingRoster(true);
-    fetchAdminParticipations(eventId, { search: query.trim() || undefined, pageSize: 50 })
-      .then((res) => {
-        setParticipations(res.items);
-        setTotalRoster(res.total);
-        setTotalCheckedIn(res.totalCheckedIn);
+  // Load participations & real PostgreSQL attendance stats
+  const loadParticipations = useCallback(
+    (eventId: string, query: string, statusFilter = "ALL") => {
+      setIsLoadingRoster(true);
+      setIsLoadingStats(true);
+      fetchAdminParticipations(eventId, {
+        search: query.trim() || undefined,
+        status: statusFilter !== "ALL" ? statusFilter : undefined,
+        pageSize: 50,
+      })
+        .then((res) => {
+          setParticipations(res.items);
+          setFilteredRosterTotal(res.total);
+          setTotalRoster(res.totalValidTickets ?? res.total);
+          setTotalCheckedIn(res.totalCheckedIn);
+          if (res.stats) {
+            setAttendanceStats(res.stats);
+          }
+        })
+        .catch((err) => {
+          setToast({
+            open: true,
+            message: err instanceof Error ? err.message : "Lỗi tải danh sách khách",
+            type: "error",
+          });
+        })
+        .finally(() => {
+          setIsLoadingRoster(false);
+          setIsLoadingStats(false);
+        });
+    },
+    [],
+  );
+
+  const refreshAttendanceStats = useCallback((eventId: string) => {
+    setIsLoadingStats(true);
+    fetchOpenDayAttendanceStats(eventId)
+      .then((stats) => {
+        setAttendanceStats(stats);
+        setTotalRoster(stats.totalValidTickets);
+        setTotalCheckedIn(stats.totalCheckedIn);
       })
       .catch((err) => {
         setToast({
           open: true,
-          message: err instanceof Error ? err.message : "Lỗi tải danh sách khách",
+          message: err instanceof Error ? err.message : "Lỗi tải thống kê điểm danh",
           type: "error",
         });
       })
       .finally(() => {
-        setIsLoadingRoster(false);
+        setIsLoadingStats(false);
       });
   }, []);
 
   useEffect(() => {
+    if (!selectedEventId) return;
+    let cancelled = false;
+    fetchOpenDayAttendanceStats(selectedEventId)
+      .then((stats) => {
+        if (!cancelled) {
+          setAttendanceStats(stats);
+          setTotalRoster(stats.totalValidTickets);
+          setTotalCheckedIn(stats.totalCheckedIn);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEventId]);
+
+  useEffect(() => {
     if (!selectedEventId || tab !== "checkin") return;
+    const delayMs = rosterQuery.trim() ? 200 : 0;
     const timer = setTimeout(() => {
-      loadParticipations(selectedEventId, rosterQuery);
-    }, 200);
+      loadParticipations(selectedEventId, rosterQuery, rosterStatusFilter);
+    }, delayMs);
     return () => clearTimeout(timer);
-  }, [selectedEventId, tab, rosterQuery, loadParticipations]);
+  }, [selectedEventId, tab, rosterQuery, rosterStatusFilter, loadParticipations]);
 
   // Load quiz items when tab is 'quiz' or event changes
   const loadQuizItems = useCallback((eventId: string) => {
@@ -175,40 +244,56 @@ export default function AdminEventsPage() {
     loadQuizItems(selectedEventId);
   }, [selectedEventId, tab, loadQuizItems]);
 
-  // Handle Check-in Action
-  const handleCheckIn = async (codeToSubmit: string) => {
-    const code = codeToSubmit.trim().toUpperCase();
+  // Authoritative Check-in Action (never marks success before API confirms)
+  const handleCheckIn = async (
+    codeToSubmit: string,
+    source: "camera" | "manual" | "roster" = "manual",
+  ) => {
+    const code = extractTicketCodeFromQr(codeToSubmit);
     if (!code) {
-      setToast({ open: true, message: "Vui lòng nhập mã vé hợp lệ", type: "error" });
+      setToast({ open: true, message: "Vui lòng nhập hoặc quét mã vé hợp lệ", type: "error" });
       return;
     }
 
+    if (!selectedEventId) {
+      setToast({
+        open: true,
+        message: "Vui lòng chọn sự kiện đang check-in trước khi quét hoặc nhập mã vé.",
+        type: "error",
+      });
+      return;
+    }
+
+    void source;
     setIsCheckingIn(true);
     try {
-      const res = await checkInAttendeeTicket({ ticketCode: code });
+      const res = await checkInAttendeeTicket({
+        ticketCode: code,
+        eventId: selectedEventId,
+      });
+      const outcome = buildSuccessOutcome(res);
+      setLastOutcome(outcome);
+      setRecentOutcomes((prev) => [outcome, ...prev].slice(0, 10));
       setToast({
         open: true,
         message: res.message || `Check-in thành công mã vé ${code}!`,
         type: "success",
       });
-      setQuickTicketCode("");
       if (selectedEventId) {
-        loadParticipations(selectedEventId, rosterQuery);
+        loadParticipations(selectedEventId, rosterQuery, rosterStatusFilter);
       }
     } catch (err) {
-      if (err instanceof ApiClientError) {
-        setToast({ open: true, message: err.message, type: "error" });
-      } else {
-        setToast({ open: true, message: "Lỗi kết nối khi check-in vé", type: "error" });
-      }
+      const outcome = classifyCheckInError(err, code);
+      setLastOutcome(outcome);
+      setRecentOutcomes((prev) => [outcome, ...prev].slice(0, 10));
+      setToast({
+        open: true,
+        message: outcome.message,
+        type: "error",
+      });
     } finally {
       setIsCheckingIn(false);
     }
-  };
-
-  const handleQuickCheckInSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    void handleCheckIn(quickTicketCode);
   };
 
   // Handle Create Quiz Item
@@ -350,12 +435,26 @@ export default function AdminEventsPage() {
       key: "status",
       header: "Trạng thái",
       render: (row) => {
-        const isChecked = row.participationStatus === "CHECKED_IN";
+        const status = row.participationStatus;
+        const variant =
+          status === "CHECKED_IN"
+            ? "success"
+            : status === "CANCELLED"
+              ? "error"
+              : status === "INVITED"
+                ? "info"
+                : "brand";
+        const label =
+          status === "CHECKED_IN"
+            ? "Đã check-in"
+            : status === "CANCELLED"
+              ? "Đã hủy"
+              : status === "INVITED"
+                ? "Đã mời"
+                : "Chưa check-in";
         return (
           <div className="space-y-1">
-            <Badge variant={isChecked ? "success" : "neutral"}>
-              {isChecked ? "Đã check-in" : "Chưa check-in"}
-            </Badge>
+            <Badge variant={variant}>{label}</Badge>
             {row.checkedInAt && (
               <p className="text-[11px] text-emerald-600 font-medium">
                 {new Date(row.checkedInAt).toLocaleTimeString("vi-VN")}
@@ -370,15 +469,23 @@ export default function AdminEventsPage() {
       header: "Thao tác quầy",
       align: "right",
       render: (row) => {
-        const isChecked = row.participationStatus === "CHECKED_IN";
-        return isChecked ? (
-          <span className="text-xs text-secondary font-medium">Hoàn tất</span>
-        ) : (
+        if (row.participationStatus === "CHECKED_IN") {
+          return (
+            <span className="text-xs text-emerald-700 font-semibold">
+              Hoàn tất{row.checkedInByName ? ` · ${row.checkedInByName}` : ""}
+            </span>
+          );
+        }
+        if (row.participationStatus === "CANCELLED") {
+          return <span className="text-xs text-red-600 font-medium">Đã hủy vé</span>;
+        }
+        return (
           <Button
             size="sm"
             variant="outline"
             icon="how_to_reg"
-            onClick={() => handleCheckIn(row.ticketCode)}
+            disabled={isCheckingIn}
+            onClick={() => void handleCheckIn(row.ticketCode, "roster")}
           >
             Điểm danh
           </Button>
@@ -467,12 +574,21 @@ export default function AdminEventsPage() {
         </div>
 
         {events.length > 1 && (
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-semibold text-secondary whitespace-nowrap">Sự kiện:</label>
+          <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
+            <label
+              htmlFor="admin-event-selector"
+              className="text-xs font-semibold text-secondary whitespace-nowrap shrink-0"
+            >
+              Sự kiện:
+            </label>
             <select
+              id="admin-event-selector"
               value={selectedEventId ?? ""}
-              onChange={(e) => setSelectedEventId(e.target.value)}
-              className="px-3 py-1.5 rounded-lg bg-surface-container border border-surface-container-high text-xs font-bold text-on-surface"
+              onChange={(e) => {
+                setSelectedEventId(e.target.value);
+                setLastOutcome(null);
+              }}
+              className="flex-1 min-w-0 max-w-full sm:max-w-xs px-3 py-1.5 rounded-lg bg-surface-container border border-surface-container-high text-xs font-bold text-on-surface truncate"
             >
               {events.map((ev) => (
                 <option key={ev.id} value={ev.id}>
@@ -488,7 +604,7 @@ export default function AdminEventsPage() {
       <div
         role="tablist"
         aria-label="Phân khu điều phối Open Day"
-        className="inline-flex p-1 rounded-xl bg-surface-container-lowest border border-surface-container"
+        className="flex flex-wrap sm:inline-flex gap-1 p-1 rounded-xl bg-surface-container-lowest border border-surface-container"
       >
         <button
           type="button"
@@ -516,7 +632,7 @@ export default function AdminEventsPage() {
               : "text-secondary hover:text-on-surface",
           )}
         >
-          Điểm danh ({totalCheckedIn}/{totalRoster} vé)
+          Danh sách Check-in QR ({totalCheckedIn}/{totalRoster} vé)
         </button>
         <button
           type="button"
@@ -593,43 +709,25 @@ export default function AdminEventsPage() {
         </div>
       )}
 
-      {/* Tab Panel: Check-in Roster */}
+      {/* Tab Panel: Check-in QR Station, Attendance Dashboard & Roster (M8) */}
       {tab === "checkin" && (
         <div className="space-y-5">
-          {/* Quick Check-in Bar */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-surface-container-low border border-surface-container space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <h2 className="text-sm font-bold text-on-surface flex items-center gap-2">
-                <span aria-hidden="true" className="material-symbols-outlined text-primary text-[20px]">
-                  qr_code_scanner
-                </span>
-                <span>Quét mã QR hoặc Nhập mã vé Check-in nhanh</span>
-              </h2>
-              <span className="text-xs font-semibold text-secondary">
-                Tiến độ: <strong className="text-primary">{totalCheckedIn}</strong> / {totalRoster} đã đến sảnh
-              </span>
-            </div>
-
-            <form onSubmit={handleQuickCheckInSubmit} className="flex flex-col sm:flex-row gap-3">
-              <input
-                type="text"
-                value={quickTicketCode}
-                onChange={(e) => setQuickTicketCode(e.target.value.toUpperCase())}
-                placeholder="Nhập mã vé ví dụ: OD26-A1B2-C3D4..."
-                disabled={isCheckingIn}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-white border border-surface-container font-mono text-sm uppercase placeholder:font-sans placeholder:normal-case focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-              />
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                icon={isCheckingIn ? "hourglass_empty" : "check"}
-                disabled={isCheckingIn || !quickTicketCode.trim()}
-              >
-                {isCheckingIn ? "Đang điểm danh..." : "Xác nhận Check-in"}
-              </Button>
-            </form>
-          </div>
+          <OpenDayCheckInStation
+            selectedEvent={selectedEvent}
+            stats={attendanceStats}
+            isLoadingStats={isLoadingStats}
+            isCheckingIn={isCheckingIn}
+            lastOutcome={lastOutcome}
+            recentOutcomes={recentOutcomes}
+            onClearOutcome={() => setLastOutcome(null)}
+            onRefreshStats={() => {
+              if (selectedEventId) {
+                refreshAttendanceStats(selectedEventId);
+                loadParticipations(selectedEventId, rosterQuery, rosterStatusFilter);
+              }
+            }}
+            onSubmitCheckIn={(code, source) => handleCheckIn(code, source)}
+          />
 
           {/* Roster DataTable */}
           {isLoadingRoster ? (
@@ -642,17 +740,38 @@ export default function AdminEventsPage() {
               data={participations}
               rowKey={(r) => r.id}
               toolbar={
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <SearchInput
-                    value={rosterQuery}
-                    onChange={(e) => setRosterQuery(e.target.value)}
-                    onClear={() => setRosterQuery("")}
-                    placeholder="Tìm theo mã vé OD26..., họ tên, email hoặc SĐT..."
-                    containerClassName="w-full sm:max-w-md"
-                  />
-                  <Badge variant="brand">
-                    Đã có mặt: {totalCheckedIn}/{totalRoster} khách đăng ký
-                  </Badge>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 flex-1">
+                    <SearchInput
+                      value={rosterQuery}
+                      onChange={(e) => setRosterQuery(e.target.value)}
+                      onClear={() => setRosterQuery("")}
+                      placeholder="Tìm theo mã vé OD26..., họ tên, email hoặc SĐT..."
+                      containerClassName="w-full sm:max-w-md"
+                    />
+                    <select
+                      aria-label="Lọc theo trạng thái vé"
+                      value={rosterStatusFilter}
+                      onChange={(e) => setRosterStatusFilter(e.target.value)}
+                      className="min-h-[40px] px-3 py-1.5 rounded-xl bg-white border border-surface-container text-xs font-semibold text-on-surface"
+                    >
+                      <option value="ALL">Tất cả trạng thái</option>
+                      <option value="CONFIRMED">Chưa check-in (CONFIRMED)</option>
+                      <option value="INVITED">Khách mời (INVITED)</option>
+                      <option value="CHECKED_IN">Đã check-in</option>
+                      <option value="CANCELLED">Đã hủy</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(rosterQuery.trim() || rosterStatusFilter !== "ALL") && (
+                      <Badge variant="neutral">
+                        Kết quả lọc: {filteredRosterTotal} vé
+                      </Badge>
+                    )}
+                    <Badge variant="brand">
+                      Đã có mặt: {totalCheckedIn}/{totalRoster} vé hợp lệ
+                    </Badge>
+                  </div>
                 </div>
               }
             />

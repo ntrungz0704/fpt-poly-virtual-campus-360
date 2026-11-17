@@ -18,6 +18,7 @@ import type {
   AdminParticipationsListResponseDto,
   AdminQuizResultsSummaryDto,
   CheckInResultDto,
+  OpenDayAttendanceStatsDto,
   OpenDayEventMetadataDto,
 } from "@fpt-campus/shared";
 import {
@@ -75,6 +76,7 @@ export class OpenDayController {
       dto,
       actor,
       sanitizeIpAddress(req.ip),
+      { requireEventId: false },
     );
   }
 
@@ -319,15 +321,24 @@ export class OpenDayController {
   }
 
   // ---------------------------------------------------------------------------
-  // M3C: Open Day Participations
+  // M3C / M8: Open Day Participations & Attendance Stats
   // ---------------------------------------------------------------------------
+
+  @Get(":eventId/attendance-stats")
+  getAttendanceStats(
+    @Param("eventId", new ParseUUIDPipe()) eventId: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<OpenDayAttendanceStatsDto> {
+    return this.openDayService.getEventAttendanceStats(eventId, actor);
+  }
 
   @Get(":eventId/participations")
   listParticipations(
     @Param("eventId", new ParseUUIDPipe()) eventId: string,
     @Query() query: AdminEventParticipationsQueryDto,
+    @CurrentUser() actor: AuthenticatedUser,
   ): Promise<AdminParticipationsListResponseDto> {
-    return this.openDayService.listParticipations(eventId, query);
+    return this.openDayService.listParticipations(eventId, query, actor);
   }
 
   @Get(":eventId/quiz-results")

@@ -5,11 +5,11 @@ import Link from "next/link";
 import { OFFICIAL_CAMPUS_INFO } from "@/data/campus-data";
 
 export default function ContactPage() {
-  const [submitted, setSubmitted] = useState(false);
+  const [submittedNotice, setSubmittedNotice] = useState(false);
   const [formData, setFormData] = useState({
-    fullName: "Nguyễn Văn An",
-    phone: "0987 654 321",
-    email: "an.nguyen@gmail.com",
+    fullName: "",
+    phone: "",
+    email: "",
     province: "TP. Hồ Chí Minh",
     major: "cntt",
     admissionType: "hoc-ba",
@@ -18,7 +18,7 @@ export default function ContactPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setSubmittedNotice(true);
   };
 
   return (
@@ -70,57 +70,94 @@ export default function ContactPage() {
               </span>
             </div>
 
-            {submitted ? (
-              <div className="p-8 text-center space-y-4 rounded-2xl bg-emerald-50 border border-emerald-200">
-                <span className="material-symbols-outlined text-5xl text-emerald-600">check_circle</span>
-                <h3 className="text-lg font-bold text-emerald-950 font-heading">Đăng ký tư vấn thành công!</h3>
-                <p className="text-xs text-emerald-800 leading-relaxed max-w-md mx-auto">
-                  Cán bộ tuyển sinh FPT Polytechnic cơ sở TP.HCM sẽ liên hệ với bạn trong vòng 24 giờ qua số điện thoại <strong>{formData.phone}</strong>.
+            {/* Online Channel Limitation Notice */}
+            <div
+              role="note"
+              className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-xs text-amber-950 flex items-start gap-3"
+              data-testid="contact-online-limitation"
+            >
+              <span
+                className="material-symbols-outlined text-[20px] text-amber-700 shrink-0 mt-0.5"
+                aria-hidden="true"
+              >
+                info
+              </span>
+              <div className="space-y-1">
+                <p className="font-bold">Kênh tiếp nhận trực tuyến đang được hoàn thiện</p>
+                <p className="leading-relaxed text-amber-900">
+                  Hệ thống tiếp nhận biểu mẫu trực tuyến hiện chưa tích hợp endpoint lưu trữ cơ sở dữ liệu.
+                  Để được hỗ trợ hồ sơ và giải đáp thông tin chính xác nhất, quý thí sinh vui lòng liên hệ trực tiếp
+                  Hotline <strong>1900 633 540</strong> hoặc đến Văn phòng Tuyển sinh tại <strong>Toà nhà Innovation (QTSC Quận 12)</strong>.
+                </p>
+              </div>
+            </div>
+
+            {submittedNotice && (
+              <div
+                role="status"
+                className="mb-6 p-5 rounded-2xl bg-surface-container border border-surface-container-high text-center space-y-3"
+                data-testid="contact-submission-notice"
+              >
+                <span className="material-symbols-outlined text-3xl text-primary" aria-hidden="true">
+                  phone_in_talk
+                </span>
+                <h3 className="text-sm font-bold text-on-surface font-heading">
+                  Vui lòng liên hệ trực tiếp Hotline Tuyển sinh
+                </h3>
+                <p className="text-xs text-secondary leading-relaxed max-w-md mx-auto">
+                  Biểu mẫu trực tuyến chưa hỗ trợ gửi tự động qua hệ thống. Quý phụ huynh và thí sinh {formData.fullName ? `(${formData.fullName}) ` : ""}vui lòng gọi ngay <strong>1900 633 540</strong> hoặc truy cập cổng thông tin chính thức <strong>{OFFICIAL_CAMPUS_INFO.officialSiteUrl}</strong> để cán bộ tuyển sinh hỗ trợ trực tiếp.
                 </p>
                 <button
                   type="button"
-                  onClick={() => setSubmitted(false)}
-                  className="ui-btn ui-btn-outline text-xs px-4 py-2"
+                  onClick={() => setSubmittedNotice(false)}
+                  className="ui-btn ui-btn-outline text-xs px-3.5 py-1.5 cursor-pointer"
                 >
-                  Đăng ký cho người khác
+                  Đóng thông báo
                 </button>
               </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div>
-                    <label className="block text-xs font-bold text-on-surface mb-2">Họ và tên thí sinh *</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.fullName}
-                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                      className="ui-input"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-on-surface mb-2">Số điện thoại liên hệ *</label>
-                    <input
-                      type="tel"
-                      required
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="ui-input"
-                    />
-                  </div>
-                </div>
+            )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div>
-                    <label className="block text-xs font-bold text-on-surface mb-2">Email cá nhân *</label>
-                    <input
-                      type="email"
-                      required
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="ui-input"
-                    />
-                  </div>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-xs font-bold text-on-surface mb-2">Họ và tên thí sinh *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ví dụ: Nguyễn Hoàng Long"
+                    value={formData.fullName}
+                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                    className="ui-input"
+                    data-testid="contact-name-input"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-on-surface mb-2">Số điện thoại liên hệ *</label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="Ví dụ: 0912345678"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="ui-input"
+                    data-testid="contact-phone-input"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-xs font-bold text-on-surface mb-2">Email cá nhân *</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="Ví dụ: hoanglong@gmail.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="ui-input"
+                    data-testid="contact-email-input"
+                  />
+                </div>
                   <div>
                     <label className="block text-xs font-bold text-on-surface mb-2">Tỉnh / Thành phố</label>
                     <select
@@ -216,7 +253,6 @@ export default function ContactPage() {
                   Thông tin của bạn được cam kết bảo mật theo tiêu chuẩn an toàn dữ liệu FPT Education.
                 </p>
               </form>
-            )}
           </div>
 
           {/* Campus Address & Transport Guide (5 Cols) */}

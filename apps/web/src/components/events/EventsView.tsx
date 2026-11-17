@@ -10,6 +10,10 @@ import { Badge, Button, ErrorState, LoadingState } from "@/components/ui";
 import { BlurText, FadeContent } from "@/components/animations";
 import { OFFICIAL_CAMPUS_INFO } from "@/data/campus-data";
 import { fetchPublicEvents } from "@/lib/public/public-api";
+import {
+  calculateEventCountdown,
+  formatCountdownUnit,
+} from "@/lib/public/events-countdown";
 import { OpenDayScheduleTimeline } from "./OpenDayScheduleTimeline";
 import { EventPillarGrid } from "./EventPillarGrid";
 import { TicketRegistrationModal } from "./TicketRegistrationModal";
@@ -30,6 +34,126 @@ function getInitialSavedTicket(): { hasTicket: boolean; code: string | null } {
     // ignore
   }
   return { hasTicket: false, code: null };
+}
+
+function EventLiveCountdown({
+  eventDate,
+}: {
+  eventDate: string | null | undefined;
+}) {
+  const [countdown, setCountdown] = useState(() =>
+    calculateEventCountdown(eventDate),
+  );
+
+  useEffect(() => {
+    let mounted = true;
+
+    const timer = setInterval(() => {
+      if (!mounted) return;
+      setCountdown(calculateEventCountdown(eventDate));
+    }, 1000);
+
+    return () => {
+      mounted = false;
+      clearInterval(timer);
+    };
+  }, [eventDate]);
+
+  if (countdown.status === "UNANNOUNCED") {
+    return (
+      <div
+        className="pt-2 flex items-center gap-2 text-xs font-medium text-slate-300"
+        data-testid="event-countdown-unannounced"
+      >
+        <span
+          className="material-symbols-outlined text-[18px] text-amber-400"
+          aria-hidden="true"
+        >
+          schedule
+        </span>
+        <span>Thời gian sự kiện: Đang cập nhật ngày chính thức</span>
+      </div>
+    );
+  }
+
+  if (countdown.status === "HAPPENING_OR_PAST") {
+    return (
+      <div
+        className="pt-2 flex items-center gap-2 text-xs font-bold text-emerald-400"
+        data-testid="event-countdown-happening"
+      >
+        <span
+          className="material-symbols-outlined text-[18px] text-emerald-400"
+          aria-hidden="true"
+        >
+          celebration
+        </span>
+        <span>Sự kiện đang diễn ra hoặc đã đến giờ đón tiếp khách tham quan</span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="pt-2 flex items-center gap-2.5 sm:gap-3 text-center"
+      data-testid="event-countdown-widget"
+      aria-label={countdown.label}
+    >
+      <div className="bg-white/10 backdrop-blur rounded-xl px-3.5 py-2 border border-white/10 min-w-[62px]">
+        <span
+          className="font-heading text-xl sm:text-2xl font-black text-primary block leading-none font-mono"
+          data-testid="countdown-days"
+        >
+          {formatCountdownUnit(countdown.days)}
+        </span>
+        <span className="text-[10px] text-slate-300 uppercase font-semibold">
+          Ngày
+        </span>
+      </div>
+      <span className="text-xl font-bold text-slate-400" aria-hidden="true">
+        :
+      </span>
+      <div className="bg-white/10 backdrop-blur rounded-xl px-3.5 py-2 border border-white/10 min-w-[62px]">
+        <span
+          className="font-heading text-xl sm:text-2xl font-black text-white block leading-none font-mono"
+          data-testid="countdown-hours"
+        >
+          {formatCountdownUnit(countdown.hours)}
+        </span>
+        <span className="text-[10px] text-slate-300 uppercase font-semibold">
+          Giờ
+        </span>
+      </div>
+      <span className="text-xl font-bold text-slate-400" aria-hidden="true">
+        :
+      </span>
+      <div className="bg-white/10 backdrop-blur rounded-xl px-3.5 py-2 border border-white/10 min-w-[62px]">
+        <span
+          className="font-heading text-xl sm:text-2xl font-black text-white block leading-none font-mono"
+          data-testid="countdown-minutes"
+        >
+          {formatCountdownUnit(countdown.minutes)}
+        </span>
+        <span className="text-[10px] text-slate-300 uppercase font-semibold">
+          Phút
+        </span>
+      </div>
+      <span className="text-xl font-bold text-slate-400" aria-hidden="true">
+        :
+      </span>
+      <div className="bg-white/10 backdrop-blur rounded-xl px-3.5 py-2 border border-white/10 min-w-[62px]">
+        <span
+          className="font-heading text-xl sm:text-2xl font-black text-amber-400 block leading-none font-mono"
+          data-testid="countdown-seconds"
+        >
+          {formatCountdownUnit(countdown.seconds)}
+        </span>
+        <span className="text-[10px] text-slate-300 uppercase font-semibold">
+          Giây
+        </span>
+      </div>
+    </div>
+  );
 }
 
 export function EventsView() {
@@ -130,27 +254,10 @@ export function EventsView() {
             </p>
 
             {/* Live Countdown Timer Widget */}
-            <div className="pt-2 flex items-center gap-2.5 sm:gap-3 text-center">
-              <div className="bg-white/10 backdrop-blur rounded-xl px-3.5 py-2 border border-white/10 min-w-[62px]">
-                <span className="font-heading text-xl sm:text-2xl font-black text-primary block leading-none">12</span>
-                <span className="text-[10px] text-slate-300 uppercase font-semibold">Ngày</span>
-              </div>
-              <span className="text-xl font-bold text-slate-400">:</span>
-              <div className="bg-white/10 backdrop-blur rounded-xl px-3.5 py-2 border border-white/10 min-w-[62px]">
-                <span className="font-heading text-xl sm:text-2xl font-black text-white block leading-none">08</span>
-                <span className="text-[10px] text-slate-300 uppercase font-semibold">Giờ</span>
-              </div>
-              <span className="text-xl font-bold text-slate-400">:</span>
-              <div className="bg-white/10 backdrop-blur rounded-xl px-3.5 py-2 border border-white/10 min-w-[62px]">
-                <span className="font-heading text-xl sm:text-2xl font-black text-white block leading-none">45</span>
-                <span className="text-[10px] text-slate-300 uppercase font-semibold">Phút</span>
-              </div>
-              <span className="text-xl font-bold text-slate-400">:</span>
-              <div className="bg-white/10 backdrop-blur rounded-xl px-3.5 py-2 border border-white/10 min-w-[62px]">
-                <span className="font-heading text-xl sm:text-2xl font-black text-amber-400 block leading-none">30</span>
-                <span className="text-[10px] text-slate-300 uppercase font-semibold">Giây</span>
-              </div>
-            </div>
+            <EventLiveCountdown
+              key={event.eventDate ?? "none"}
+              eventDate={event.eventDate}
+            />
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0 rb-desktop-rise-delay">

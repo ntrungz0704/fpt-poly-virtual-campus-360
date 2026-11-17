@@ -134,8 +134,13 @@ export default function AboutPage() {
               <span className="text-xs text-slate-300">Sinh viên có việc làm</span>
             </div>
             <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-              <span className="font-heading text-3xl sm:text-4xl font-extrabold text-blue-400 block mb-1">42+</span>
-              <span className="text-xs text-slate-300">Điểm nhìn VR 360° số hóa</span>
+              <span
+                data-testid="verified-building-count"
+                className="font-heading text-3xl sm:text-4xl font-extrabold text-blue-400 block mb-1"
+              >
+                {CAMPUS_BUILDINGS.length}
+              </span>
+              <span className="text-xs text-slate-300">Tòa nhà &amp; Phân khu tại QTSC</span>
             </div>
           </div>
         </section>

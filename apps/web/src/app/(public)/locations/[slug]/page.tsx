@@ -143,15 +143,22 @@ export default async function LocationDetailPage({
               </ul>
             </div>
 
-            {/* Quick Metrics */}
-            <div className="grid grid-cols-2 gap-3 pt-1 text-xs">
+            {/* Verified Location Attributes */}
+            <div
+              className="grid grid-cols-2 gap-3 pt-1 text-xs"
+              data-testid="location-real-attributes"
+            >
               <div className="p-3 rounded-xl bg-surface-container-low border border-surface-container">
-                <span className="text-secondary block">Sức chứa tối đa:</span>
-                <span className="font-heading font-black text-on-surface text-base">60 Sinh viên</span>
+                <span className="text-secondary block">Tòa nhà trực thuộc:</span>
+                <span className="font-heading font-bold text-on-surface text-sm sm:text-base truncate block">
+                  {location.buildingName || "Cơ sở QTSC Quận 12"}
+                </span>
               </div>
               <div className="p-3 rounded-xl bg-surface-container-low border border-surface-container">
-                <span className="text-secondary block">Trang bị chính:</span>
-                <span className="font-heading font-black text-primary text-base">GPU RTX 4080</span>
+                <span className="text-secondary block">Vị trí tầng / Mã phòng:</span>
+                <span className="font-heading font-bold text-primary text-sm sm:text-base truncate block">
+                  {location.floor ? `${location.floor} · ${location.code}` : location.code}
+                </span>
               </div>
             </div>
 

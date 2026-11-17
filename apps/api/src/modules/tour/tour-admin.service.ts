@@ -1,7 +1,10 @@
 import {
   BadRequestException,
+  ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
+  Optional,
   UnprocessableEntityException,
 } from "@nestjs/common";
 import {
@@ -11,6 +14,10 @@ import {
 } from "@fpt-campus/shared";
 import { PrismaService } from "../../common/adapters/prisma.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import {
+  STORAGE_ADAPTER,
+  type StorageAdapter,
+} from "../storage/storage.adapter";
 import type { AuthenticatedUser } from "../../common/decorators/auth.decorators";
 import type {
   BatchTourStudioDto,
@@ -18,7 +25,12 @@ import type {
   SaveHotspotDto,
   UpdateTourNodeDto,
 } from "./dto/tour-admin.dto";
-import { HotspotType, Prisma, PublishStatus } from "@prisma/client";
+import {
+  HotspotType,
+  Prisma,
+  PublishStatus,
+  TourEdgeType,
+} from "@prisma/client";
 
 const TOUR_PANORAMA_SAFE_SELECT = {
   id: true,
@@ -33,6 +45,34 @@ const TOUR_PANORAMA_SAFE_SELECT = {
   processingStatus: true,
   cameraMetadata: true,
 } satisfies Prisma.MediaAssetSelect;
+
+const ADMIN_TOUR_NODE_INCLUDE = {
+  panoramaAsset: {
+    select: TOUR_PANORAMA_SAFE_SELECT,
+  },
+  location: {
+    select: {
+      id: true,
+      slug: true,
+      code: true,
+      name: true,
+      floor: { select: { id: true, name: true } },
+      building: { select: { id: true, code: true, name: true } },
+    },
+  },
+  hotspots: {
+    orderBy: { createdAt: "asc" as const },
+    include: {
+      edge: {
+        include: {
+          toNode: {
+            select: { id: true, slug: true, title: true },
+          },
+        },
+      },
+    },
+  },
+} satisfies Prisma.TourNodeInclude;
 
 interface PublishCandidateNode {
   id: string;
@@ -63,35 +103,82 @@ export class TourAdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLog: AuditLogService,
+    @Optional()
+    @Inject(STORAGE_ADAPTER)
+    private readonly storageAdapter?: StorageAdapter,
   ) {}
 
+  private resolveAssetPublicUrl(key: string | null | undefined): string | null {
+    if (!key) {
+      return null;
+    }
+    if (!this.storageAdapter) {
+      return key;
+    }
+    try {
+      return this.storageAdapter.getPublicUrl(key) ?? key;
+    } catch {
+      return key;
+    }
+  }
+
+  private formatAdminNode<
+    T extends {
+      id: string;
+      slug: string;
+      panoramaAsset: {
+        originalObjectKey: string;
+        optimizedDesktopKey?: string | null;
+        thumbnailKey?: string | null;
+        cameraMetadata?: Prisma.JsonValue;
+      } | null;
+    },
+  >(node: T) {
+    const metadata =
+      node.panoramaAsset &&
+      typeof node.panoramaAsset.cameraMetadata === "object" &&
+      node.panoramaAsset.cameraMetadata !== null &&
+      !Array.isArray(node.panoramaAsset.cameraMetadata)
+        ? (node.panoramaAsset.cameraMetadata as Record<string, unknown>)
+        : null;
+    const aiEval = evaluateAiPlaceholderGoLiveStatus({
+      nodeId: node.id,
+      nodeSlug: node.slug,
+      cameraMetadata: metadata,
+    });
+
+    const formattedAsset = node.panoramaAsset
+      ? {
+          ...node.panoramaAsset,
+          publicUrl: this.resolveAssetPublicUrl(
+            node.panoramaAsset.optimizedDesktopKey ||
+              node.panoramaAsset.originalObjectKey,
+          ),
+          thumbnailUrl: this.resolveAssetPublicUrl(
+            node.panoramaAsset.thumbnailKey ||
+              node.panoramaAsset.originalObjectKey,
+          ),
+          isAiPlaceholder: aiEval.isAiPlaceholder,
+        }
+      : null;
+
+    return {
+      ...node,
+      panoramaAsset: formattedAsset,
+    };
+  }
+
   /**
-   * List all tour nodes in admin CMS with panorama assets and hotspots.
+   * List all tour nodes in admin CMS with panorama assets, locations, edges, and hotspots.
    */
   async listNodes() {
-    return this.prisma.tourNode.findMany({
+    const nodes = await this.prisma.tourNode.findMany({
       where: { deletedAt: null },
-      orderBy: { sortOrder: "asc" },
-      include: {
-        panoramaAsset: {
-          select: {
-            id: true,
-            originalObjectKey: true,
-            optimizedDesktopKey: true,
-            thumbnailKey: true,
-          },
-        },
-        location: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            building: { select: { id: true, code: true, name: true } },
-          },
-        },
-        hotspots: true,
-      },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      include: ADMIN_TOUR_NODE_INCLUDE,
     });
+
+    return nodes.map((node) => this.formatAdminNode(node));
   }
 
   /**
@@ -107,30 +194,14 @@ export class TourAdminService {
       where: isUuid
         ? { id: idOrSlug, deletedAt: null }
         : { slug: idOrSlug, deletedAt: null },
-      include: {
-        panoramaAsset: {
-          select: TOUR_PANORAMA_SAFE_SELECT,
-        },
-        location: { include: { building: true } },
-        hotspots: {
-          include: {
-            edge: {
-              include: {
-                toNode: {
-                  select: { id: true, slug: true, title: true },
-                },
-              },
-            },
-          },
-        },
-      },
+      include: ADMIN_TOUR_NODE_INCLUDE,
     });
 
     if (!node) {
       throw new NotFoundException(`Tour node ${idOrSlug} not found.`);
     }
 
-    return node;
+    return this.formatAdminNode(node);
   }
 
   /**
@@ -224,27 +295,17 @@ export class TourAdminService {
     }
   }
 
-  /**
-   * Create a new tour node / scene.
-   */
-  async createNode(user: AuthenticatedUser, dto: CreateTourNodeDto) {
-    const existing = await this.prisma.tourNode.findFirst({
-      where: { slug: dto.slug, deletedAt: null },
-    });
-    if (existing) {
-      throw new BadRequestException({
-        code: "VALIDATION_ERROR",
-        message: `Slug '${dto.slug}' already exists.`,
-      });
-    }
-
-    const asset = await this.prisma.mediaAsset.findFirst({
-      where: { id: dto.panoramaAssetId, deletedAt: null },
+  private async validatePanoramaAssetForNode(
+    tx: Prisma.TransactionClient | PrismaService,
+    panoramaAssetId: string,
+  ) {
+    const asset = await tx.mediaAsset.findFirst({
+      where: { id: panoramaAssetId, deletedAt: null },
     });
     if (!asset) {
       throw new NotFoundException({
         code: "NOT_FOUND",
-        message: `Không tìm thấy MediaAsset panorama '${dto.panoramaAssetId}'.`,
+        message: `Không tìm thấy MediaAsset panorama '${panoramaAssetId}'.`,
       });
     }
     if (asset.assetKind !== "PANORAMA_2_1") {
@@ -253,6 +314,25 @@ export class TourAdminService {
         message: "MediaAsset của TourNode phải thuộc loại PANORAMA_2_1.",
       });
     }
+    return asset;
+  }
+
+  /**
+   * Create a new tour node / scene.
+   */
+  async createNode(user: AuthenticatedUser, dto: CreateTourNodeDto) {
+    const cleanSlug = dto.slug.trim();
+    const existing = await this.prisma.tourNode.findFirst({
+      where: { slug: cleanSlug, deletedAt: null },
+    });
+    if (existing) {
+      throw new BadRequestException({
+        code: "VALIDATION_ERROR",
+        message: `Slug '${cleanSlug}' already exists.`,
+      });
+    }
+
+    await this.validatePanoramaAssetForNode(this.prisma, dto.panoramaAssetId);
 
     let locationId = dto.locationId;
     if (locationId) {
@@ -266,9 +346,19 @@ export class TourAdminService {
         });
       }
     } else {
-      const defaultLoc = await this.prisma.location.findFirst({
-        where: { deletedAt: null },
-      });
+      const preferredLoc = dto.buildingCode
+        ? await this.prisma.location.findFirst({
+            where: {
+              deletedAt: null,
+              building: { code: dto.buildingCode.trim(), deletedAt: null },
+            },
+          })
+        : null;
+      const defaultLoc =
+        preferredLoc ??
+        (await this.prisma.location.findFirst({
+          where: { deletedAt: null },
+        }));
       if (!defaultLoc) {
         throw new BadRequestException({
           code: "VALIDATION_ERROR",
@@ -278,12 +368,12 @@ export class TourAdminService {
       locationId = defaultLoc.id;
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const created = await tx.tourNode.create({
+    const created = await this.prisma.$transaction(async (tx) => {
+      const node = await tx.tourNode.create({
         data: {
-          title: dto.title,
-          slug: dto.slug,
-          intro: dto.intro,
+          title: dto.title.trim(),
+          slug: cleanSlug,
+          intro: dto.intro.trim(),
           category: dto.category ?? "study",
           locationId: locationId!,
           panoramaAssetId: dto.panoramaAssetId,
@@ -292,13 +382,7 @@ export class TourAdminService {
           initialFov: dto.initialFov ?? 75,
           status: PublishStatus.DRAFT,
         },
-        include: {
-          panoramaAsset: {
-            select: TOUR_PANORAMA_SAFE_SELECT,
-          },
-          location: true,
-          hotspots: true,
-        },
+        include: ADMIN_TOUR_NODE_INCLUDE,
       });
 
       await this.auditLog.record({
@@ -306,17 +390,19 @@ export class TourAdminService {
         actorUserId: user.id,
         actorUsername: user.username ?? user.fullName,
         resourceType: "TourNode",
-        resourceId: created.id,
-        diffJson: { title: dto.title, slug: dto.slug },
+        resourceId: node.id,
+        diffJson: { title: dto.title, slug: cleanSlug },
         tx,
       });
 
-      return created;
+      return node;
     });
+
+    return this.formatAdminNode(created);
   }
 
   /**
-   * Update tour node parameters (angles, FOV, titles, status).
+   * Update tour node parameters (angles, FOV, titles, panorama, location, status).
    */
   async updateNode(user: AuthenticatedUser, id: string, dto: UpdateTourNodeDto) {
     const existing = await this.prisma.tourNode.findUnique({
@@ -352,17 +438,71 @@ export class TourAdminService {
       throw new NotFoundException(`Tour node with ID ${id} not found.`);
     }
 
-    if (dto.status === PublishStatus.PUBLISHED) {
-      this.assertNodesReadyForPublish([existing]);
+    let nextAsset = existing.panoramaAsset;
+    if (dto.panoramaAssetId !== undefined) {
+      const asset = await this.validatePanoramaAssetForNode(
+        this.prisma,
+        dto.panoramaAssetId,
+      );
+      nextAsset = {
+        id: asset.id,
+        deletedAt: asset.deletedAt,
+        processingStatus: asset.processingStatus,
+        isValid2To1: asset.isValid2To1,
+        isPreviewApproved: asset.isPreviewApproved,
+        cameraMetadata: asset.cameraMetadata,
+      };
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.tourNode.update({
+    let nextLocation = existing.location;
+    if (dto.locationId !== undefined) {
+      const loc = await this.prisma.location.findFirst({
+        where: { id: dto.locationId, deletedAt: null },
+        select: {
+          id: true,
+          deletedAt: true,
+          status: true,
+          building: {
+            select: {
+              id: true,
+              deletedAt: true,
+              status: true,
+            },
+          },
+        },
+      });
+      if (!loc) {
+        throw new NotFoundException({
+          code: "NOT_FOUND",
+          message: `Không tìm thấy địa điểm '${dto.locationId}'.`,
+        });
+      }
+      nextLocation = loc;
+    }
+
+    if (dto.status === PublishStatus.PUBLISHED) {
+      this.assertNodesReadyForPublish([
+        {
+          id: existing.id,
+          slug: existing.slug,
+          title: dto.title ?? existing.title,
+          panoramaAsset: nextAsset,
+          location: nextLocation,
+        },
+      ]);
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const node = await tx.tourNode.update({
         where: { id },
         data: {
           ...(dto.title !== undefined ? { title: dto.title } : {}),
           ...(dto.intro !== undefined ? { intro: dto.intro } : {}),
           ...(dto.category !== undefined ? { category: dto.category } : {}),
+          ...(dto.locationId !== undefined ? { locationId: dto.locationId } : {}),
+          ...(dto.panoramaAssetId !== undefined
+            ? { panoramaAssetId: dto.panoramaAssetId }
+            : {}),
           ...(dto.initialYaw !== undefined ? { initialYaw: dto.initialYaw } : {}),
           ...(dto.initialPitch !== undefined
             ? { initialPitch: dto.initialPitch }
@@ -373,13 +513,7 @@ export class TourAdminService {
             ? { status: dto.status as PublishStatus }
             : {}),
         },
-        include: {
-          panoramaAsset: {
-            select: TOUR_PANORAMA_SAFE_SELECT,
-          },
-          location: true,
-          hotspots: true,
-        },
+        include: ADMIN_TOUR_NODE_INCLUDE,
       });
 
       await this.auditLog.record({
@@ -392,8 +526,167 @@ export class TourAdminService {
         tx,
       });
 
-      return updated;
+      return node;
     });
+
+    return this.formatAdminNode(updated);
+  }
+
+  /**
+   * Soft delete a tour node cleanly while cleaning dependent edges/hotspots and clearing nullable FKs.
+   */
+  async deleteNode(user: AuthenticatedUser, id: string) {
+    const existing = await this.prisma.tourNode.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: "NOT_FOUND",
+        message: `Tour node with ID ${id} not found.`,
+      });
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.location.updateMany({
+        where: { primaryNodeId: id },
+        data: { primaryNodeId: null },
+      });
+      await tx.building.updateMany({
+        where: { defaultNodeId: id },
+        data: { defaultNodeId: null },
+      });
+      await tx.campus.updateMany({
+        where: { defaultEntryNodeId: id },
+        data: { defaultEntryNodeId: null },
+      });
+
+      await tx.hotspot.deleteMany({
+        where: {
+          OR: [{ nodeId: id }, { edge: { is: { toNodeId: id } } }],
+        },
+      });
+      await tx.tourEdge.deleteMany({
+        where: {
+          OR: [{ fromNodeId: id }, { toNodeId: id }],
+        },
+      });
+
+      await tx.tourNode.update({
+        where: { id },
+        data: {
+          deletedAt: new Date(),
+          status: PublishStatus.ARCHIVED,
+        },
+      });
+
+      await this.auditLog.record({
+        action: "TOUR_NODE_DELETE",
+        actorUserId: user.id,
+        actorUsername: user.username ?? user.fullName,
+        resourceType: "TourNode",
+        resourceId: id,
+        diffJson: { slug: existing.slug, title: existing.title },
+        tx,
+      });
+    });
+
+    return { success: true, deletedId: id };
+  }
+
+  private async syncHotspotEdgeInTx(
+    tx: Prisma.TransactionClient,
+    fromNodeId: string,
+    hotspotType: SaveHotspotDto["hotspotType"],
+    label: string,
+    currentHotspotId: string | undefined,
+    existingEdgeId: string | null,
+    targetNodeId: string | undefined,
+    targetNodeSlug: string | undefined,
+    nodeById: Map<string, { id: string; slug: string; title: string }>,
+    nodeBySlug: Map<string, { id: string; slug: string; title: string }>,
+  ): Promise<{ edgeId: string | null; orphanEdgeId: string | null }> {
+    if (hotspotType !== "SCENE_LINK") {
+      return { edgeId: null, orphanEdgeId: existingEdgeId };
+    }
+
+    if (!targetNodeId && !targetNodeSlug) {
+      if (existingEdgeId) {
+        return { edgeId: existingEdgeId, orphanEdgeId: null };
+      }
+      throw new BadRequestException({
+        code: "VALIDATION_ERROR",
+        message: "Điểm chuyển cảnh 360° bắt buộc chọn cảnh đích.",
+      });
+    }
+
+    const targetNode = targetNodeId
+      ? nodeById.get(targetNodeId)
+      : targetNodeSlug
+        ? nodeBySlug.get(targetNodeSlug.trim())
+        : undefined;
+
+    if (!targetNode) {
+      throw new BadRequestException({
+        code: "VALIDATION_ERROR",
+        message: "Cảnh đích của điểm liên kết 360° không tồn tại hoặc đã bị xóa.",
+      });
+    }
+
+    if (targetNode.id === fromNodeId) {
+      throw new BadRequestException({
+        code: "VALIDATION_ERROR",
+        message: "Điểm chuyển cảnh 360° không thể trỏ về chính cảnh hiện tại.",
+      });
+    }
+
+    const edge = await tx.tourEdge.findUnique({
+      where: {
+        fromNodeId_toNodeId_edgeType: {
+          fromNodeId,
+          toNodeId: targetNode.id,
+          edgeType: TourEdgeType.WALKWAY,
+        },
+      },
+      include: {
+        hotspot: { select: { id: true } },
+      },
+    });
+
+    if (edge && edge.hotspot && edge.hotspot.id !== currentHotspotId) {
+      throw new ConflictException({
+        code: "CONFLICT",
+        message: `Cảnh hiện tại đã có một hotspot chuyển cảnh trỏ tới "${targetNode.title}".`,
+      });
+    }
+
+    if (!edge) {
+      const createdEdge = await tx.tourEdge.create({
+        data: {
+          fromNodeId,
+          toNodeId: targetNode.id,
+          edgeType: TourEdgeType.WALKWAY,
+          label: label.slice(0, 120),
+        },
+      });
+      return {
+        edgeId: createdEdge.id,
+        orphanEdgeId:
+          existingEdgeId && existingEdgeId !== createdEdge.id
+            ? existingEdgeId
+            : null,
+      };
+    }
+
+    await tx.tourEdge.update({
+      where: { id: edge.id },
+      data: { label: label.slice(0, 120) },
+    });
+
+    return {
+      edgeId: edge.id,
+      orphanEdgeId:
+        existingEdgeId && existingEdgeId !== edge.id ? existingEdgeId : null,
+    };
   }
 
   /**
@@ -412,7 +705,14 @@ export class TourAdminService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      let hotspot;
+      const activeNodes = await tx.tourNode.findMany({
+        where: { deletedAt: null },
+        select: { id: true, slug: true, title: true },
+      });
+      const nodeById = new Map(activeNodes.map((n) => [n.id, n]));
+      const nodeBySlug = new Map(activeNodes.map((n) => [n.slug, n]));
+
+      let existingEdgeId: string | null = null;
       if (dto.id) {
         const ownedHotspot = await tx.hotspot.findFirst({
           where: { id: dto.id, nodeId },
@@ -423,7 +723,24 @@ export class TourAdminService {
             message: `Hotspot ${dto.id} not found on node ${nodeId}.`,
           });
         }
+        existingEdgeId = ownedHotspot.edgeId;
+      }
 
+      const { edgeId, orphanEdgeId } = await this.syncHotspotEdgeInTx(
+        tx,
+        nodeId,
+        dto.hotspotType,
+        dto.title,
+        dto.id,
+        existingEdgeId,
+        dto.targetNodeId,
+        dto.targetNodeSlug,
+        nodeById,
+        nodeBySlug,
+      );
+
+      let hotspot;
+      if (dto.id) {
         hotspot = await tx.hotspot.update({
           where: { id: dto.id },
           data: {
@@ -432,6 +749,14 @@ export class TourAdminService {
             title: dto.title,
             body: dto.body ?? null,
             hotspotType: dto.hotspotType as HotspotType,
+            edgeId,
+          },
+          include: {
+            edge: {
+              include: {
+                toNode: { select: { id: true, slug: true, title: true } },
+              },
+            },
           },
         });
       } else {
@@ -443,7 +768,21 @@ export class TourAdminService {
             title: dto.title,
             body: dto.body ?? null,
             hotspotType: dto.hotspotType as HotspotType,
+            edgeId,
           },
+          include: {
+            edge: {
+              include: {
+                toNode: { select: { id: true, slug: true, title: true } },
+              },
+            },
+          },
+        });
+      }
+
+      if (orphanEdgeId) {
+        await tx.tourEdge.deleteMany({
+          where: { id: orphanEdgeId, hotspot: null },
         });
       }
 
@@ -453,7 +792,13 @@ export class TourAdminService {
         actorUsername: user.username ?? user.fullName,
         resourceType: "Hotspot",
         resourceId: hotspot.id,
-        diffJson: { nodeId, yaw: dto.yaw, pitch: dto.pitch, title: dto.title },
+        diffJson: {
+          nodeId,
+          yaw: dto.yaw,
+          pitch: dto.pitch,
+          title: dto.title,
+          edgeId,
+        },
         tx,
       });
 
@@ -462,117 +807,274 @@ export class TourAdminService {
   }
 
   /**
-   * Delete a hotspot.
+   * Delete a hotspot and clean any orphaned TourEdge cleanly.
    */
   async deleteHotspot(
     user: AuthenticatedUser,
     nodeId: string,
     hotspotId: string,
   ) {
-    const hotspot = await this.prisma.hotspot.findFirst({
-      where: { id: hotspotId, nodeId },
+    return this.prisma.$transaction(async (tx) => {
+      const hotspot = await tx.hotspot.findFirst({
+        where: { id: hotspotId, nodeId },
+      });
+      if (!hotspot) {
+        throw new NotFoundException(
+          `Hotspot ${hotspotId} not found on node ${nodeId}.`,
+        );
+      }
+
+      await tx.hotspot.delete({ where: { id: hotspotId } });
+      if (hotspot.edgeId) {
+        await tx.tourEdge.deleteMany({
+          where: { id: hotspot.edgeId, hotspot: null },
+        });
+      }
+
+      await this.auditLog.record({
+        action: "HOTSPOT_DELETE",
+        actorUserId: user.id,
+        actorUsername: user.username ?? user.fullName,
+        resourceType: "Hotspot",
+        resourceId: hotspotId,
+        diffJson: { nodeId, title: hotspot.title },
+        tx,
+      });
+
+      return { success: true, deletedId: hotspotId };
     });
-    if (!hotspot) {
-      throw new NotFoundException(
-        `Hotspot ${hotspotId} not found on node ${nodeId}.`,
-      );
-    }
-
-    await this.prisma.hotspot.delete({ where: { id: hotspotId } });
-
-    await this.auditLog.record({
-      action: "HOTSPOT_DELETE",
-      actorUserId: user.id,
-      actorUsername: user.username ?? user.fullName,
-      resourceType: "Hotspot",
-      resourceId: hotspotId,
-      diffJson: { nodeId, title: hotspot.title },
-    });
-
-    return { success: true, deletedId: hotspotId };
   }
 
   /**
    * Batch save entire Tour Studio configuration directly into PostgreSQL.
+   * Rejects missing/unknown scenes explicitly and reconciles hotspots + TourEdges atomically.
    */
   async batchSaveStudio(user: AuthenticatedUser, dto: BatchTourStudioDto) {
-    const results = await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const savedNodes = [];
+    const savedCount = await this.prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const activeNodes = await tx.tourNode.findMany({
+          where: { deletedAt: null },
+          select: { id: true, slug: true, title: true, intro: true, initialYaw: true, initialPitch: true, initialFov: true, panoramaAssetId: true },
+        });
+        const nodeById = new Map(activeNodes.map((n) => [n.id, n]));
+        const nodeBySlug = new Map(activeNodes.map((n) => [n.slug, n]));
 
-      for (const scene of dto.scenes) {
-        // Find existing node by slug
-        let node = await tx.tourNode.findFirst({
-          where: { slug: scene.slug, deletedAt: null },
+        const resolvedTargets = dto.scenes.map((scene) => {
+          const existing = scene.nodeId
+            ? nodeById.get(scene.nodeId)
+            : nodeBySlug.get(scene.slug);
+          if (!existing) {
+            throw new NotFoundException({
+              code: "NOT_FOUND",
+              message: `Cảnh 360° "${scene.title}" (${scene.slug}) không tồn tại trong cơ sở dữ liệu hoặc đã bị xóa.`,
+            });
+          }
+          return { scene, existing };
         });
 
-        if (node) {
-          node = await tx.tourNode.update({
-            where: { id: node.id },
+        for (const { scene, existing } of resolvedTargets) {
+          let nextPanoramaAssetId = existing.panoramaAssetId;
+          if (scene.panoramaAssetId && scene.panoramaAssetId !== existing.panoramaAssetId) {
+            await this.validatePanoramaAssetForNode(tx, scene.panoramaAssetId);
+            nextPanoramaAssetId = scene.panoramaAssetId;
+          }
+
+          await tx.tourNode.update({
+            where: { id: existing.id },
             data: {
               title: scene.title,
-              intro: scene.description ?? node.intro,
-              initialYaw: scene.initialYaw ?? node.initialYaw,
-              initialPitch: scene.initialPitch ?? node.initialPitch,
+              intro: scene.description ?? existing.intro,
+              initialYaw: scene.initialYaw ?? existing.initialYaw,
+              initialPitch: scene.initialPitch ?? existing.initialPitch,
+              initialFov: scene.initialFov ?? existing.initialFov,
+              panoramaAssetId: nextPanoramaAssetId,
             },
           });
-        }
 
-        if (node && scene.hotspots && scene.hotspots.length > 0) {
-          for (const hs of scene.hotspots) {
-            if (hs.id) {
-              const existingHs = await tx.hotspot.findUnique({
-                where: { id: hs.id },
+          if (scene.hotspots !== undefined) {
+            const currentHotspots = await tx.hotspot.findMany({
+              where: { nodeId: existing.id },
+            });
+            const currentHotspotMap = new Map(currentHotspots.map((h) => [h.id, h]));
+
+            for (const hs of scene.hotspots) {
+              if (hs.id && !currentHotspotMap.has(hs.id)) {
+                throw new NotFoundException({
+                  code: "NOT_FOUND",
+                  message: `Hotspot ${hs.id} không thuộc cảnh "${existing.title}".`,
+                });
+              }
+            }
+
+            const retainedIds = new Set(
+              scene.hotspots
+                .map((hs) => hs.id)
+                .filter((id): id is string => Boolean(id)),
+            );
+
+            // Delete removed hotspots and their orphan edges BEFORE creating/updating links
+            const removedHotspots = currentHotspots.filter(
+              (h) => !retainedIds.has(h.id),
+            );
+            if (removedHotspots.length > 0) {
+              const removedIds = removedHotspots.map((h) => h.id);
+              const removedEdgeIds = removedHotspots
+                .map((h) => h.edgeId)
+                .filter((eid): eid is string => Boolean(eid));
+              await tx.hotspot.deleteMany({
+                where: { id: { in: removedIds } },
               });
+              if (removedEdgeIds.length > 0) {
+                await tx.tourEdge.deleteMany({
+                  where: { id: { in: removedEdgeIds }, hotspot: null },
+                });
+              }
+            }
+
+            // Detach edges safely (via valid INFO + edgeId=null state per chk_hotspots_scene_link_edge_consistency)
+            // only for existing hotspots converting away from SCENE_LINK or swapping targets
+            const detachIds: string[] = [];
+            const seenTargetKeys = new Set<string>();
+            for (const hs of scene.hotspots) {
+              if (hs.hotspotType === "SCENE_LINK") {
+                const targetRef = hs.targetNodeId
+                  ? nodeById.get(hs.targetNodeId)?.id
+                  : hs.targetNodeSlug
+                    ? nodeBySlug.get(hs.targetNodeSlug.trim())?.id
+                    : undefined;
+                if (targetRef) {
+                  if (seenTargetKeys.has(targetRef)) {
+                    throw new ConflictException({
+                      code: "CONFLICT",
+                      message: `Cảnh "${existing.title}" có hai điểm chuyển cảnh trỏ cùng một cảnh đích.`,
+                    });
+                  }
+                  seenTargetKeys.add(targetRef);
+                }
+              }
+
+              if (!hs.id) continue;
+              const existingHs = currentHotspotMap.get(hs.id);
+              if (!existingHs?.edgeId) continue;
+
+              if (hs.hotspotType !== "SCENE_LINK") {
+                detachIds.push(existingHs.id);
+                continue;
+              }
+
+              const nextTargetId = hs.targetNodeId
+                ? nodeById.get(hs.targetNodeId)?.id
+                : hs.targetNodeSlug
+                  ? nodeBySlug.get(hs.targetNodeSlug.trim())?.id
+                  : undefined;
+
+              const currentTargetId = existingHs.edgeId
+                ? (
+                    await tx.tourEdge.findUnique({
+                      where: { id: existingHs.edgeId },
+                      select: { toNodeId: true },
+                    })
+                  )?.toNodeId
+                : undefined;
+
+              if (nextTargetId && currentTargetId && nextTargetId !== currentTargetId) {
+                detachIds.push(existingHs.id);
+              }
+            }
+
+            if (detachIds.length > 0) {
+              await tx.hotspot.updateMany({
+                where: { id: { in: detachIds }, nodeId: existing.id },
+                data: {
+                  hotspotType: HotspotType.INFO,
+                  edgeId: null,
+                },
+              });
+            }
+
+            const detachedSet = new Set(detachIds);
+            const orphanEdgeCandidates: string[] = [];
+            for (const hs of scene.hotspots) {
+              const existingHs = hs.id ? currentHotspotMap.get(hs.id) : undefined;
+              const effectiveExistingEdgeId =
+                existingHs && !detachedSet.has(existingHs.id)
+                  ? existingHs.edgeId
+                  : existingHs?.edgeId ?? null;
+              const { edgeId, orphanEdgeId } = await this.syncHotspotEdgeInTx(
+                tx,
+                existing.id,
+                hs.hotspotType,
+                hs.title,
+                hs.id,
+                effectiveExistingEdgeId,
+                hs.targetNodeId,
+                hs.targetNodeSlug,
+                nodeById,
+                nodeBySlug,
+              );
+              if (orphanEdgeId) {
+                orphanEdgeCandidates.push(orphanEdgeId);
+              }
+
               if (existingHs) {
                 await tx.hotspot.update({
-                  where: { id: hs.id },
+                  where: { id: existingHs.id },
                   data: {
                     yaw: hs.yaw,
                     pitch: hs.pitch,
                     title: hs.title,
                     body: hs.body ?? null,
                     hotspotType: hs.hotspotType as HotspotType,
+                    edgeId,
                   },
                 });
-                continue;
+              } else {
+                await tx.hotspot.create({
+                  data: {
+                    nodeId: existing.id,
+                    yaw: hs.yaw,
+                    pitch: hs.pitch,
+                    title: hs.title,
+                    body: hs.body ?? null,
+                    hotspotType: hs.hotspotType as HotspotType,
+                    edgeId,
+                  },
+                });
               }
             }
 
-            // Create new hotspot
-            await tx.hotspot.create({
-              data: {
-                nodeId: node.id,
-                yaw: hs.yaw,
-                pitch: hs.pitch,
-                title: hs.title,
-                body: hs.body ?? null,
-                hotspotType: hs.hotspotType as HotspotType,
-              },
-            });
+            if (orphanEdgeCandidates.length > 0) {
+              await tx.tourEdge.deleteMany({
+                where: { id: { in: orphanEdgeCandidates }, hotspot: null },
+              });
+            }
           }
         }
 
-        if (node) {
-          savedNodes.push(node);
-        }
-      }
+        await this.auditLog.record({
+          action: "TOUR_STUDIO_BATCH_SAVE",
+          actorUserId: user.id,
+          actorUsername: user.username ?? user.fullName,
+          resourceType: "TourStudio",
+          resourceId: null,
+          diffJson: {
+            sceneCount: dto.scenes.length,
+            savedCount: resolvedTargets.length,
+          },
+          tx,
+        });
 
-      return savedNodes;
-    });
+        return resolvedTargets.length;
+      },
+    );
 
-    await this.auditLog.record({
-      action: "TOUR_STUDIO_BATCH_SAVE",
-      actorUserId: user.id,
-      actorUsername: user.username ?? user.fullName,
-      resourceType: "TourStudio",
-      resourceId: null,
-      diffJson: { sceneCount: dto.scenes.length, savedCount: results.length },
-    });
+    const nodes = await this.listNodes();
 
     return {
       success: true,
-      message: `Đã lưu thành công ${results.length} cảnh tham quan vào CSDL.`,
-      savedCount: results.length,
+      message: `Đã lưu thành công ${savedCount} cảnh tham quan vào CSDL.`,
+      savedCount,
+      nodes,
     };
   }
 

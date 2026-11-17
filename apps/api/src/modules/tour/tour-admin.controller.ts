@@ -55,6 +55,15 @@ export class TourAdminController {
     return this.tourAdminService.updateNode(user, id, dto);
   }
 
+  @Delete("nodes/:id")
+  @RequirePermissions("tour:write")
+  async deleteNode(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+  ) {
+    return this.tourAdminService.deleteNode(user, id);
+  }
+
   @Post("nodes/:id/hotspots")
   @RequirePermissions("tour:write")
   async saveHotspot(

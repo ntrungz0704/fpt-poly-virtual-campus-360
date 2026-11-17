@@ -1,11 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  BuildingCode,
-  CampusLocationItem,
-  TOUR_SCENES,
-} from "@/data/campus-data";
+import type { BuildingCode, CampusLocationItem } from "@/data/campus-data";
 import {
   Badge,
   Button,
@@ -28,10 +24,16 @@ import {
   fetchCampusStructure,
   updateAdminLocation,
 } from "@/lib/admin/locations-admin-api";
+import {
+  fetchAdminTourNodes,
+  type AdminTourNodeItem,
+} from "@/lib/admin/tour-admin-api";
 
 export default function AdminLocationsPage() {
   const [locations, setLocations] = useState<CampusLocationItem[]>([]);
   const [structures, setStructures] = useState<BuildingStructureItem[]>([]);
+  const [tourNodes, setTourNodes] = useState<AdminTourNodeItem[]>([]);
+  const [tourNodesError, setTourNodesError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -68,13 +70,34 @@ export default function AdminLocationsPage() {
 
   const refreshLocations = useCallback(async () => {
     try {
-      const [data, structData] = await Promise.all([
+      const [locRes, structRes, tourNodesRes] = await Promise.allSettled([
         fetchAdminLocations(),
         fetchCampusStructure(),
+        fetchAdminTourNodes(),
       ]);
-      setLocations(data);
-      setStructures(structData);
+
+      if (locRes.status === "rejected") {
+        throw locRes.reason;
+      }
+      if (structRes.status === "rejected") {
+        throw structRes.reason;
+      }
+
+      setLocations(locRes.value);
+      setStructures(structRes.value);
       setFetchError(null);
+
+      if (tourNodesRes.status === "fulfilled") {
+        setTourNodes(tourNodesRes.value);
+        setTourNodesError(null);
+      } else {
+        setTourNodes([]);
+        setTourNodesError(
+          tourNodesRes.reason instanceof Error
+            ? tourNodesRes.reason.message
+            : "Không thể tải danh sách cảnh 360° từ PostgreSQL.",
+        );
+      }
     } catch (err) {
       const msg =
         err instanceof Error
@@ -86,15 +109,35 @@ export default function AdminLocationsPage() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([
+    Promise.allSettled([
       fetchAdminLocations(),
       fetchCampusStructure(),
+      fetchAdminTourNodes(),
     ])
-      .then(([data, structData]) => {
-        if (active) {
-          setLocations(data);
-          setStructures(structData);
-          setFetchError(null);
+      .then(([locRes, structRes, tourNodesRes]) => {
+        if (!active) return;
+
+        if (locRes.status === "rejected") {
+          throw locRes.reason;
+        }
+        if (structRes.status === "rejected") {
+          throw structRes.reason;
+        }
+
+        setLocations(locRes.value);
+        setStructures(structRes.value);
+        setFetchError(null);
+
+        if (tourNodesRes.status === "fulfilled") {
+          setTourNodes(tourNodesRes.value);
+          setTourNodesError(null);
+        } else {
+          setTourNodes([]);
+          setTourNodesError(
+            tourNodesRes.reason instanceof Error
+              ? tourNodesRes.reason.message
+              : "Không thể tải danh sách cảnh 360° từ PostgreSQL.",
+          );
         }
       })
       .catch((err) => {
@@ -153,7 +196,7 @@ export default function AdminLocationsPage() {
       floor: initialFloor,
       category: "common",
       shortDesc: "",
-      sceneId: TOUR_SCENES[0]?.id ?? "",
+      sceneId: "",
       status: "draft",
     });
     setDrawerOpen(true);
@@ -480,11 +523,22 @@ export default function AdminLocationsPage() {
             label="Cảnh Tour 360° liên kết"
             value={formState.sceneId}
             onChange={(e) => setFormState((s) => ({ ...s, sceneId: e.target.value }))}
+            helperText={
+              tourNodesError
+                ? `Lỗi tải cảnh 360°: ${tourNodesError}`
+                : tourNodes.length === 0
+                  ? "Chưa có cảnh 360° nào trong PostgreSQL."
+                  : undefined
+            }
           >
             <option value="">Chưa liên kết cảnh 360°</option>
-            {TOUR_SCENES.map((sc) => (
-              <option key={sc.id} value={sc.id}>
-                {sc.name} ({sc.id})
+            {formState.sceneId &&
+              !tourNodes.some((node) => node.slug === formState.sceneId) && (
+                <option value={formState.sceneId}>{formState.sceneId}</option>
+              )}
+            {tourNodes.map((node) => (
+              <option key={node.id} value={node.slug}>
+                {node.title} ({node.slug})
               </option>
             ))}
           </Select>

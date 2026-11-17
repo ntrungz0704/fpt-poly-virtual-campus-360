@@ -1,0 +1,448 @@
+import request from "supertest";
+import { PrismaService } from "../../src/common/adapters/prisma.service";
+import {
+  createIntegrationApiApp,
+  provisionScratchDatabase,
+  TEST_ADMIN_BOOTSTRAP_PASSWORD,
+  type ApiTestContext,
+  type ScratchDbHandle,
+} from "./test-db.helper";
+
+describe("Audit Batch B-B2 — Tour Studio & Admin Locations PostgreSQL Sync Integration Suite", () => {
+  jest.setTimeout(120_000);
+
+  let dbHandle: ScratchDbHandle;
+  let ctx: ApiTestContext;
+  let prisma: PrismaService;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let server: any;
+
+  let adminToken = "";
+  let studentToken = "";
+  let editorToken = "";
+  let adminUserId = "";
+  let genuinePanoramaAssetId = "";
+  let secondGenuinePanoramaAssetId = "";
+  let publishedLocationId = "";
+
+  beforeAll(async () => {
+    dbHandle = await provisionScratchDatabase("audit_batch_b2");
+    ctx = await createIntegrationApiApp({ databaseUrl: dbHandle.testDbUrl });
+    prisma = ctx.app.get(PrismaService);
+    server = ctx.app.getHttpServer();
+
+    const adminBootstrap = await request(server)
+      .post("/api/v1/auth/login")
+      .send({ identifier: "admin", password: TEST_ADMIN_BOOTSTRAP_PASSWORD })
+      .expect(200);
+
+    const rotatedAdminPw = "BatchB2-Rotated-Admin-Pass-2026!";
+    await request(server)
+      .patch("/api/v1/auth/me/password")
+      .set("Authorization", `Bearer ${adminBootstrap.body.data.accessToken}`)
+      .send({
+        currentPassword: TEST_ADMIN_BOOTSTRAP_PASSWORD,
+        newPassword: rotatedAdminPw,
+      })
+      .expect(200);
+
+    const adminLogin = await request(server)
+      .post("/api/v1/auth/login")
+      .send({ identifier: "admin", password: rotatedAdminPw })
+      .expect(200);
+    adminToken = adminLogin.body.data.accessToken;
+    adminUserId = adminLogin.body.data.user.id;
+
+    const adminRow = await prisma.user.findUniqueOrThrow({
+      where: { id: adminUserId },
+    });
+
+    // Provision STUDENT (no tour permissions) & EVENT_OPERATOR (only events:write)
+    const [studentUser, operatorUser, operatorRole] = await Promise.all([
+      prisma.user.create({
+        data: {
+          username: "b2_student",
+          fullName: "Sinh Vien B2",
+          email: "b2.student@poly.edu.vn",
+          userType: "STUDENT",
+          accountStatus: "ACTIVE",
+          activationStatus: "ACTIVATED",
+          provisioningMethod: "ADMIN_DIRECT",
+          mustChangePassword: false,
+          passwordHash: adminRow.passwordHash,
+        },
+      }),
+      prisma.user.create({
+        data: {
+          username: "b2_operator",
+          fullName: "Operator B2",
+          email: "b2.operator@poly.edu.vn",
+          userType: "STAFF",
+          accountStatus: "ACTIVE",
+          activationStatus: "ACTIVATED",
+          provisioningMethod: "ADMIN_DIRECT",
+          mustChangePassword: false,
+          passwordHash: adminRow.passwordHash,
+        },
+      }),
+      prisma.role.findUniqueOrThrow({ where: { code: "EVENT_OPERATOR" } }),
+    ]);
+
+    await prisma.userRole.create({
+      data: { userId: operatorUser.id, roleId: operatorRole.id },
+    });
+
+    const [studentLogin, operatorLogin] = await Promise.all([
+      request(server)
+        .post("/api/v1/auth/login")
+        .send({ identifier: studentUser.username, password: rotatedAdminPw })
+        .expect(200),
+      request(server)
+        .post("/api/v1/auth/login")
+        .send({ identifier: operatorUser.username, password: rotatedAdminPw })
+        .expect(200),
+    ]);
+    studentToken = studentLogin.body.data.accessToken;
+    editorToken = operatorLogin.body.data.accessToken;
+
+    // Seed two genuine non-AI approved 2:1 panoramas and locate a published location
+    const pubLoc = await prisma.location.findFirstOrThrow({
+      where: {
+        deletedAt: null,
+        status: "PUBLISHED",
+        building: { deletedAt: null, status: "PUBLISHED" },
+      },
+    });
+    publishedLocationId = pubLoc.id;
+
+    const [pano1, pano2] = await Promise.all([
+      prisma.mediaAsset.create({
+        data: {
+          assetKind: "PANORAMA_2_1",
+          originalFilename: "qtsc-b2-real-1.jpg",
+          mimeType: "image/jpeg",
+          fileSizeBytes: 600000n,
+          sha256Checksum: "c".repeat(64),
+          originalWidth: 4096,
+          originalHeight: 2048,
+          isValid2To1: true,
+          isPreviewApproved: true,
+          originalObjectKey: "/images/panoramas/campus-courtyard-360.jpg",
+          processingStatus: "READY",
+          cameraMetadata: { isRealQtscCapture: true, assetOrigin: "CAMERA_360" },
+          uploadedBy: adminUserId,
+        },
+      }),
+      prisma.mediaAsset.create({
+        data: {
+          assetKind: "PANORAMA_2_1",
+          originalFilename: "qtsc-b2-real-2.jpg",
+          mimeType: "image/jpeg",
+          fileSizeBytes: 650000n,
+          sha256Checksum: "d".repeat(64),
+          originalWidth: 4096,
+          originalHeight: 2048,
+          isValid2To1: true,
+          isPreviewApproved: true,
+          originalObjectKey: "/images/panoramas/library-360.jpg",
+          processingStatus: "READY",
+          cameraMetadata: { isRealQtscCapture: true, assetOrigin: "CAMERA_360" },
+          uploadedBy: adminUserId,
+        },
+      }),
+    ]);
+
+    genuinePanoramaAssetId = pano1.id;
+    secondGenuinePanoramaAssetId = pano2.id;
+  });
+
+  afterAll(async () => {
+    if (ctx) {
+      await ctx.close();
+    }
+    if (dbHandle) {
+      await dbHandle.drop();
+    }
+  });
+
+  it("enforces RBAC (401/403) on Tour Studio & Admin Locations endpoints", async () => {
+    await request(server).get("/api/v1/admin/tour/nodes").expect(401);
+    await request(server).get("/api/v1/admin/locations").expect(401);
+
+    await request(server)
+      .get("/api/v1/admin/tour/nodes")
+      .set("Authorization", `Bearer ${studentToken}`)
+      .expect(403);
+
+    await request(server)
+      .post("/api/v1/admin/tour/studio/batch-save")
+      .set("Authorization", `Bearer ${editorToken}`)
+      .send({ scenes: [] })
+      .expect(403);
+
+    await request(server)
+      .delete("/api/v1/admin/tour/nodes/00000000-0000-4000-8000-000000000001")
+      .set("Authorization", `Bearer ${editorToken}`)
+      .expect(403);
+  });
+
+  it("persists newly created TourNodes, batch-save hotspots/TourEdges/panoramaAssetId, reconciles deletions, and syncs Admin Locations", async () => {
+    // 1. Create two genuine TourNodes via POST /api/v1/admin/tour/nodes
+    const nodeARes = await request(server)
+      .post("/api/v1/admin/tour/nodes")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Studio B2 Node Alpha",
+        slug: "studio-b2-alpha",
+        intro: "Initial Alpha Intro",
+        buildingCode: "TOA-T",
+        locationId: publishedLocationId,
+        panoramaAssetId: genuinePanoramaAssetId,
+        initialYaw: 10,
+        initialPitch: 2,
+        initialFov: 68,
+      })
+      .expect(201);
+
+    const nodeBRes = await request(server)
+      .post("/api/v1/admin/tour/nodes")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Studio B2 Node Beta",
+        slug: "studio-b2-beta",
+        intro: "Initial Beta Intro",
+        locationId: publishedLocationId,
+        panoramaAssetId: secondGenuinePanoramaAssetId,
+      })
+      .expect(201);
+
+    const nodeAId: string = nodeARes.body.data.id;
+    const nodeBId: string = nodeBRes.body.data.id;
+
+    // 2. GET /admin/tour/nodes includes new nodes with publicUrl + isAiPlaceholder=false + building/floor metadata
+    const listRes = await request(server)
+      .get("/api/v1/admin/tour/nodes")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+    const listedAlpha = listRes.body.data.find(
+      (n: { slug: string }) => n.slug === "studio-b2-alpha",
+    );
+    expect(listedAlpha).toBeDefined();
+    expect(listedAlpha.panoramaAsset.publicUrl).toBe(
+      "/images/panoramas/campus-courtyard-360.jpg",
+    );
+    expect(listedAlpha.panoramaAsset.isAiPlaceholder).toBe(false);
+
+    // 3. Admin Location created referencing newly created TourNode slug succeeds in PostgreSQL
+    const locRes = await request(server)
+      .post("/api/v1/admin/locations")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        name: "Phòng Sync Tour B2",
+        code: "SYNC-B2-101",
+        buildingCode: "INNOVATION",
+        category: "lab",
+        shortDesc: "Phòng gắn với cảnh 360 mới tạo",
+        sceneId: "studio-b2-alpha",
+        status: "draft",
+      })
+      .expect(201);
+    expect(locRes.body.data.sceneId).toBe("studio-b2-alpha");
+
+    // 4. POST /admin/tour/studio/batch-save persists metadata, FOV, swapped panoramaAssetId, SCENE_LINK TourEdge & INFO hotspot
+    const saveRes = await request(server)
+      .post("/api/v1/admin/tour/studio/batch-save")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        scenes: [
+          {
+            nodeId: nodeAId,
+            slug: "studio-b2-alpha",
+            title: "Alpha Updated Title",
+            description: "Alpha Updated Intro",
+            panoramaAssetId: secondGenuinePanoramaAssetId,
+            initialYaw: 45,
+            initialPitch: -5,
+            initialFov: 62,
+            hotspots: [
+              {
+                hotspotType: "SCENE_LINK",
+                yaw: 33.5,
+                pitch: 1.5,
+                title: "Đi tới Beta",
+                targetNodeSlug: "studio-b2-beta",
+              },
+              {
+                hotspotType: "INFO",
+                yaw: -20,
+                pitch: 4,
+                title: "Thông tin Alpha",
+                body: "Nội dung thông tin thật",
+              },
+            ],
+          },
+        ],
+      })
+      .expect(201);
+
+    expect(saveRes.body.data.savedCount).toBe(1);
+    const updatedAlpha = saveRes.body.data.nodes.find(
+      (n: { id: string }) => n.id === nodeAId,
+    );
+    expect(updatedAlpha.title).toBe("Alpha Updated Title");
+    expect(updatedAlpha.initialFov).toBe(62);
+    expect(updatedAlpha.panoramaAssetId).toBe(secondGenuinePanoramaAssetId);
+    expect(updatedAlpha.hotspots).toHaveLength(2);
+
+    const sceneLinkHs = updatedAlpha.hotspots.find(
+      (h: { hotspotType: string }) => h.hotspotType === "SCENE_LINK",
+    );
+    const infoHs = updatedAlpha.hotspots.find(
+      (h: { hotspotType: string }) => h.hotspotType === "INFO",
+    );
+    expect(sceneLinkHs).toBeDefined();
+    expect(sceneLinkHs.edge?.toNode?.slug).toBe("studio-b2-beta");
+    expect(infoHs).toBeDefined();
+
+    // Verify TourEdge exists in PostgreSQL
+    const dbEdges = await prisma.tourEdge.findMany({
+      where: { fromNodeId: nodeAId, toNodeId: nodeBId },
+    });
+    expect(dbEdges).toHaveLength(1);
+
+    // 5. Re-save with INFO hotspot removed & SCENE_LINK preserved by UUID -> deleted hotspot removed cleanly
+    const resaveRes = await request(server)
+      .post("/api/v1/admin/tour/studio/batch-save")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        scenes: [
+          {
+            nodeId: nodeAId,
+            slug: "studio-b2-alpha",
+            title: "Alpha Updated Title",
+            description: "Alpha Updated Intro",
+            initialYaw: 45,
+            initialPitch: -5,
+            initialFov: 62,
+            hotspots: [
+              {
+                id: sceneLinkHs.id,
+                hotspotType: "SCENE_LINK",
+                yaw: 50,
+                pitch: 3,
+                title: "Đi tới Beta (Updated)",
+                targetNodeSlug: "studio-b2-beta",
+              },
+            ],
+          },
+        ],
+      })
+      .expect(201);
+
+    const alphaAfterDelete = resaveRes.body.data.nodes.find(
+      (n: { id: string }) => n.id === nodeAId,
+    );
+    expect(alphaAfterDelete.hotspots).toHaveLength(1);
+    expect(alphaAfterDelete.hotspots[0].id).toBe(sceneLinkHs.id);
+    expect(alphaAfterDelete.hotspots[0].yaw).toBe(50);
+
+    // 6. Publish real-media nodes and verify public tour node output reflects real synced data
+    await request(server)
+      .post("/api/v1/admin/tour/publish")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ nodeIds: [nodeAId, nodeBId] })
+      .expect(201);
+
+    const publicNodeRes = await request(server)
+      .get("/api/v1/public/tour/nodes/studio-b2-alpha")
+      .expect(200);
+    expect(publicNodeRes.body.data.node.title).toBe("Alpha Updated Title");
+    expect(publicNodeRes.body.data.node.initialFov).toBe(62);
+    expect(publicNodeRes.body.data.hotspots).toHaveLength(1);
+    expect(publicNodeRes.body.data.hotspots[0].targetNodeSlug).toBe(
+      "studio-b2-beta",
+    );
+
+    // 7. Error rejections: unknown scene slug (404), self-referencing link (400), cross-node hotspot tamper (404)
+    await request(server)
+      .post("/api/v1/admin/tour/studio/batch-save")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        scenes: [
+          {
+            slug: "non-existent-scene-slug",
+            title: "Ghost Scene",
+          },
+        ],
+      })
+      .expect(404);
+
+    await request(server)
+      .post("/api/v1/admin/tour/studio/batch-save")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        scenes: [
+          {
+            nodeId: nodeAId,
+            slug: "studio-b2-alpha",
+            title: "Alpha",
+            hotspots: [
+              {
+                hotspotType: "SCENE_LINK",
+                yaw: 0,
+                pitch: 0,
+                title: "Self Loop",
+                targetNodeSlug: "studio-b2-alpha",
+              },
+            ],
+          },
+        ],
+      })
+      .expect(400);
+
+    await request(server)
+      .post("/api/v1/admin/tour/studio/batch-save")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        scenes: [
+          {
+            nodeId: nodeBId,
+            slug: "studio-b2-beta",
+            title: "Beta",
+            hotspots: [
+              {
+                id: sceneLinkHs.id,
+                hotspotType: "INFO",
+                yaw: 0,
+                pitch: 0,
+                title: "Tampered Hotspot Ownership",
+              },
+            ],
+          },
+        ],
+      })
+      .expect(404);
+
+    // 8. DELETE /admin/tour/nodes/:id soft-deletes nodeA, clears Location.primaryNodeId, removes edges/hotspots
+    await request(server)
+      .delete(`/api/v1/admin/tour/nodes/${nodeAId}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+
+    const locAfterNodeDelete = await prisma.location.findUniqueOrThrow({
+      where: { id: locRes.body.data.id },
+    });
+    expect(locAfterNodeDelete.primaryNodeId).toBeNull();
+
+    const deletedNodeDb = await prisma.tourNode.findUniqueOrThrow({
+      where: { id: nodeAId },
+    });
+    expect(deletedNodeDb.deletedAt).not.toBeNull();
+    expect(deletedNodeDb.status).toBe("ARCHIVED");
+
+    const auditDelete = await prisma.auditLog.findFirst({
+      where: { action: "TOUR_NODE_DELETE", resourceId: nodeAId },
+    });
+    expect(auditDelete).not.toBeNull();
+  });
+});

@@ -1,4 +1,12 @@
-import { IsArray, IsEnum, IsNumber, IsOptional, IsString, IsUUID } from "class-validator";
+import {
+  IsArray,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  ValidateNested,
+} from "class-validator";
 import { Type } from "class-transformer";
 
 export class CreateTourNodeDto {
@@ -14,6 +22,10 @@ export class CreateTourNodeDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  @IsOptional()
+  @IsString()
+  buildingCode?: string;
 
   @IsOptional()
   @IsUUID()
@@ -47,6 +59,14 @@ export class UpdateTourNodeDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  @IsOptional()
+  @IsUUID()
+  locationId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  panoramaAssetId?: string;
 
   @IsOptional()
   @IsNumber()
@@ -93,9 +113,17 @@ export class SaveHotspotDto {
   @IsOptional()
   @IsUUID()
   targetNodeId?: string;
+
+  @IsOptional()
+  @IsString()
+  targetNodeSlug?: string;
 }
 
 export class BatchStudioSceneDto {
+  @IsOptional()
+  @IsUUID()
+  nodeId?: string;
+
   @IsString()
   slug!: string;
 
@@ -105,6 +133,10 @@ export class BatchStudioSceneDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsUUID()
+  panoramaAssetId?: string;
 
   @IsOptional()
   @IsString()
@@ -119,13 +151,19 @@ export class BatchStudioSceneDto {
   initialPitch?: number;
 
   @IsOptional()
+  @IsNumber()
+  initialFov?: number;
+
+  @IsOptional()
   @IsArray()
+  @ValidateNested({ each: true })
   @Type(() => SaveHotspotDto)
   hotspots?: SaveHotspotDto[];
 }
 
 export class BatchTourStudioDto {
   @IsArray()
+  @ValidateNested({ each: true })
   @Type(() => BatchStudioSceneDto)
   scenes!: BatchStudioSceneDto[];
 }

@@ -924,7 +924,7 @@ export class GamificationService {
     }
 
     const sortedList = Array.from(entriesMap.values())
-      .filter((entry) => entry.totalXp > 0 || entry.totalSpins > 0)
+      .filter((entry) => entry.totalXp > 0)
       .sort(
         (a, b) =>
           b.totalXp - a.totalXp ||

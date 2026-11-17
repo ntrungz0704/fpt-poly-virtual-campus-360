@@ -1,4 +1,6 @@
 import crypto from "node:crypto";
+import type { PrismaService } from "../../src/common/adapters/prisma.service";
+import { GamificationService } from "../../src/modules/gamification/gamification.service";
 import {
   issueGamificationGuestToken,
   verifyGamificationGuestToken,
@@ -187,6 +189,91 @@ describe("Gamification Unit Logic Suite (M3D)", () => {
         status: "invalid",
         reason: "expired",
       });
+    });
+  });
+
+  describe("B-A3 Option 1: XP Leaderboard Filtering & Guest Identity Bucket Unit Check", () => {
+    it("excludes spin-only (0 XP) participants and zero-XP ledger entries per XP leaderboard rule", async () => {
+      const prismaStub = {
+        xpLedger: {
+          groupBy: jest.fn().mockResolvedValue([
+            {
+              userId: "user-xp-1",
+              ticketCode: null,
+              guestSessionId: null,
+              attendeeName: "Sinh viên Có XP",
+              _sum: { amountXp: 100 },
+            },
+            {
+              userId: "user-zero-xp",
+              ticketCode: null,
+              guestSessionId: null,
+              attendeeName: "Sinh viên 0 XP",
+              _sum: { amountXp: 0 },
+            },
+            {
+              userId: null,
+              ticketCode: null,
+              guestSessionId: "00000000-0000-4000-8000-0000000000aa",
+              attendeeName: "Khách Trùng Tên",
+              _sum: { amountXp: 60 },
+            },
+            {
+              userId: null,
+              ticketCode: null,
+              guestSessionId: "00000000-0000-4000-8000-0000000000bb",
+              attendeeName: "Khách Trùng Tên",
+              _sum: { amountXp: 40 },
+            },
+          ]),
+        },
+        userSpinHistory: {
+          groupBy: jest.fn().mockResolvedValue([
+            {
+              userId: "user-xp-1",
+              ticketCode: null,
+              guestSessionId: null,
+              attendeeName: "Sinh viên Có XP",
+              _count: { id: 2 },
+            },
+            {
+              userId: "user-spin-only",
+              ticketCode: null,
+              guestSessionId: null,
+              attendeeName: "Người Chỉ Có Spin",
+              _count: { id: 3 },
+            },
+          ]),
+        },
+        user: {
+          findMany: jest.fn().mockResolvedValue([
+            { id: "user-xp-1", fullName: "Sinh viên Có XP" },
+            { id: "user-zero-xp", fullName: "Sinh viên 0 XP" },
+          ]),
+        },
+      };
+
+      const service = new GamificationService(prismaStub as unknown as PrismaService);
+      const leaderboard = await service.getLeaderboard({ limit: 20 });
+
+      expect(leaderboard.totalParticipants).toBe(3);
+      expect(leaderboard.topEntries).toHaveLength(3);
+      expect(leaderboard.topEntries[0]).toMatchObject({
+        rank: 1,
+        attendeeName: "Sinh viên Có XP",
+        totalXp: 100,
+        totalSpins: 2,
+        isCurrentAttendee: false,
+      });
+      expect(
+        leaderboard.topEntries.some((e) => e.attendeeName === "Người Chỉ Có Spin"),
+      ).toBe(false);
+      expect(
+        leaderboard.topEntries.some((e) => e.attendeeName === "Sinh viên 0 XP"),
+      ).toBe(false);
+      expect(
+        leaderboard.topEntries.filter((e) => e.attendeeName === "Khách Trùng Tên"),
+      ).toHaveLength(2);
     });
   });
 });

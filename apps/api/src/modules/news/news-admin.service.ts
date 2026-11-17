@@ -1,14 +1,26 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
-import { Prisma, PublishStatus } from "@prisma/client";
+import { Prisma, ProcessingStatus, PublishStatus } from "@prisma/client";
 import { PrismaService } from "../../common/adapters/prisma.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import {
+  STORAGE_ADAPTER,
+  type StorageAdapter,
+} from "../storage/storage.adapter";
 import type { AuthenticatedUser } from "../../common/decorators/auth.decorators";
 import { CreateNewsArticleDto, UpdateNewsArticleDto } from "./dto/news-admin.dto";
+import {
+  resolveAdminNewsMediaState,
+  resolvePublicMediaUrl,
+  SAFE_NEWS_MEDIA_SELECT,
+  type NewsCoverMediaRecord,
+} from "./news-media.helper";
 
 function slugify(text: string): string {
   return text
@@ -40,7 +52,72 @@ export class NewsAdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLog: AuditLogService,
+    @Optional()
+    @Inject(STORAGE_ADAPTER)
+    private readonly storageAdapter?: StorageAdapter,
   ) {}
+
+  private formatAdminArticle<
+    T extends {
+      id: string;
+      title: string;
+      slug: string;
+      tag: string;
+      excerpt: string;
+      content: string;
+      contentJson: unknown;
+      coverMediaId: string | null;
+      coverImageUrl: string | null;
+      coverMedia?: NewsCoverMediaRecord | null;
+      relatedSceneId: string | null;
+      status: PublishStatus;
+      publishedAt: Date | null;
+      author?: { id: string; fullName: string; username: string | null } | null;
+      createdAt: Date;
+      updatedAt: Date;
+    },
+  >(art: T) {
+    const mediaState = resolveAdminNewsMediaState(art, this.storageAdapter);
+    return {
+      id: art.id,
+      title: art.title,
+      slug: art.slug,
+      tag: art.tag,
+      excerpt: art.excerpt,
+      content: art.content,
+      contentJson: art.contentJson,
+      coverMediaId: mediaState.coverMediaId,
+      coverImageUrl: mediaState.coverImageUrl,
+      coverMedia: mediaState.coverMedia,
+      relatedSceneId: art.relatedSceneId,
+      status: art.status,
+      publishedAt: art.publishedAt,
+      ...(art.author !== undefined ? { author: art.author } : {}),
+      createdAt: art.createdAt,
+      updatedAt: art.updatedAt,
+    };
+  }
+
+  private async resolveValidatedCoverMediaUrl(coverMediaId: string): Promise<string | null> {
+    const media = await this.prisma.mediaAsset.findFirst({
+      where: { id: coverMediaId, deletedAt: null },
+      select: SAFE_NEWS_MEDIA_SELECT,
+    });
+    if (!media) {
+      throw new BadRequestException(
+        `MediaAsset mang ID "${coverMediaId}" không tồn tại hoặc đã bị xóa.`,
+      );
+    }
+    if (media.processingStatus === ProcessingStatus.FAILED) {
+      throw new BadRequestException(
+        `MediaAsset mang ID "${coverMediaId}" xử lý thất bại và không thể sử dụng.`,
+      );
+    }
+    return resolvePublicMediaUrl(
+      this.storageAdapter,
+      media.thumbnailKey || media.originalObjectKey,
+    );
+  }
 
   async listArticles(query: {
     page?: number;
@@ -80,12 +157,7 @@ export class NewsAdminService {
         orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
         include: {
           coverMedia: {
-            select: {
-              id: true,
-              originalFilename: true,
-              originalObjectKey: true,
-              thumbnailKey: true,
-            },
+            select: SAFE_NEWS_MEDIA_SELECT,
           },
           author: {
             select: {
@@ -99,24 +171,7 @@ export class NewsAdminService {
     ]);
 
     return {
-      items: items.map((art) => ({
-        id: art.id,
-        title: art.title,
-        slug: art.slug,
-        tag: art.tag,
-        excerpt: art.excerpt,
-        content: art.content,
-        contentJson: art.contentJson,
-        coverMediaId: art.coverMediaId,
-        coverImageUrl: art.coverImageUrl,
-        coverMedia: art.coverMedia,
-        relatedSceneId: art.relatedSceneId,
-        status: art.status,
-        publishedAt: art.publishedAt,
-        author: art.author,
-        createdAt: art.createdAt,
-        updatedAt: art.updatedAt,
-      })),
+      items: items.map((art) => this.formatAdminArticle(art)),
       total,
       page,
       limit,
@@ -127,7 +182,9 @@ export class NewsAdminService {
     const art = await this.prisma.newsArticle.findFirst({
       where: { id, deletedAt: null },
       include: {
-        coverMedia: true,
+        coverMedia: {
+          select: SAFE_NEWS_MEDIA_SELECT,
+        },
         author: { select: { id: true, fullName: true, username: true } },
       },
     });
@@ -136,7 +193,7 @@ export class NewsAdminService {
       throw new NotFoundException(`Không tìm thấy bài viết mang ID "${id}".`);
     }
 
-    return art;
+    return this.formatAdminArticle(art);
   }
 
   async createArticle(
@@ -167,13 +224,7 @@ export class NewsAdminService {
     // Verify coverMedia if supplied
     let coverImageUrl = dto.coverImageUrl ?? null;
     if (dto.coverMediaId) {
-      const media = await this.prisma.mediaAsset.findFirst({
-        where: { id: dto.coverMediaId, deletedAt: null },
-      });
-      if (!media) {
-        throw new BadRequestException(`MediaAsset mang ID "${dto.coverMediaId}" không tồn tại.`);
-      }
-      coverImageUrl = media.thumbnailKey || media.originalObjectKey;
+      coverImageUrl = await this.resolveValidatedCoverMediaUrl(dto.coverMediaId);
     }
 
     const isPublished = dto.status === "PUBLISHED";
@@ -199,6 +250,11 @@ export class NewsAdminService {
             publishedAt: isPublished ? new Date() : null,
             authorId: actor.id,
           },
+          include: {
+            coverMedia: {
+              select: SAFE_NEWS_MEDIA_SELECT,
+            },
+          },
         });
 
         await this.auditLog.record({
@@ -219,7 +275,7 @@ export class NewsAdminService {
         return article;
       });
 
-      return created;
+      return this.formatAdminArticle(created);
     } catch (err: unknown) {
       if (isPrismaP2002SlugError(err)) {
         throw new ConflictException(
@@ -264,13 +320,7 @@ export class NewsAdminService {
     let coverImageUrl = dto.coverImageUrl !== undefined ? dto.coverImageUrl : existing.coverImageUrl;
     if (dto.coverMediaId !== undefined) {
       if (dto.coverMediaId) {
-        const media = await this.prisma.mediaAsset.findFirst({
-          where: { id: dto.coverMediaId, deletedAt: null },
-        });
-        if (!media) {
-          throw new BadRequestException(`MediaAsset mang ID "${dto.coverMediaId}" không tồn tại.`);
-        }
-        coverImageUrl = media.thumbnailKey || media.originalObjectKey;
+        coverImageUrl = await this.resolveValidatedCoverMediaUrl(dto.coverMediaId);
       } else {
         coverImageUrl = null;
       }
@@ -312,6 +362,11 @@ export class NewsAdminService {
             status: nextStatus,
             publishedAt,
           },
+          include: {
+            coverMedia: {
+              select: SAFE_NEWS_MEDIA_SELECT,
+            },
+          },
         });
 
         await this.auditLog.record({
@@ -332,7 +387,7 @@ export class NewsAdminService {
         return article;
       });
 
-      return updated;
+      return this.formatAdminArticle(updated);
     } catch (err: unknown) {
       if (isPrismaP2002SlugError(err)) {
         throw new ConflictException(
@@ -396,6 +451,11 @@ export class NewsAdminService {
           status: publish ? PublishStatus.PUBLISHED : PublishStatus.DRAFT,
           publishedAt: publish ? (existing.publishedAt ?? new Date()) : existing.publishedAt,
         },
+        include: {
+          coverMedia: {
+            select: SAFE_NEWS_MEDIA_SELECT,
+          },
+        },
       });
 
       await this.auditLog.record({
@@ -412,6 +472,6 @@ export class NewsAdminService {
       return art;
     });
 
-    return updated;
+    return this.formatAdminArticle(updated);
   }
 }

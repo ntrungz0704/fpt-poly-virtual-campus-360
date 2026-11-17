@@ -1,10 +1,20 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { PrismaService } from "../../common/adapters/prisma.service";
 import { Prisma, PublishStatus } from "@prisma/client";
+import {
+  STORAGE_ADAPTER,
+  type StorageAdapter,
+} from "../storage/storage.adapter";
+import { resolvePublicNewsImageUrl } from "./news-media.helper";
 
 @Injectable()
 export class NewsPublicService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional()
+    @Inject(STORAGE_ADAPTER)
+    private readonly storageAdapter?: StorageAdapter,
+  ) {}
 
   async listPublished(query: { page?: number; limit?: number; tag?: string }) {
     const page = Math.max(1, Number(query.page) || 1);
@@ -33,6 +43,7 @@ export class NewsPublicService {
           title: true,
           tag: true,
           excerpt: true,
+          coverMediaId: true,
           coverImageUrl: true,
           relatedSceneId: true,
           publishedAt: true,
@@ -40,6 +51,7 @@ export class NewsPublicService {
           coverMedia: {
             select: {
               id: true,
+              deletedAt: true,
               originalObjectKey: true,
               thumbnailKey: true,
             },
@@ -55,11 +67,7 @@ export class NewsPublicService {
         title: art.title,
         tag: art.tag,
         excerpt: art.excerpt,
-        imageUrl:
-          art.coverMedia?.thumbnailKey ||
-          art.coverMedia?.originalObjectKey ||
-          art.coverImageUrl ||
-          "/images/locations/building-innovation.jpg",
+        imageUrl: resolvePublicNewsImageUrl(art, this.storageAdapter),
         date: art.publishedAt
           ? new Intl.DateTimeFormat("vi-VN", {
               day: "2-digit",
@@ -87,6 +95,7 @@ export class NewsPublicService {
         coverMedia: {
           select: {
             id: true,
+            deletedAt: true,
             originalObjectKey: true,
             thumbnailKey: true,
           },
@@ -108,11 +117,7 @@ export class NewsPublicService {
       contentJson: Array.isArray(article.contentJson)
         ? article.contentJson
         : [article.content],
-      imageUrl:
-        article.coverMedia?.thumbnailKey ||
-        article.coverMedia?.originalObjectKey ||
-        article.coverImageUrl ||
-        "/images/locations/building-innovation.jpg",
+      imageUrl: resolvePublicNewsImageUrl(article, this.storageAdapter),
       date: article.publishedAt
         ? new Intl.DateTimeFormat("vi-VN", {
             day: "2-digit",

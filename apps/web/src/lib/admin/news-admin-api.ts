@@ -22,8 +22,13 @@ export interface AdminNewsArticleItem {
   } | null;
   coverMedia?: {
     id: string;
+    originalFilename?: string;
     originalObjectKey: string;
     thumbnailKey?: string | null;
+    mimeType?: string;
+    fileSizeBytes?: number | string;
+    processingStatus?: string;
+    publicUrl?: string | null;
   } | null;
 }
 

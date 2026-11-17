@@ -4,6 +4,9 @@ import React, { useEffect, useRef, useState } from "react";
 import type { SpinSliceDto, SpinWheelResultDto } from "@fpt-campus/shared";
 import { Button } from "@/components/ui";
 import { executeSpinWheel, fetchSpinConfig } from "@/lib/public/gamification-api";
+import { createSpinTimerLifecycle } from "./spinwheel-timer";
+
+const SPIN_ANIMATION_DURATION_MS = 4200;
 
 interface SpinWheelProps {
   attendeeName: string;
@@ -28,6 +31,22 @@ export function SpinWheel({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const wheelRef = useRef<SVGSVGElement | null>(null);
+  const isMountedRef = useRef(true);
+  const spinTimerRef = useRef(createSpinTimerLifecycle());
+  const onSpinCompleteRef = useRef(onSpinComplete);
+
+  useEffect(() => {
+    onSpinCompleteRef.current = onSpinComplete;
+  }, [onSpinComplete]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    const spinTimer = spinTimerRef.current;
+    return () => {
+      isMountedRef.current = false;
+      spinTimer.cancel();
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -63,12 +82,17 @@ export function SpinWheel({
     setErrorMessage(null);
     setWonReward(null);
     setIsSpinning(true);
+    spinTimerRef.current.cancel();
 
     try {
       const result = await executeSpinWheel({
         attendeeName: attendeeName || "Khách tham quan",
         ticketCode: ticketCode || undefined,
       });
+
+      if (!isMountedRef.current) {
+        return;
+      }
 
       // Calculate target angle so pointer at TOP (270 deg or 0 deg) lands on result.sliceIndex
       // With pointer at top (0 degrees): slice i covers angles [i*sliceAngle, (i+1)*sliceAngle]
@@ -81,15 +105,21 @@ export function SpinWheel({
       const currentFullTurns = Math.ceil(rotationDegrees / 360) * 360;
       setRotationDegrees(currentFullTurns + finalAngle);
 
-      // Wait for CSS animation to finish (4s)
-      setTimeout(() => {
+      // Wait for CSS animation to finish (4.2s) with cleanup guard on unmount
+      spinTimerRef.current.schedule(() => {
+        if (!isMountedRef.current) {
+          return;
+        }
         setIsSpinning(false);
         setWonReward(result);
-        if (onSpinComplete) {
-          onSpinComplete(result);
+        if (onSpinCompleteRef.current) {
+          onSpinCompleteRef.current(result);
         }
-      }, 4200);
+      }, SPIN_ANIMATION_DURATION_MS);
     } catch (err: unknown) {
+      if (!isMountedRef.current) {
+        return;
+      }
       setIsSpinning(false);
       setErrorMessage(
         (err as Error)?.message || "Không thể thực hiện lượt quay. Vui lòng thử lại sau.",

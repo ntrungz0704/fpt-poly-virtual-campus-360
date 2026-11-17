@@ -456,4 +456,172 @@ describe("News Content CMS Integration Suite", () => {
     });
     expect(countTarget).toBe(1);
   });
+
+  it("17. NEWS-MEDIA-POLISH: safely serializes BigInt fileSizeBytes on GET /admin/news/:id and excludes soft-deleted coverMedia while preserving legacy coverImageUrl", async () => {
+    const adminUser = await prisma.user.findFirstOrThrow({
+      where: { username: "admin" },
+    });
+
+    const [activeMedia, failedMedia] = await Promise.all([
+      prisma.mediaAsset.create({
+        data: {
+          assetKind: "PHOTO_2D",
+          originalFilename: "news-b4-cover.jpg",
+          mimeType: "image/jpeg",
+          fileSizeBytes: 3_145_728n,
+          sha256Checksum: "e".repeat(64),
+          originalWidth: 1600,
+          originalHeight: 900,
+          isValid2To1: false,
+          isPreviewApproved: true,
+          originalObjectKey: "/images/locations/campus-entrance.jpg",
+          processingStatus: "READY",
+          uploadedBy: adminUser.id,
+        },
+      }),
+      prisma.mediaAsset.create({
+        data: {
+          assetKind: "PHOTO_2D",
+          originalFilename: "news-b4-failed.jpg",
+          mimeType: "image/jpeg",
+          fileSizeBytes: 1024n,
+          sha256Checksum: "f".repeat(64),
+          originalWidth: 800,
+          originalHeight: 600,
+          isValid2To1: false,
+          isPreviewApproved: false,
+          originalObjectKey: "/images/locations/broken.jpg",
+          processingStatus: "FAILED",
+          uploadedBy: adminUser.id,
+        },
+      }),
+    ]);
+
+    // 1. Create published article linked to MediaAsset with BigInt fileSizeBytes + legacy article without coverMediaId
+    const [mediaArticleRes, legacyArticleRes] = await Promise.all([
+      request(server)
+        .post("/api/v1/admin/news")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          title: "Bài viết B-B4 Media Hợp Lệ",
+          slug: "news-b4-valid-media",
+          excerpt: "Bài viết kiểm tra BigInt fileSizeBytes và soft-delete media asset.",
+          content: "Đoạn nội dung 1.\n\nĐoạn nội dung 2.",
+          coverMediaId: activeMedia.id,
+          status: "PUBLISHED",
+        })
+        .expect(201),
+      request(server)
+        .post("/api/v1/admin/news")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          title: "Bài viết B-B4 Legacy Cover",
+          slug: "news-b4-legacy-cover",
+          excerpt: "Bài viết cũ sử dụng coverImageUrl trực tiếp không gắn coverMediaId.",
+          content: "Nội dung bài viết legacy vẫn giữ ảnh cũ.",
+          coverImageUrl: "/images/locations/library-reading.jpg",
+          status: "PUBLISHED",
+        })
+        .expect(201),
+    ]);
+
+    const mediaArticleId: string = mediaArticleRes.body.data.id;
+    expect(mediaArticleRes.body.data.coverMedia?.fileSizeBytes).toBe(3_145_728);
+
+    // 2. GET /admin/news/:id MUST NOT crash on BigInt fileSizeBytes!
+    const detailBeforeDelete = await request(server)
+      .get(`/api/v1/admin/news/${mediaArticleId}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+    expect(detailBeforeDelete.body.data.coverMedia?.id).toBe(activeMedia.id);
+    expect(detailBeforeDelete.body.data.coverMedia?.fileSizeBytes).toBe(3_145_728);
+
+    const publicBeforeDelete = await request(server)
+      .get("/api/v1/public/news/news-b4-valid-media")
+      .expect(200);
+    expect(publicBeforeDelete.body.data.imageUrl).toBe(
+      "/images/locations/campus-entrance.jpg",
+    );
+
+    // 3. Soft-delete the MediaAsset (deleted_at IS NOT NULL)
+    await prisma.mediaAsset.update({
+      where: { id: activeMedia.id },
+      data: { deletedAt: new Date() },
+    });
+
+    // 4. Admin list & detail exclude soft-deleted coverMedia cleanly without crashing
+    const [adminListAfterDelete, adminDetailAfterDelete] = await Promise.all([
+      request(server)
+        .get("/api/v1/admin/news?q=news-b4")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(200),
+      request(server)
+        .get(`/api/v1/admin/news/${mediaArticleId}`)
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(200),
+    ]);
+
+    const listArticleAfterDelete = adminListAfterDelete.body.data.items.find(
+      (a: { id: string }) => a.id === mediaArticleId,
+    );
+    expect(listArticleAfterDelete).toBeDefined();
+    expect(listArticleAfterDelete.coverMedia).toBeNull();
+    expect(listArticleAfterDelete.coverMediaId).toBeNull();
+    expect(listArticleAfterDelete.coverImageUrl).toBeNull();
+
+    expect(adminDetailAfterDelete.body.data.coverMedia).toBeNull();
+    expect(adminDetailAfterDelete.body.data.coverMediaId).toBeNull();
+    expect(adminDetailAfterDelete.body.data.coverImageUrl).toBeNull();
+
+    // 5. Public list & detail exclude deleted coverMedia (safe fallback) while keeping legacy article intact
+    const [publicListAfterDelete, publicDetailAfterDelete, publicLegacyDetail] =
+      await Promise.all([
+        request(server).get("/api/v1/public/news?limit=20").expect(200),
+        request(server).get("/api/v1/public/news/news-b4-valid-media").expect(200),
+        request(server).get("/api/v1/public/news/news-b4-legacy-cover").expect(200),
+      ]);
+
+    const pubItem = publicListAfterDelete.body.data.items.find(
+      (i: { slug: string }) => i.slug === "news-b4-valid-media",
+    );
+    expect(pubItem).toBeDefined();
+    expect(pubItem.imageUrl).toBe("/images/locations/building-innovation.jpg");
+    expect(publicDetailAfterDelete.body.data.imageUrl).toBe(
+      "/images/locations/building-innovation.jpg",
+    );
+    expect(publicLegacyDetail.body.data.imageUrl).toBe(
+      "/images/locations/library-reading.jpg",
+    );
+
+    // 6. Reject assigning deleted, non-existent, or FAILED MediaAsset on create/update
+    await request(server)
+      .post("/api/v1/admin/news")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Reject Deleted Media",
+        excerpt: "Kiểm tra từ chối media đã xóa mềm khi tạo bài viết.",
+        content: "Nội dung test reject.",
+        coverMediaId: activeMedia.id,
+      })
+      .expect(400);
+
+    await request(server)
+      .patch(`/api/v1/admin/news/${legacyArticleRes.body.data.id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        coverMediaId: failedMedia.id,
+      })
+      .expect(400);
+
+    await request(server)
+      .post("/api/v1/admin/news")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Reject Unknown Media",
+        excerpt: "Kiểm tra từ chối UUID media không tồn tại trong DB.",
+        content: "Nội dung test reject.",
+        coverMediaId: "00000000-0000-4000-8000-000000000999",
+      })
+      .expect(400);
+  });
 });

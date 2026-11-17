@@ -189,6 +189,7 @@ export default function AdminNewsPage() {
       content: article.content || "",
       coverMediaId: article.coverMediaId || null,
       coverImageUrl:
+        article.coverMedia?.publicUrl ||
         article.coverMedia?.thumbnailKey ||
         article.coverMedia?.originalObjectKey ||
         article.coverImageUrl ||
@@ -324,6 +325,7 @@ export default function AdminNewsPage() {
         header: "Ảnh bìa",
         render: (item: AdminNewsArticleItem) => {
           const img =
+            item.coverMedia?.publicUrl ||
             item.coverMedia?.thumbnailKey ||
             item.coverMedia?.originalObjectKey ||
             item.coverImageUrl ||

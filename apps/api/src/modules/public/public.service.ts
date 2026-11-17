@@ -1241,11 +1241,11 @@ export class PublicService {
     const normalizedPhone = dto.phone.trim();
     const normalizedName = dto.fullName.trim();
 
-    // Prevent duplicate registration for the same event
+    // Prevent duplicate active registration for the same event (case-insensitive)
     const existingParticipation = await this.prisma.eventParticipation.findFirst({
       where: {
         eventId: dto.eventId,
-        attendeeEmail: normalizedEmail,
+        attendeeEmail: { equals: normalizedEmail, mode: "insensitive" },
         participationStatus: { not: "CANCELLED" },
       },
     });
@@ -1257,28 +1257,6 @@ export class PublicService {
       });
     }
 
-    // Generate unique human-readable ticket code e.g. OD26-7A9B-4C2E
-    let ticketCode = "";
-    let isUnique = false;
-    for (let attempts = 0; attempts < 10; attempts++) {
-      const randomSuffix = crypto.randomBytes(4).toString("hex").toUpperCase();
-      const codeCandidate = `OD26-${randomSuffix.slice(0, 4)}-${randomSuffix.slice(4, 8)}`;
-      const existingCode = await this.prisma.eventParticipation.findUnique({
-        where: { ticketCode: codeCandidate },
-      });
-      if (!existingCode) {
-        ticketCode = codeCandidate;
-        isUnique = true;
-        break;
-      }
-    }
-
-    if (!isUnique || !ticketCode) {
-      throw new InternalServerErrorException(
-        "Không thể tạo mã vé duy nhất. Vui lòng thử lại.",
-      );
-    }
-
     const metadata: Record<string, unknown> = {};
     if (dto.sessionIds && dto.sessionIds.length > 0) {
       metadata.sessionIds = dto.sessionIds;
@@ -1287,23 +1265,73 @@ export class PublicService {
       metadata.notes = dto.notes;
     }
 
-    const participation = await this.prisma.eventParticipation.create({
-      data: {
-        eventId: dto.eventId,
-        ticketCode,
-        attendeeName: normalizedName,
-        attendeeEmail: normalizedEmail,
-        attendeePhone: normalizedPhone,
-        metadataJson:
-          Object.keys(metadata).length > 0
-            ? (metadata as Prisma.InputJsonValue)
-            : Prisma.JsonNull,
-        participationStatus: "CONFIRMED",
-      },
-      include: {
-        event: true,
-      },
-    });
+    const metadataValue =
+      Object.keys(metadata).length > 0
+        ? (metadata as Prisma.InputJsonValue)
+        : Prisma.JsonNull;
+
+    let participation: Prisma.EventParticipationGetPayload<{
+      include: { event: true };
+    }> | null = null;
+
+    for (let attempts = 0; attempts < 10; attempts++) {
+      const randomSuffix = crypto.randomBytes(4).toString("hex").toUpperCase();
+      const ticketCode = `OD26-${randomSuffix.slice(0, 4)}-${randomSuffix.slice(4, 8)}`;
+
+      try {
+        participation = await this.prisma.eventParticipation.create({
+          data: {
+            eventId: dto.eventId,
+            ticketCode,
+            attendeeName: normalizedName,
+            attendeeEmail: normalizedEmail,
+            attendeePhone: normalizedPhone,
+            metadataJson: metadataValue,
+            participationStatus: "CONFIRMED",
+          },
+          include: {
+            event: true,
+          },
+        });
+        break;
+      } catch (err) {
+        if (!this.isPrismaUniqueViolation(err)) {
+          throw err;
+        }
+
+        if (this.isTicketCodeUniqueViolation(err)) {
+          continue;
+        }
+
+        const concurrentParticipation =
+          await this.prisma.eventParticipation.findFirst({
+            where: {
+              eventId: dto.eventId,
+              attendeeEmail: { equals: normalizedEmail, mode: "insensitive" },
+              participationStatus: { not: "CANCELLED" },
+            },
+            select: { id: true },
+          });
+
+        if (
+          concurrentParticipation ||
+          this.isActiveEmailUniqueViolation(err)
+        ) {
+          throw new ConflictException({
+            code: "DUPLICATE_REGISTRATION",
+            message: `Email ${normalizedEmail} đã được đăng ký tham gia sự kiện này trước đó. Vui lòng kiểm tra lại vé đã cấp.`,
+          });
+        }
+
+        throw err;
+      }
+    }
+
+    if (!participation) {
+      throw new InternalServerErrorException(
+        "Không thể tạo mã vé duy nhất. Vui lòng thử lại.",
+      );
+    }
 
     return {
       id: participation.id,
@@ -1358,5 +1386,45 @@ export class PublicService {
       createdAt: participation.createdAt.toISOString(),
       qrPayload: `TICKET:${participation.ticketCode}`,
     };
+  }
+
+  private isPrismaUniqueViolation(err: unknown): boolean {
+    return (
+      (err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002") ||
+      (typeof err === "object" &&
+        err !== null &&
+        (err as { code?: string }).code === "P2002")
+    );
+  }
+
+  private getUniqueViolationText(err: unknown): string {
+    if (typeof err !== "object" || err === null) {
+      return "";
+    }
+    const meta = (err as { meta?: { target?: unknown } }).meta;
+    const message = (err as { message?: unknown }).message;
+    const targetText = Array.isArray(meta?.target)
+      ? meta.target.map(String).join(",")
+      : meta?.target
+        ? String(meta.target)
+        : "";
+    return `${targetText} ${typeof message === "string" ? message : ""}`.toLowerCase();
+  }
+
+  private isTicketCodeUniqueViolation(err: unknown): boolean {
+    const info = this.getUniqueViolationText(err);
+    return (
+      info.includes("ticket_code") &&
+      !info.includes("uq_event_participations_active_email")
+    );
+  }
+
+  private isActiveEmailUniqueViolation(err: unknown): boolean {
+    const info = this.getUniqueViolationText(err);
+    return (
+      info.includes("uq_event_participations_active_email") ||
+      info.includes("attendee_email")
+    );
   }
 }

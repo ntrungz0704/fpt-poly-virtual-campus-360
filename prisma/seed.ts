@@ -1308,7 +1308,7 @@ async function seed() {
           activationStatus: "ACTIVATED",
           provisioningMethod: "BOOTSTRAP",
           passwordHash: bootstrapPasswordHash!,
-          mustChangePassword: false,
+          mustChangePassword: true,
         },
       });
       adminCreated = true;

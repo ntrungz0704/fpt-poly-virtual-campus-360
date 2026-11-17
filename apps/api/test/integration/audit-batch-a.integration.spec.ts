@@ -35,9 +35,25 @@ describe("Audit Batch A — Security, Concurrency, Tour Go-Live & Portal Integri
     prisma = ctx.app.get(PrismaService);
     server = ctx.app.getHttpServer();
 
-    const adminLogin = await request(server)
+    const adminBootstrap = await request(server)
       .post("/api/v1/auth/login")
       .send({ identifier: "admin", password: TEST_ADMIN_BOOTSTRAP_PASSWORD })
+      .expect(200);
+    expect(adminBootstrap.body.data.user.mustChangePassword).toBe(true);
+
+    const rotatedAdminPassword = "BatchA-Rotated-Admin-Pass-2026!";
+    await request(server)
+      .patch("/api/v1/auth/me/password")
+      .set("Authorization", `Bearer ${adminBootstrap.body.data.accessToken}`)
+      .send({
+        currentPassword: TEST_ADMIN_BOOTSTRAP_PASSWORD,
+        newPassword: rotatedAdminPassword,
+      })
+      .expect(200);
+
+    const adminLogin = await request(server)
+      .post("/api/v1/auth/login")
+      .send({ identifier: "admin", password: rotatedAdminPassword })
       .expect(200);
     adminToken = adminLogin.body.data.accessToken;
 

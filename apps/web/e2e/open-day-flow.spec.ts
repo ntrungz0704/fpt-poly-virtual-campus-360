@@ -153,14 +153,21 @@ test.describe.serial("Milestone M3C: Open Day User Flow & QR Check-in E2E", () =
   }) => {
     const errors = attachErrorCollector(page);
 
-    // 1. Log in as admin
+    // 1. Log in as admin (bootstrap admin retains mustChangePassword = true policy)
+    const rotatedAdminPassword = "E2EBootstr@p-Updated-2026!";
     await page.goto(`${WEB_BASE}/login`);
     await page.locator("#login-identifier").fill("admin");
     await page.locator("#login-password").fill(ADMIN_PASSWORD);
     await page.getByRole("button", { name: /Đăng nhập/i }).click();
 
-    // Wait for redirect to admin
-    await page.waitForURL(/\/admin/);
+    await page.waitForURL(/\/(admin|change-password)/, { timeout: 15_000 });
+    if (page.url().includes("/change-password")) {
+      await page.locator("#current-password").fill(ADMIN_PASSWORD);
+      await page.locator("#new-password").fill(rotatedAdminPassword);
+      await page.locator("#confirm-password").fill(rotatedAdminPassword);
+      await page.getByRole("button", { name: "Xác nhận đổi mật khẩu" }).click();
+      await page.waitForURL(/\/admin/, { timeout: 15_000 });
+    }
 
     // 2. Go to /admin/events
     await page.goto(`${WEB_BASE}/admin/events`, { waitUntil: "networkidle" });

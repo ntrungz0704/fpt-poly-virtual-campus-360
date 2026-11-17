@@ -1,12 +1,20 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import type {
   CreateLinkRequest,
   ParentStudentDetailDto,
   ParentStudentSummaryDto,
 } from "@fpt-campus/shared";
-import { Badge, Button, EmptyState, ErrorState, Input, LoadingState } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  EmptyState,
+  ErrorState,
+  InlineAlertBanner,
+  Input,
+  LoadingState,
+} from "@/components/ui";
 import { portalApi } from "@/lib/portal/portal-api";
 
 export default function ParentPortalPage() {
@@ -21,6 +29,28 @@ export default function ParentPortalPage() {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current) {
+        clearTimeout(successTimerRef.current);
+      }
+    };
+  }, []);
+
+  const openAddModal = () => {
+    setCreateError(null);
+    setShowAddModal(true);
+  };
+
+  const closeAddModal = () => {
+    if (submitting) return;
+    setCreateError(null);
+    setShowAddModal(false);
+  };
 
   // Detail view
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -62,8 +92,14 @@ export default function ParentPortalPage() {
     e.preventDefault();
     if (submitting || !studentIdentifier.trim()) return;
 
+    if (successTimerRef.current) {
+      clearTimeout(successTimerRef.current);
+      successTimerRef.current = null;
+    }
     setSubmitting(true);
     setSuccessMsg(null);
+    setCreateError(null);
+    setActionError(null);
     try {
       const payload: CreateLinkRequest = {
         studentIdentifier: studentIdentifier.trim(),
@@ -74,26 +110,35 @@ export default function ParentPortalPage() {
       setSuccessMsg("Yêu cầu liên kết đã được gửi! Vui lòng chờ sinh viên xác nhận.");
       setStudentIdentifier("");
       setNotes("");
+      setCreateError(null);
       setShowAddModal(false);
       void reloadData();
-      setTimeout(() => setSuccessMsg(null), 5000);
+      successTimerRef.current = setTimeout(() => setSuccessMsg(null), 5000);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Gửi yêu cầu liên kết thất bại.");
+      setSuccessMsg(null);
+      setCreateError(
+        err instanceof Error ? err.message : "Gửi yêu cầu liên kết thất bại.",
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
-
   const handleViewDetail = async (studentId: string) => {
+    setActionError(null);
+    setSuccessMsg(null);
+    setStudentDetail(null);
     setSelectedStudentId(studentId);
     setDetailLoading(true);
     try {
       const detail = await portalApi.getLinkedStudentDetail(studentId);
       setStudentDetail(detail);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Không thể tải chi tiết sinh viên.");
+      setStudentDetail(null);
       setSelectedStudentId(null);
+      setActionError(
+        err instanceof Error ? err.message : "Không thể tải chi tiết sinh viên.",
+      );
     } finally {
       setDetailLoading(false);
     }
@@ -128,23 +173,31 @@ export default function ParentPortalPage() {
           variant="primary"
           size="sm"
           icon="person_add"
-          onClick={() => setShowAddModal(true)}
+          onClick={openAddModal}
           data-testid="add-student-link-btn"
         >
           Liên kết sinh viên mới
         </Button>
       </div>
 
+      {actionError && (
+        <InlineAlertBanner
+          variant="error"
+          message={actionError}
+          onDismiss={() => setActionError(null)}
+          dismissLabel="Đóng thông báo lỗi"
+          testId="parent-action-error"
+        />
+      )}
+
       {successMsg && (
-        <div
-          role="status"
-          className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-xs sm:text-sm text-emerald-950 flex items-center gap-2"
-        >
-          <span className="material-symbols-outlined text-[18px] text-emerald-600" aria-hidden="true">
-            check_circle
-          </span>
-          <span>{successMsg}</span>
-        </div>
+        <InlineAlertBanner
+          variant="success"
+          message={successMsg}
+          onDismiss={() => setSuccessMsg(null)}
+          dismissLabel="Đóng thông báo thành công"
+          testId="parent-action-success"
+        />
       )}
 
 
@@ -158,7 +211,7 @@ export default function ParentPortalPage() {
             title="Chưa có sinh viên nào được liên kết với tài khoản này"
             description="Bạn có thể gửi yêu cầu liên kết tới email hoặc mã số sinh viên của con em mình để bắt đầu đồng hành."
             actionLabel="Gửi yêu cầu liên kết ngay"
-            onAction={() => setShowAddModal(true)}
+            onAction={openAddModal}
             className="ui-card p-10"
           />
         ) : (
@@ -233,8 +286,9 @@ export default function ParentPortalPage() {
           <div className="ui-card max-w-md w-full p-6 sm:p-8 space-y-5 bg-surface shadow-2xl relative">
             <button
               type="button"
-              onClick={() => setShowAddModal(false)}
-              className="absolute top-4 right-4 text-secondary hover:text-on-surface p-1 rounded-lg"
+              onClick={closeAddModal}
+              disabled={submitting}
+              className="absolute top-4 right-4 text-secondary hover:text-on-surface p-1 rounded-lg disabled:opacity-50"
               aria-label="Đóng"
             >
               <span className="material-symbols-outlined text-[20px]">close</span>
@@ -246,6 +300,16 @@ export default function ParentPortalPage() {
                 Nhập email hoặc mã sinh viên của con em bạn để gửi yêu cầu phê duyệt liên kết.
               </p>
             </div>
+
+            {createError && (
+              <InlineAlertBanner
+                variant="error"
+                message={createError}
+                onDismiss={() => setCreateError(null)}
+                dismissLabel="Đóng thông báo lỗi"
+                testId="parent-create-link-error"
+              />
+            )}
 
             <form onSubmit={handleCreateRequest} className="space-y-4">
               <Input
@@ -269,7 +333,7 @@ export default function ParentPortalPage() {
               />
 
               <div className="flex items-center justify-end gap-3 pt-3">
-                <Button type="button" variant="outline" size="sm" onClick={() => setShowAddModal(false)}>
+                <Button type="button" variant="outline" size="sm" onClick={closeAddModal} disabled={submitting}>
                   Hủy
                 </Button>
                 <Button type="submit" variant="primary" size="sm" loading={submitting}>

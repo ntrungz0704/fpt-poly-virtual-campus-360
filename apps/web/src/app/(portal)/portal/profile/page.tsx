@@ -1,8 +1,15 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { StudentProfileDto, UpdateStudentProfileRequest } from "@fpt-campus/shared";
-import { Badge, Button, ErrorState, Input, LoadingState } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  ErrorState,
+  InlineAlertBanner,
+  Input,
+  LoadingState,
+} from "@/components/ui";
 import { getUserInitials, getUserTypeLabel } from "@/lib/auth/auth-routing";
 import { portalApi } from "@/lib/portal/portal-api";
 
@@ -46,6 +53,16 @@ export default function StudentProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [bio, setBio] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current) {
+        clearTimeout(successTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -77,8 +94,13 @@ export default function StudentProfilePage() {
     e.preventDefault();
     if (saving) return;
 
+    if (successTimerRef.current) {
+      clearTimeout(successTimerRef.current);
+      successTimerRef.current = null;
+    }
     setSaving(true);
     setSaveSuccess(false);
+    setSaveError(null);
     try {
       const payload: UpdateStudentProfileRequest = {
         phone: phone.trim() || null,
@@ -90,9 +112,10 @@ export default function StudentProfilePage() {
       setProfile(updated);
       setEditing(false);
       setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 4000);
+      successTimerRef.current = setTimeout(() => setSaveSuccess(false), 4000);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Cập nhật hồ sơ thất bại.");
+      setSaveSuccess(false);
+      setSaveError(err instanceof Error ? err.message : "Cập nhật hồ sơ thất bại.");
     } finally {
       setSaving(false);
     }
@@ -154,7 +177,11 @@ export default function StudentProfilePage() {
                 variant="primary"
                 size="sm"
                 icon="edit"
-                onClick={() => setEditing(true)}
+                onClick={() => {
+                  setSaveSuccess(false);
+                  setSaveError(null);
+                  setEditing(true);
+                }}
                 data-testid="edit-profile-btn"
               >
                 Chỉnh sửa hồ sơ
@@ -173,15 +200,13 @@ export default function StudentProfilePage() {
         </div>
 
         {saveSuccess && (
-          <div
-            role="status"
-            className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-xs sm:text-sm text-emerald-950 flex items-center gap-2"
-          >
-            <span className="material-symbols-outlined text-[18px] text-emerald-600" aria-hidden="true">
-              check_circle
-            </span>
-            <span>Hồ sơ đã được lưu thành công vào cơ sở dữ liệu!</span>
-          </div>
+          <InlineAlertBanner
+            variant="success"
+            message="Hồ sơ đã được lưu thành công vào cơ sở dữ liệu!"
+            onDismiss={() => setSaveSuccess(false)}
+            dismissLabel="Đóng thông báo thành công"
+            testId="profile-save-success"
+          />
         )}
 
         {/* Quick Stats Grid */}
@@ -236,6 +261,15 @@ export default function StudentProfilePage() {
           </div>
         ) : (
           <form onSubmit={handleSave} className="space-y-4">
+            {saveError && (
+              <InlineAlertBanner
+                variant="error"
+                message={saveError}
+                onDismiss={() => setSaveError(null)}
+                dismissLabel="Đóng thông báo lỗi"
+                testId="profile-save-error"
+              />
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
                 label="Số điện thoại liên hệ"
@@ -271,7 +305,16 @@ export default function StudentProfilePage() {
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setEditing(false)} disabled={saving}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSaveError(null);
+                  setEditing(false);
+                }}
+                disabled={saving}
+              >
                 Hủy
               </Button>
               <Button type="submit" variant="primary" size="sm" loading={saving} data-testid="save-profile-btn">

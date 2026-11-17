@@ -37,4 +37,7 @@ export type { StateFeedbackProps } from "./StateFeedback";
 export { StatusToast } from "./StatusToast";
 export type { StatusToastProps, ToastType } from "./StatusToast";
 
+export { InlineAlertBanner } from "./InlineAlertBanner";
+export type { InlineAlertBannerProps } from "./InlineAlertBanner";
+
 export { QRCodeSVG } from "./QRCodeSVG";

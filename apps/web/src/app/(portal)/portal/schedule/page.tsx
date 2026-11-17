@@ -5,6 +5,11 @@ import Link from "next/link";
 import type { PortalScheduleItemDto } from "@fpt-campus/shared";
 import { Badge, EmptyState, ErrorState, LoadingState } from "@/components/ui";
 import { portalApi } from "@/lib/portal/portal-api";
+import {
+  SCHEDULE_FILTER_OPTIONS,
+  filterScheduleItems,
+  getSchedulePeriodMeta,
+} from "@/lib/portal/schedule-utils";
 
 export default function StudentSchedulePage() {
   const [schedule, setSchedule] = useState<PortalScheduleItemDto[]>([]);
@@ -50,11 +55,7 @@ export default function StudentSchedulePage() {
     );
   }
 
-  const filtered = schedule.filter((s) => {
-    if (filterPeriod === "ALL") return true;
-    if (filterPeriod === "REGISTERED") return s.isRegistered;
-    return s.period === filterPeriod;
-  });
+  const filtered = filterScheduleItems(schedule, filterPeriod);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6" data-testid="student-schedule-page">
@@ -68,12 +69,7 @@ export default function StudentSchedulePage() {
 
         {/* Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          {[
-            { id: "ALL", label: "Tất cả" },
-            { id: "REGISTERED", label: "Đã đăng ký" },
-            { id: "MORNING", label: "Buổi sáng" },
-            { id: "AFTERNOON", label: "Buổi chiều" },
-          ].map((f) => (
+          {SCHEDULE_FILTER_OPTIONS.map((f) => (
             <button
               key={f.id}
               type="button"
@@ -113,8 +109,8 @@ export default function StudentSchedulePage() {
                   <span className="font-mono text-xs font-bold text-primary bg-primary-fixed px-2 py-0.5 rounded">
                     {item.timeRangeLabel}
                   </span>
-                  <Badge variant={item.period === "MORNING" ? "brand" : "neutral"}>
-                    {item.period === "MORNING" ? "Sáng" : "Chiều"}
+                  <Badge variant={getSchedulePeriodMeta(item.period).variant}>
+                    {getSchedulePeriodMeta(item.period).label}
                   </Badge>
                   {item.isRegistered ? (
                     <Badge variant="success">Đã có trong vé</Badge>

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -436,6 +437,17 @@ export class TourAdminService {
     });
     if (!existing || existing.deletedAt) {
       throw new NotFoundException(`Tour node with ID ${id} not found.`);
+    }
+
+    if (
+      dto.status !== undefined &&
+      dto.status !== existing.status &&
+      !user.permissions?.includes("tour:publish")
+    ) {
+      throw new ForbiddenException({
+        code: "FORBIDDEN",
+        message: "Bạn không có quyền 'tour:publish' để thay đổi trạng thái xuất bản cảnh 360°.",
+      });
     }
 
     let nextAsset = existing.panoramaAsset;
@@ -1164,18 +1176,23 @@ export class TourAdminService {
         ? { id: { in: nodeIds }, deletedAt: null }
         : { deletedAt: null };
 
-    const result = await this.prisma.tourNode.updateMany({
-      where: whereClause,
-      data: { status: PublishStatus.DRAFT },
-    });
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.tourNode.updateMany({
+        where: whereClause,
+        data: { status: PublishStatus.DRAFT },
+      });
 
-    await this.auditLog.record({
-      action: "TOUR_UNPUBLISH",
-      actorUserId: user.id,
-      actorUsername: user.username ?? user.fullName,
-      resourceType: "TourNode",
-      resourceId: null,
-      diffJson: { unpublishedCount: result.count },
+      await this.auditLog.record({
+        action: "TOUR_UNPUBLISH",
+        actorUserId: user.id,
+        actorUsername: user.username ?? user.fullName,
+        resourceType: "TourNode",
+        resourceId: null,
+        diffJson: { unpublishedCount: updated.count },
+        tx,
+      });
+
+      return updated;
     });
 
     return {

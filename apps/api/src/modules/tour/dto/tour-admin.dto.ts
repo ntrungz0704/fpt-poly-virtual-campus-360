@@ -85,7 +85,7 @@ export class UpdateTourNodeDto {
   sortOrder?: number;
 
   @IsOptional()
-  @IsString()
+  @IsEnum(["DRAFT", "PUBLISHED", "ARCHIVED"])
   status?: "DRAFT" | "PUBLISHED" | "ARCHIVED";
 }
 

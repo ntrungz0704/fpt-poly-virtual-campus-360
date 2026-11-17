@@ -445,4 +445,372 @@ describe("Audit Batch B-B2 — Tour Studio & Admin Locations PostgreSQL Sync Int
     });
     expect(auditDelete).not.toBeNull();
   });
+
+  it("proves batchSaveStudio multi-scene rollback, selective SCENE_LINK edge deletion, deleteNode FK/orphan cleanup with atomic AuditLog, and strict tour:publish 403 enforcement", async () => {
+    // 1. Provision staff user with ONLY tour:write (explicitly lacking tour:publish)
+    const rotatedPw = "BatchB2-Rotated-Admin-Pass-2026!";
+    const adminRow = await prisma.user.findUniqueOrThrow({
+      where: { id: adminUserId },
+    });
+    const tourWritePerm = await prisma.permission.findUniqueOrThrow({
+      where: { code: "tour:write" },
+    });
+    const writerOnlyRole = await prisma.role.create({
+      data: {
+        code: "TOUR_WRITER_NO_PUB",
+        name: "Tour Writer Without Publish",
+      },
+    });
+    await prisma.rolePermission.create({
+      data: {
+        roleId: writerOnlyRole.id,
+        permissionId: tourWritePerm.id,
+      },
+    });
+    const writerUser = await prisma.user.create({
+      data: {
+        username: "b2_writer_only",
+        fullName: "Writer Only B2",
+        email: "b2.writer.only@poly.edu.vn",
+        userType: "STAFF",
+        accountStatus: "ACTIVE",
+        activationStatus: "ACTIVATED",
+        provisioningMethod: "ADMIN_DIRECT",
+        mustChangePassword: false,
+        passwordHash: adminRow.passwordHash,
+      },
+    });
+    await prisma.userRole.create({
+      data: { userId: writerUser.id, roleId: writerOnlyRole.id },
+    });
+    const writerLogin = await request(server)
+      .post("/api/v1/auth/login")
+      .send({ identifier: writerUser.username, password: rotatedPw })
+      .expect(200);
+    const writerOnlyToken: string = writerLogin.body.data.accessToken;
+
+    // 2. Create 3 nodes (S1, S2, S3) for rollback, selective edge delete, and FK delete proofs
+    const createScene = async (slug: string, title: string) => {
+      const res = await request(server)
+        .post("/api/v1/admin/tour/nodes")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          title,
+          slug,
+          intro: `${title} intro`,
+          locationId: publishedLocationId,
+          panoramaAssetId: genuinePanoramaAssetId,
+        })
+        .expect(201);
+      return res.body.data.id as string;
+    };
+
+    const s1Id = await createScene("b2-verify-s1", "Verify Scene 1");
+    const s2Id = await createScene("b2-verify-s2", "Verify Scene 2");
+    const s3Id = await createScene("b2-verify-s3", "Verify Scene 3");
+
+    // 3. Authoritative backend tour:publish enforcement (401/403) including PATCH /nodes/:id bypass guard
+    await request(server)
+      .post("/api/v1/admin/tour/publish")
+      .send({ nodeIds: [s1Id] })
+      .expect(401);
+
+    await request(server)
+      .post("/api/v1/admin/tour/publish")
+      .set("Authorization", `Bearer ${studentToken}`)
+      .send({ nodeIds: [s1Id] })
+      .expect(403);
+
+    await request(server)
+      .post("/api/v1/admin/tour/publish")
+      .set("Authorization", `Bearer ${editorToken}`)
+      .send({ nodeIds: [s1Id] })
+      .expect(403);
+
+    // writerOnly HAS tour:write -> can batch-save & edit metadata, CANNOT publish/unpublish/patch status=PUBLISHED
+    await request(server)
+      .post("/api/v1/admin/tour/studio/batch-save")
+      .set("Authorization", `Bearer ${writerOnlyToken}`)
+      .send({
+        scenes: [
+          {
+            nodeId: s1Id,
+            slug: "b2-verify-s1",
+            title: "Verify Scene 1 Writer Edit",
+            hotspots: [
+              {
+                hotspotType: "SCENE_LINK",
+                yaw: 12,
+                pitch: 0,
+                title: "S1 -> S2",
+                targetNodeSlug: "b2-verify-s2",
+              },
+              {
+                hotspotType: "SCENE_LINK",
+                yaw: 90,
+                pitch: 0,
+                title: "S1 -> S3",
+                targetNodeSlug: "b2-verify-s3",
+              },
+            ],
+          },
+          {
+            nodeId: s2Id,
+            slug: "b2-verify-s2",
+            title: "Verify Scene 2",
+            hotspots: [
+              {
+                hotspotType: "SCENE_LINK",
+                yaw: 15,
+                pitch: 0,
+                title: "S2 -> S3",
+                targetNodeSlug: "b2-verify-s3",
+              },
+            ],
+          },
+          {
+            nodeId: s3Id,
+            slug: "b2-verify-s3",
+            title: "Verify Scene 3",
+            hotspots: [
+              {
+                hotspotType: "SCENE_LINK",
+                yaw: -45,
+                pitch: 2,
+                title: "S3 -> S2",
+                targetNodeSlug: "b2-verify-s2",
+              },
+              {
+                hotspotType: "SCENE_LINK",
+                yaw: 120,
+                pitch: -2,
+                title: "S3 -> S1",
+                targetNodeSlug: "b2-verify-s1",
+              },
+            ],
+          },
+        ],
+      })
+      .expect(201);
+
+    await request(server)
+      .patch(`/api/v1/admin/tour/nodes/${s1Id}`)
+      .set("Authorization", `Bearer ${writerOnlyToken}`)
+      .send({ intro: "Updated intro without status escalation" })
+      .expect(200);
+
+    await request(server)
+      .post("/api/v1/admin/tour/publish")
+      .set("Authorization", `Bearer ${writerOnlyToken}`)
+      .send({ nodeIds: [s1Id] })
+      .expect(403);
+
+    await request(server)
+      .post("/api/v1/admin/tour/unpublish")
+      .set("Authorization", `Bearer ${writerOnlyToken}`)
+      .send({ nodeIds: [s1Id] })
+      .expect(403);
+
+    await request(server)
+      .patch(`/api/v1/admin/tour/nodes/${s1Id}`)
+      .set("Authorization", `Bearer ${writerOnlyToken}`)
+      .send({ status: "PUBLISHED" })
+      .expect(403);
+
+    const s1DbBeforeRollback = await prisma.tourNode.findUniqueOrThrow({
+      where: { id: s1Id },
+      include: { hotspots: true },
+    });
+    expect(s1DbBeforeRollback.status).toBe("DRAFT");
+    const s1S2Hotspot = s1DbBeforeRollback.hotspots.find((h) => h.title === "S1 -> S2");
+    expect(s1S2Hotspot).toBeDefined();
+
+    // 4. Multi-scene partial failure rollback test: S1 valid mutation + S2 invalid target -> full TX rollback
+    const studioAuditCountBefore = await prisma.auditLog.count({
+      where: { resourceType: "TourStudio" },
+    });
+
+    await request(server)
+      .post("/api/v1/admin/tour/studio/batch-save")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        scenes: [
+          {
+            nodeId: s1Id,
+            slug: "b2-verify-s1",
+            title: "MUST ROLLBACK TITLE",
+            hotspots: [
+              {
+                hotspotType: "INFO",
+                yaw: 0,
+                pitch: 0,
+                title: "Should Not Exist After Rollback",
+                body: "Rollback verification",
+              },
+            ],
+          },
+          {
+            nodeId: s2Id,
+            slug: "b2-verify-s2",
+            title: "S2 Triggers Mid-Batch Failure",
+            hotspots: [
+              {
+                hotspotType: "SCENE_LINK",
+                yaw: 5,
+                pitch: 1,
+                title: "Broken Link",
+                targetNodeSlug: "non-existent-target-scene",
+              },
+            ],
+          },
+        ],
+      })
+      .expect(400);
+
+    // Also test rollback when S2 fails via cross-node hotspot tamper (404)
+    await request(server)
+      .post("/api/v1/admin/tour/studio/batch-save")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        scenes: [
+          {
+            nodeId: s1Id,
+            slug: "b2-verify-s1",
+            title: "MUST ROLLBACK TITLE 2",
+          },
+          {
+            nodeId: s2Id,
+            slug: "b2-verify-s2",
+            title: "S2 Cross-Node Tamper",
+            hotspots: [
+              {
+                id: s1S2Hotspot!.id,
+                hotspotType: "INFO",
+                yaw: 0,
+                pitch: 0,
+                title: "Tampered",
+              },
+            ],
+          },
+        ],
+      })
+      .expect(404);
+
+    const s1AfterRollback = await prisma.tourNode.findUniqueOrThrow({
+      where: { id: s1Id },
+      include: { hotspots: true },
+    });
+    expect(s1AfterRollback.title).toBe("Verify Scene 1 Writer Edit");
+    expect(s1AfterRollback.hotspots).toHaveLength(2);
+    expect(
+      s1AfterRollback.hotspots.some((h) => h.title === "Should Not Exist After Rollback"),
+    ).toBe(false);
+    const studioAuditCountAfter = await prisma.auditLog.count({
+      where: { resourceType: "TourStudio" },
+    });
+    expect(studioAuditCountAfter).toBe(studioAuditCountBefore);
+
+    // 5. Selective SCENE_LINK hotspot deletion removes ONLY its TourEdge without affecting sibling/other edges
+    await request(server)
+      .post("/api/v1/admin/tour/studio/batch-save")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        scenes: [
+          {
+            nodeId: s1Id,
+            slug: "b2-verify-s1",
+            title: "Verify Scene 1 Writer Edit",
+            hotspots: [
+              {
+                id: s1S2Hotspot!.id,
+                hotspotType: "SCENE_LINK",
+                yaw: 12,
+                pitch: 0,
+                title: "S1 -> S2",
+                targetNodeSlug: "b2-verify-s2",
+              },
+            ],
+          },
+        ],
+      })
+      .expect(201);
+
+    const [edgeS1S3, edgeS1S2, edgeS2S3] = await Promise.all([
+      prisma.tourEdge.findFirst({ where: { fromNodeId: s1Id, toNodeId: s3Id } }),
+      prisma.tourEdge.findFirst({ where: { fromNodeId: s1Id, toNodeId: s2Id } }),
+      prisma.tourEdge.findFirst({ where: { fromNodeId: s2Id, toNodeId: s3Id } }),
+    ]);
+    expect(edgeS1S3).toBeNull();
+    expect(edgeS1S2).not.toBeNull();
+    expect(edgeS2S3).not.toBeNull();
+
+    // 6. deleteNode() clears ALL 3 nullable FKs (Location, Building, Campus), incoming/outgoing hotspots & edges cleanly with atomic AuditLog
+    const building = await prisma.building.findFirstOrThrow({
+      where: { deletedAt: null },
+    });
+    const campus = await prisma.campus.findFirstOrThrow({
+      where: { deletedAt: null },
+    });
+    await Promise.all([
+      prisma.location.update({
+        where: { id: publishedLocationId },
+        data: { primaryNodeId: s2Id },
+      }),
+      prisma.building.update({
+        where: { id: building.id },
+        data: { defaultNodeId: s2Id },
+      }),
+      prisma.campus.update({
+        where: { id: campus.id },
+        data: { defaultEntryNodeId: s2Id },
+      }),
+    ]);
+
+    const deleteAuditCountBefore = await prisma.auditLog.count({
+      where: { action: "TOUR_NODE_DELETE" },
+    });
+
+    // Missing node delete -> 404 and zero AuditLog written
+    await request(server)
+      .delete("/api/v1/admin/tour/nodes/00000000-0000-4000-8000-000000000999")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(404);
+    expect(
+      await prisma.auditLog.count({ where: { action: "TOUR_NODE_DELETE" } }),
+    ).toBe(deleteAuditCountBefore);
+
+    // Delete S2 (which has Location.primaryNodeId, Building.defaultNodeId, Campus.defaultEntryNodeId, incoming S1->S2, S3->S2, outgoing S2->S3)
+    await request(server)
+      .delete(`/api/v1/admin/tour/nodes/${s2Id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+
+    const [locAfter, bldAfter, campusAfter, s2After, orphanEdges, incomingOrOwnHotspots, unrelatedEdgeS3S1, s2DeleteAudit] =
+      await Promise.all([
+        prisma.location.findUniqueOrThrow({ where: { id: publishedLocationId } }),
+        prisma.building.findUniqueOrThrow({ where: { id: building.id } }),
+        prisma.campus.findUniqueOrThrow({ where: { id: campus.id } }),
+        prisma.tourNode.findUniqueOrThrow({ where: { id: s2Id } }),
+        prisma.tourEdge.findMany({
+          where: { OR: [{ fromNodeId: s2Id }, { toNodeId: s2Id }] },
+        }),
+        prisma.hotspot.findMany({
+          where: { OR: [{ nodeId: s2Id }, { edge: { is: { toNodeId: s2Id } } }] },
+        }),
+        prisma.tourEdge.findFirst({ where: { fromNodeId: s3Id, toNodeId: s1Id } }),
+        prisma.auditLog.findFirst({
+          where: { action: "TOUR_NODE_DELETE", resourceId: s2Id },
+        }),
+      ]);
+
+    expect(locAfter.primaryNodeId).toBeNull();
+    expect(bldAfter.defaultNodeId).toBeNull();
+    expect(campusAfter.defaultEntryNodeId).toBeNull();
+    expect(s2After.deletedAt).not.toBeNull();
+    expect(s2After.status).toBe("ARCHIVED");
+    expect(orphanEdges).toHaveLength(0);
+    expect(incomingOrOwnHotspots).toHaveLength(0);
+    expect(unrelatedEdgeS3S1).not.toBeNull();
+    expect(s2DeleteAudit).not.toBeNull();
+  });
 });

@@ -5,6 +5,7 @@ import {
   fetchPublicEvents,
   fetchPublicLocationBySlug,
   fetchPublicTicketByCode,
+  mapTourNodeDetailToScene,
   registerPublicOpenDay,
   verifyPublicQuiz,
 } from "../../src/lib/public/public-api";
@@ -120,4 +121,90 @@ test("public-api rejects 404/409/offline errors honestly instead of fabricating 
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("mapTourNodeDetailToScene preserves INFO hotspot body as infoText and SCENE_LINK targetSceneId", () => {
+  const mapped = mapTourNodeDetailToScene({
+    node: {
+      id: "00000000-0000-4000-8000-000000000010",
+      slug: "sanh-innovation",
+      title: "Sảnh Innovation",
+      intro: "Điểm đón tiếp trung tâm.",
+      category: "exterior",
+      buildingCode: "INNOVATION",
+      buildingLabel: "Tòa nhà Innovation",
+      floorLabel: "Tầng 1",
+      thumbUrl: "/images/panoramas/campus-courtyard-360.jpg",
+      panoramaUrl: "/images/panoramas/campus-courtyard-360.jpg",
+      fallbackMobileUrl: null,
+      initialYaw: 15,
+      initialPitch: 0,
+      initialFov: 75,
+      headingOffsetDeg: 0,
+      floorPlanId: null,
+      floorNormX: null,
+      floorNormY: null,
+      linkedLocationSlug: "sanh-innovation",
+      status: "PUBLISHED",
+    },
+    location: {
+      id: "00000000-0000-4000-8000-000000000011",
+      slug: "sanh-innovation",
+      name: "Sảnh Đón Tiếp Tòa Nhà Innovation",
+      typeCode: "LOBBY",
+      buildingCode: "INNOVATION",
+      floorId: null,
+      siblingNodes: [],
+    },
+    hotspots: [
+      {
+        id: "00000000-0000-4000-8000-000000000020",
+        hotspotType: "INFO",
+        edgeType: null,
+        yaw: 45,
+        pitch: -5,
+        title: "Quầy thông tin",
+        body: "Hỗ trợ hướng dẫn lịch trình Open Day và cấp thẻ tham dự.",
+        targetNodeSlug: null,
+        targetEntryYaw: null,
+        targetEntryPitch: null,
+        targetFloorId: null,
+        payload: null,
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000021",
+        hotspotType: "SCENE_LINK",
+        edgeType: "DOORWAY",
+        yaw: 120,
+        pitch: 0,
+        title: "Vào Hội trường",
+        body: null,
+        targetNodeSlug: "hoi-truong-innovation",
+        targetEntryYaw: 0,
+        targetEntryPitch: 0,
+        targetFloorId: null,
+        payload: null,
+      },
+    ],
+  });
+
+  assert.equal(mapped.hotspots.length, 2);
+  assert.deepEqual(mapped.hotspots[0], {
+    id: "00000000-0000-4000-8000-000000000020",
+    label: "Quầy thông tin",
+    yaw: 45,
+    pitch: -5,
+    type: "info",
+    targetSceneId: undefined,
+    infoText: "Hỗ trợ hướng dẫn lịch trình Open Day và cấp thẻ tham dự.",
+  });
+  assert.deepEqual(mapped.hotspots[1], {
+    id: "00000000-0000-4000-8000-000000000021",
+    label: "Vào Hội trường",
+    yaw: 120,
+    pitch: 0,
+    type: "scene",
+    targetSceneId: "hoi-truong-innovation",
+    infoText: undefined,
+  });
 });

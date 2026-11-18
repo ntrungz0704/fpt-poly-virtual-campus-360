@@ -448,7 +448,7 @@ export async function fetchPublicTourNodeBySlug(
       targetEntryYaw: null,
       targetEntryPitch: null,
       targetFloorId: null,
-      body: null,
+      body: hs.infoText ?? null,
       payload: null,
     })),
   };
@@ -542,7 +542,7 @@ export function mapTourNodeDetailToScene(
           ? ("scene" as const)
           : ("info" as const),
       targetSceneId: hs.targetNodeSlug ?? undefined,
-      tooltip: hs.body ?? undefined,
+      infoText: hs.body ?? undefined,
     })),
   };
 }

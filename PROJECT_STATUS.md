@@ -1,18 +1,34 @@
 # PROJECT_STATUS — FPT Polytechnic Virtual Campus 360°
 
 > [!IMPORTANT]
-> **Trạng thái đương đại mới nhất (Post-M8 Integration + Audit Batch A & Batch B COMPLETE — cập nhật `2026-11-17` trên nhánh `audit/comprehensive-quality-remediation`):**
-> - **`origin/main` HEAD (đã merge M8 PR #2, không đụng trực tiếp):** `c0a268dafaeb84c537f667cabad82b63ee3d39bb` (merge commit của PR [#2](https://github.com/ntrungz0704/fpt-poly-virtual-campus-360/pull/2) gồm `10f8471` và `a8b3833`, trên nền `ef03ce9`).
-> - **Audit Branch:** `audit/comprehensive-quality-remediation`
+> **Trạng thái đương đại mới nhất (Full Project Health Check `2026-11-18` — Batch A & B `ACCEPTED`, Batch C1–C3 `IMPLEMENTED & PUSHED`, +2 P1 Fixes trên `audit/comprehensive-quality-remediation`):**
+> - **`origin/main` HEAD (Single Source of Truth — không tự ý merge):** `c0a268dafaeb84c537f667cabad82b63ee3d39bb` (merge commit của PR [#2](https://github.com/ntrungz0704/fpt-poly-virtual-campus-360/pull/2) gồm `10f8471` và `a8b3833`, trên nền `ef03ce9`; local `main` tại `ef03ce9` chậm 3 commit so với `origin/main`).
+> - **Audit Branch:** `audit/comprehensive-quality-remediation` (sync với `origin/audit/comprehensive-quality-remediation`; `20+` commit ahead, `0` behind `origin/main`).
 > - **Milestones đã hoàn thành trên `main`:** M1–M7.5 và **M8** (Open Day Event & QR Check-in Engine, B01/B02).
-> - **Trạng thái kiểm toán đã nghiệm thu bởi Tech Lead:**
->   - **Batch A — COMPLETE (`ACCEPTED` tại `6aa4427`):** `bff4323`, `09d0bcc` (B-A1/B-A2), `a9bbfaa` (B-A3 Option 1).
->   - **Batch B — COMPLETE (`B-B1`, `B-B2`, `B-B3`, `B-B4` đều `ACCEPTED` tại `1fee256`, chi tiết tại [`BATCH_B_REMEDIATION_REPORT.md`](docs/comprehensive-audit/BATCH_B_REMEDIATION_REPORT.md)):** `a388652` & `c3096c5` (B-B1), `aca1ab5` & `4de2026` (B-B2), `fe1531b` (B-B3), `1fee256` (B-B4).
-> - **Ranh giới sẵn sàng dự án:** **Batch B COMPLETE ≠ Production-Ready.** Dự án vẫn còn các nhóm việc **Batches C–F** (`UI-09`/content cleanup ngoài dashboard, dead code, full cross-browser E2E Batch E, CI `.github/workflows`, và điều kiện cutover/vận hành `OPS-01/02/03` / `prisma/preflight-m1-quiz-event.sql` `BLK-E1`) chưa triển khai/nghiệm thu.
+> - **Trạng thái các Batch Remediation:**
+>   - **Batch A — `ACCEPTED` (`6aa4427`):** `bff4323`, `09d0bcc` (B-A1/B-A2), `a9bbfaa` (B-A3 Option 1).
+>   - **Batch B — `ACCEPTED` (`1fee256`, docs sync `3f446f5`):** `a388652` & `c3096c5` (B-B1), `aca1ab5` & `4de2026` (B-B2), `fe1531b` (B-B3), `1fee256` (B-B4).
+>   - **Batch C (`C1`–`C3`) — `IMPLEMENTED & PUSHED` (chờ Tech Lead formal acceptance):** `fb519c3` (B-C1 UX/schedule/inline alerts/RBAC shortcuts), `6cdc3fe` & `74839f9` (B-C2 Events countdown & Public content honesty), `bd10727` & `968a871` (B-C3 Dynamic DB Sitemap & single `robots.ts`).
+>   - **Health Check P1 Fixes (`2026-11-18`):** Vá mapper `INFO` hotspot `infoText`/`body` trong `apps/web/src/lib/public/public-api.ts` (+ regression unit test) và khắc phục timeout 5000ms giao dịch `prisma.$transaction` trong `prisma/seed.ts` (`{ maxWait: 10_000, timeout: 60_000 }`).
+> - **Ranh giới sẵn sàng dự án:** **KHÔNG ĐẠT PRODUCTION-READY.** Còn thiếu **Batches D–F** (cleanup dead code, sửa cô lập E2E suite toàn phần), thiếu hạ tầng DevOps/CI (`.github/workflows`, Dockerfiles `web`/`api`, Nginx/TLS, Redis, S3/R2 active buckets, SMTP/SMS provider thật thay `LocalStubInvitationDeliveryAdapter`, backup/monitoring), còn `4 high` vulnerability advisories trong `pnpm audit --prod` (`xlsx`, `zod`, `deepmerge-ts`), và 5 panorama seed hiện vẫn là AI synthetic placeholder (`isPreviewApproved` không đạt chuẩn ảnh QTSC thật).
 
 ---
 
-## 1A. Hiện Trạng Đương Đại Chi Tiết (Cập nhật `2026-11-17` trên nhánh `audit/comprehensive-quality-remediation`)
+## 1A. Hiện Trạng Đương Đại Chi Tiết (Cập nhật `2026-11-18` trên nhánh `audit/comprehensive-quality-remediation`)
+
+| Lĩnh vực | Trạng thái Thực tế | Chi tiết Kiểm chứng Kỹ thuật |
+|---|---|---|
+| **Git & GitHub Remote** | **VERIFIED & SYNCED** | Duy nhất `main` (`origin/main` `c0a268d`) và `audit/comprehensive-quality-remediation` (`0` stale branches cần xóa). `0` open PRs; PR #1 & #2 đã `MERGED`. `.github/workflows` chưa tồn tại (`0` CI runs). Không lộ secret trong Git history/files đã kiểm tra (`.env` bị ignore). |
+| **Cơ sở dữ liệu (Prisma + PostgreSQL 16)** | **MIGRATIONS OK / LOCAL PRIMARY DB DRIFT** | Schema có `39` Models, `23` Enums, `14` migrations. `pnpm db:test` **PASS `14/14` (`AC-08` hết timeout)** trên scratch DB. **Cảnh báo:** DB local chính `virtual_campus_360` thiếu bảng `_prisma_migrations` và thiếu cột/index Batch A/B (`guest_session_id`, `uq_event_participations_active_email`) nên `pnpm db:status` FAIL (`exit 1`); chạy `preflight-m1-quiz-event.sql` đạt `3/3 RESOLVED (R1_SESSION)`. |
+| **Backend Core & Business API (`apps/api`)** | **IMPLEMENTED & VERIFIED** | `14` NestJS Modules, toàn bộ Admin/Portal/Parent API được bảo vệ bằng Global `JwtAuthGuard` + `ForcePasswordChangedGuard` + `PermissionsGuard` + `CsrfCookieGuard` + `ThrottlerGuard`. `0` `$queryRawUnsafe` ở source production. Còn mismatch phụ công thức spin ở `PortalService` (`+1/100 XP`) vs `GamificationService` (không cộng theo XP) và stub gửi thư mời `LocalStubInvitationDeliveryAdapter`. |
+| **Giao diện Web (`apps/web`)** | **IMPLEMENTED & BUILD PASS (`28` pages + SEO routes)** | Next.js 16.4.6 App Router (`28` `page.tsx` + `/_not-found`, `/robots.txt`, `/sitemap.xml`). Tour 360° dùng Three.js WebGL thật (đã vá mapper `body -> infoText` cho INFO hotspots); GIS Map dùng Leaflet + OpenStreetMap + tọa độ QTSC thật; 3D GLB/Walk Mode đã chốt loại khỏi MVP (`MVP_SCOPE_AND_ROUTE_DECISIONS.md`). |
+| **Kiểm thử Tự động & Build (Sau P1 fix `2026-11-18`)** | **UNIT/BUILD/DB PASS · FULL E2E CÒN 6 LỖI** | `@fpt-campus/shared build/typecheck` PASS; `api lint/typecheck/build` PASS + unit **11/11 suites (42/42 PASS)**; `web lint/typecheck/build` PASS + unit **49/49 PASS**; `pnpm db:test` **14/14 PASS**. `api test:integration` đạt **22/22 suites (198/198 PASS)** trước 2 bản vá P1 `public-api.ts` & `seed.ts` (`seed.ts` đã kiểm lại qua `db:test`). Full `pnpm --filter web test:e2e` trên nền `968a871`: **17 passed, 6 failed, 10 did not run** (do `@Throttle(5/60s)` `/auth/login`, đụng độ tài khoản `e2e_operator` với B3, strict selector React SSR `<div hidden id="S:0">` ở `/locations/[slug]`, và ticket giả `localStorage` ở `gamification-flow.spec.ts`). |
+| **DevSecOps & Production Readiness** | **NOT PRODUCTION READY** | Thiếu CI/CD (`.github/workflows`), thiếu `Dockerfile` cho `api`/`web`, thiếu Nginx/TLS, chưa cấu hình Redis thật (`RATE_LIMIT_STORE=memory`) và Object Storage S3/R2 thật (`STORAGE_DRIVER=local`), `pnpm audit --prod` còn **4 HIGH** (`xlsx` Prototype Pollution/ReDoS chưa có bản vá npm, `zod`, `deepmerge-ts`). |
+
+> [!NOTE]
+> Phần **Mục Lịch sử Cận kề (`2026-11-17` — Batch A & B)** bên dưới được giữ nguyên làm mốc đối chiếu trước đợt Health Check `2026-11-18`.
+
+### Mốc Lịch sử Cận kề: Post-M8 + Audit Batch A & B (`2026-11-17`)
 
 | Lĩnh vực | Trạng thái Thực tế | Chi tiết Kiểm chứng Kỹ thuật |
 |---|---|---|

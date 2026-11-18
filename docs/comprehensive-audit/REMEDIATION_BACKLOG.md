@@ -6,10 +6,18 @@
 |---|---|---|---|
 | **Batch A** | Critical Security, Race Conditions, Integrity Guards, QR ISO Fix & Zero Fake Mutations (`B-A1`–`B-A3`) | **P0 / P1** | **COMPLETE (`ACCEPTED @ 6aa4427`)** |
 | **Batch B** | Auth Seed/Reg Race (`B-B1`), Tour Studio PostgreSQL Sync (`B-B2`), Admin Dashboard Real Data (`B-B3`), SpinWheel Cleanup & News Media (`B-B4`) | **P1 / P2** | **COMPLETE (`ACCEPTED @ 1fee256`)** |
-| **Batch C** | UI/UX & Real Content Remediation (Events real countdown, Schedule `NOON`, inline toast replacing `alert()`, Location/[slug] fake hardware specs removal, Contact form honesty, About facts check, AdminOverview links, Sitemap dynamic DB integration) | **P2** | **Planned** |
-| **Batch D** | Code Quality, Dead Code & Cleanup (`DigitalPassCard`, `PersonalItineraryTimeline`, `StudentProfileHeader`, unused `news-items.ts` once sitemap updated, shared spin rules helper, `puppeteer` cleanup audit) | **P2 / P3** | **Planned** |
-| **Batch E** | Cross-Browser/E2E Regression, Accessibility, Mobile Responsive Sweep & Playwright E2E Suite Repair/Verification | **QA / Perf** | **Planned** |
-| **Batch F** | Contemporary Documentation Synchronization (`PROJECT_STATUS.md`, API Contract deltas, Final Report) | **Docs** | **Planned** |
+| **Batch C** | UI/UX & Real Content Remediation (`B-C1`: Portal Schedule `NOON`, inline alerts, AdminOverview shortcuts; `B-C2`: Events real countdown, Location/[slug] fake hardware specs removal, Contact honesty, About facts check; `B-C3`: Dynamic DB Sitemap & single `robots.ts`) | **P2** | **IMPLEMENTED & PUSHED (`fb519c3`, `6cdc3fe`, `74839f9`, `bd10727`, `968a871` — Pending Acceptance)** |
+| **Batch D** | Code Quality, Dead Code & Cleanup (`DigitalPassCard`, `PersonalItineraryTimeline`, `StudentProfileHeader`, unused `news-items.ts` cleanup, shared spin rules helper unifying `PortalService` vs `GamificationService`, `ParentController.createLinkRequest` `APPROVED` guard, `puppeteer`/banner cleanup, `LOCAL_MEDIA_ROOT` test upload isolation) | **P2 / P3** | **Planned** |
+| **Batch E** | Cross-Browser/E2E Regression, Accessibility, Mobile Responsive Sweep & Playwright E2E Suite Repair/Verification (`auth-integration` vs `admin-dashboard-b3` user isolation, `/auth/login` throttle isolation across specs, `/locations/[slug]` strict testid vs React SSR `S:0`, `gamification-flow.spec.ts` fake ticket removal) | **QA / Perf** | **Planned** |
+| **Batch F** | Contemporary Documentation Synchronization (`PROJECT_STATUS.md`, `HANDOFF_TO_GPT.md`, `README.md`, API Contract deltas, DevOps/Production Runbooks) | **Docs** | **In Progress (`2026-11-18` Health Check Sync)** |
+
+---
+
+## Health Check Delta (`2026-11-18`) — Verified P1 Fixes Applied
+
+- **P1 Fix 1 (`apps/web/src/lib/public/public-api.ts:451,545` + `apps/web/tests/unit/batch-a-qr-and-api.test.ts`):** `mapTourNodeDetailToScene()` previously mapped `tooltip: hs.body ?? undefined` instead of `infoText: hs.body ?? undefined`, hiding DB-loaded `INFO` hotspot descriptions on `/campus` (`PanoramaStage.tsx` reads `hs.infoText`), while `mapFallbackSceneToNodeDetail()` dropped `hs.infoText` (`body: null`). Fixed both mappings and added regression unit test (`web test:unit` 49/49 PASS).
+- **P1 Fix 2 (`prisma/seed.ts:2012`):** Interactive `prisma.$transaction(async (tx) => ...)` previously hit Prisma's default 5000ms transaction timeout (`pnpm db:test` `AC-08` failed at `5075 ms`). Added `{ maxWait: 10_000, timeout: 60_000 }`; re-running `pnpm db:test` passed `14/14` (`EXIT_DB_TEST=0`).
+- **Remaining Open Findings for Batches D–F & DevOps:** See `PROJECT_STATUS.md` and `docs/HANDOFF_TO_GPT.md` (local primary DB `virtual_campus_360` schema drift, E2E full-suite 6 failures, `PortalService` vs `GamificationService` spin bonus discrepancy, `4 high` advisories in `pnpm audit --prod`, zero CI/Dockerfiles/Nginx/Redis/S3 production infrastructure).
 
 ---
 

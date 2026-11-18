@@ -1,4 +1,45 @@
-# HANDOFF TO TECH LEAD (GPT) — COMPREHENSIVE AUDIT BATCH B COMPLETION (`B-B1` → `B-B4`)
+# HANDOFF TO TECH LEAD (GPT) — FULL PROJECT HEALTH CHECK (`2026-11-18`) & REMEDIATION SYNC
+
+**Kho lưu trữ:** `ntrungz0704/fpt-poly-virtual-campus-360`  
+**Nhánh làm việc hiện tại:** `audit/comprehensive-quality-remediation` *(tạo từ `main @ ef03ce9`, đã merge `origin/main` Post-M8 `c0a268d` tại `bff4323`)*  
+**Trạng thái nghiệm thu hiện tại:**
+- **Batch A:** `ACCEPTED` (`6aa4427`)
+- **Batch B (`B-B1` → `B-B4`):** `ACCEPTED` (`1fee256`, docs sync `3f446f5`)
+- **Batch C (`B-C1` → `B-C3`):** `IMPLEMENTED & PUSHED` (`fb519c3`, `6cdc3fe`, `74839f9`, `bd10727`, `968a871` — **chưa có Tech Lead Acceptance chính thức**)
+- **Full Health Check Remediation (`2026-11-18`):** Đã vá 2 bug P1 xác minh trực tiếp (`public-api.ts` INFO hotspot `infoText` + regression unit test; `prisma/seed.ts` transaction timeout `{ maxWait: 10_000, timeout: 60_000 }`) và đồng bộ tài liệu trạng thái.  
+**Đối chiếu trạng thái tổng thể:** [`PROJECT_STATUS.md`](../PROJECT_STATUS.md) · [`REMEDIATION_BACKLOG.md`](comprehensive-audit/REMEDIATION_BACKLOG.md)
+
+---
+
+## 0. Kết quả Full Project Health Check (`2026-11-18`)
+
+### A. Những gì đã xác minh hoạt động & đã sửa P1
+1. **P1 Fix — Tour 360° INFO Hotspot `infoText` (`apps/web/src/lib/public/public-api.ts:451,545`):** `mapTourNodeDetailToScene()` từng gán nhầm `tooltip: hs.body ?? undefined` trong khi `PanoramaStage.tsx:668,683` đọc `hs.infoText`, và `mapFallbackSceneToNodeDetail()` bỏ `body: null`. Đã sửa cả hai chiều và bổ sung unit test tại `apps/web/tests/unit/batch-a-qr-and-api.test.ts`.
+2. **P1 Fix — `prisma/seed.ts` 5000ms Transaction Timeout (`prisma/seed.ts:2012`):** `pnpm db:test` (`AC-08`) thất bại thực tế ở `5075 ms > 5000 ms` trong `prisma.$transaction(...)`. Đã bổ sung `{ maxWait: 10_000, timeout: 60_000 }`; chạy lại `pnpm db:test` đạt **`14/14 PASS`** (`EXIT_DB_TEST=0`).
+3. **Chất lượng Build & Kiểm thử Sau Sửa P1:**
+   - `pnpm --filter @fpt-campus/shared build` & `typecheck`: **PASS (`exit 0`)**.
+   - `pnpm --filter api lint`, `typecheck`, `build`: **PASS (`exit 0`)**; `api test:unit`: **11/11 suites, 42/42 tests PASS**.
+   - `pnpm --filter api test:integration` (chạy trên commit `968a871` ngay trước 2 sửa P1 trên `apps/web` & `seed.ts`): **22/22 suites, 198/198 tests PASS (`exit 0`, 660s)**. Lưu ý phụ: `test:integration` ghi file test upload vào `apps/web/public/images/` (`LOCAL_MEDIA_ROOT`), cần dọn tay nếu chạy tại máy local.
+   - `pnpm --filter web lint`, `typecheck`, `build`: **PASS (`exit 0`, 28 pages + `/_not-found`, `/robots.txt`, `/sitemap.xml`)**; `web test:unit`: **49/49 tests PASS (`exit 0`)**.
+   - `prisma/preflight-m1-quiz-event.sql` trên local DB `virtual_campus_360`: **3/3 `RESOLVED (R1_SESSION)`**.
+
+### B. Vấn đề Mở / Blockers Cần Tech Lead Quyết định (Không tự sửa vượt scope)
+1. **Local Primary DB Schema Drift (`virtual_campus_360`):** `pnpm db:status` FAIL (`exit 1`) do local `virtual_campus_360` thiếu bảng `_prisma_migrations` và thiếu cột/index của Batch A/B (`guest_session_id`, `uq_event_participations_active_email`). Cần `prisma migrate deploy` / re-provision sạch trước khi chạy app dev trực tiếp trên DB chính.
+2. **Full Playwright E2E Suite (`pnpm --filter web test:e2e` trên nền `968a871`): `17 passed, 6 failed, 10 did not run` (`exit 1`):**
+   - `batch-c1-ux.spec.ts #1`, `open-day-flow.spec.ts #5`, `portal-flow.spec.ts #4`: đụng `@Throttle({ default: { limit: 5, ttl: 60_000 } })` trên `POST /auth/login` (`429 RATE_LIMITED`) khi toàn bộ 8 specs chạy nối tiếp từ `127.0.0.1` trong <60s. (Không giảm throttle production vì `auth-session.integration.spec.ts` test chính sách 5 req/60s này.)
+   - `auth-integration.spec.ts #4`: thất bại vì `admin-dashboard-b3.spec.ts` chạy trước (theo alphabet) và đã đổi mật khẩu tài khoản dùng chung `e2e_operator`.
+   - `batch-c2-public-honesty.spec.ts #2`: `getByTestId("location-real-attributes")` gặp strict mode violation (`2` phần tử: bản trong React streaming `<div hidden id="S:0">` và bản trong `<main>`).
+   - `gamification-flow.spec.ts #2`: spec vẫn cấy vé giả `localStorage` (`OD26-E2E-...`) và dùng selector `{ exact: true }` không khớp `(OD26-E2E-...)` (đã ghi nhận từ Batch A).
+3. **Business Logic & Hygiene còn cho Batch D / E / DevOps:**
+   - `PortalService.getGamification` (`+1 spin / 100 XP`, `tickets.length > 0`) lệch với `GamificationService.computeParticipantProfile` (không cộng spin theo XP).
+   - `ParentController.createLinkRequest` (`upsert`) hạ trạng thái link `APPROVED` về `PENDING` nếu gửi lại yêu cầu.
+   - Tài liệu `README.md` và `docs/project-audit-current/*` bị lỗi thời so với codebase (`26` vs `39` models, `Swagger /docs`, `.github/workflows` không tồn tại).
+   - `pnpm audit --prod`: **4 HIGH** (`xlsx` 2 CVE chưa có bản vá trên npm registry, `zod <4.6.6`, `deepmerge-ts <8.0.0`).
+   - Hạ tầng Production thiếu hoàn toàn CI/CD (`.github/workflows`), `Dockerfile` cho `api`/`web`, Nginx/SSL, Redis thật, S3/R2 buckets thật, SMTP/SMS adapter thật (`LocalStubInvitationDeliveryAdapter` vẫn đang stub), và thay 5 panorama AI synthetic placeholder bằng ảnh 360° QTSC thật trước Go-Live.
+
+---
+
+# HISTORICAL SECTION: HANDOFF TO TECH LEAD (GPT) — COMPREHENSIVE AUDIT BATCH B COMPLETION (`B-B1` → `B-B4`)
 
 **Kho lưu trữ:** `ntrungz0704/fpt-poly-virtual-campus-360`  
 **Nhánh làm việc hiện tại:** `audit/comprehensive-quality-remediation` *(tạo từ `main @ ef03ce9`, đã merge `origin/main` Post-M8 `c0a268d` tại `bff4323`)*  
